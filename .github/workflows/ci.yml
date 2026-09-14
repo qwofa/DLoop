@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    if: github.event_name != 'push' || github.ref_name == github.event.repository.default_branch
+    name: ${{ matrix.check }}
+    runs-on: windows-2022
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: core
+            check: core-and-snapshots
+          - suite: distribution
+            check: installation-and-release
+    env:
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - name: Preserve source line endings
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.10'
+      - name: Prepare Unicode SVN client
+        run: ./.github/scripts/prepare_svn.ps1
+      - name: Check CI result handling
+        if: matrix.suite == 'core'
+        run: python -m unittest discover -s .github/tests -v
+      - name: Check evaluation tools
+        if: matrix.suite == 'core'
+        run: python .github/scripts/run_tests.py evals
+      - name: Run regression suite
+        run: python .github/scripts/run_tests.py ${{ matrix.suite }}
+
+  credentials:
+    if: github.event_name != 'push' || github.ref_name == github.event.repository.default_branch
+    name: credentials
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install verified Gitleaks
+        shell: bash
+        run: |
+          archive="$RUNNER_TEMP/gitleaks.tar.gz"
+          curl --fail --silent --show-error --location \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz \
+            --output "$archive"
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  $archive" | sha256sum --check
+          mkdir -p "$RUNNER_TEMP/gitleaks-bin"
+          tar -xzf "$archive" -C "$RUNNER_TEMP/gitleaks-bin" gitleaks
+      - name: Scan history and current source
+        shell: bash
+        run: |
+          "$RUNNER_TEMP/gitleaks-bin/gitleaks" git . --log-opts="--all" --redact --no-banner
+          mkdir -p "$RUNNER_TEMP/source-scan"
+          git archive HEAD | tar -x -C "$RUNNER_TEMP/source-scan"
+          "$RUNNER_TEMP/gitleaks-bin/gitleaks" dir "$RUNNER_TEMP/source-scan" --redact --no-banner

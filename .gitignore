@@ -1,0 +1,36 @@
+# Python caches, environments, coverage, and build outputs
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.venv/
+venv/
+build/
+dist/
+*.egg-info/
+.coverage
+coverage.xml
+htmlcov/
+
+# Local credentials and runtime logs
+.env
+.env.*
+!.env.example
+*.log
+
+# Project-local workflow state and installed copies
+/.scratch/
+/.agents/
+/.codex/
+/Tools/FeatureArchive/
+
+# Editors, operating systems, and temporary files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.tmp
+*.bak

@@ -1,0 +1,15 @@
+{
+  "workflowVersion": "3.7.3",
+  "archiveSchemaVersion": 3,
+  "terminologySchemaVersion": 2,
+  "sourceTag": "v3.7.3",
+  "releaseStatus": "frozen",
+  "versionSupport": {
+    "mode": "current-version-only",
+    "behaviors": {
+      "absent": "install-current",
+      "sameVersion": "verify-ownership-and-reinstall-idempotently",
+      "otherVersion": "reject-before-read-or-write"
+    }
+  }
+}

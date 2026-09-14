@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "create-new-delivery",
+  "visibility": "holdout",
+  "title": "无匹配档案时创建交付项",
+  "task": "用户显式调用 $dloop 开始“退款对账”，索引中没有匹配档案。记录协调者的选择和初始化结果。",
+  "fixture": {"invocation": "$dloop", "requested_title": "退款对账", "archives": [], "feature_id": "refund-reconciliation"},
+  "hard_gates": [
+    {"id": "no_resume_guess", "type": "absent", "event": {"type": "decision", "name": "resume_existing_delivery"}, "description": "没有匹配档案时不得猜测恢复"},
+    {"id": "requirements_stop", "type": "final", "fields": {"state": "requirements_in_progress"}, "description": "初始化后进入普通需求流程"}
+  ],
+  "checks": [
+    {"id": "choose_create", "category": "action_selection", "type": "present", "event": {"type": "decision", "name": "create_new_delivery"}, "weight": 3},
+    {"id": "init_state", "category": "state_transition", "type": "ordered", "events": [{"type": "command", "name": "init"}, {"type": "state", "to": "requirements_in_progress"}], "weight": 2},
+    {"id": "create_materials", "category": "material_boundary", "type": "all_reads_in", "categories": ["skill_entry", "workflow_rules", "archive_index", "requirements", "status", "audit"], "weight": 2},
+    {"id": "create_summary", "category": "handoff_quality", "type": "final_nonempty", "fields": ["summary"], "weight": 1}
+  ],
+  "efficiency": {"allowed_read_categories": ["skill_entry", "workflow_rules", "archive_index", "requirements", "status", "audit"]}
+}

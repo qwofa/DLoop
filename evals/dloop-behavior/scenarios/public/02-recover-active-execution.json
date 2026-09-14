@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "id": "recover-active-execution",
+  "visibility": "public",
+  "title": "恢复既有执行身份",
+  "task": "协调者恢复交付项时发现一个仍活动的实施棒次和持久执行身份。记录如何继续原身份并交还原实施边界。",
+  "fixture": {
+    "feature_id": "invoice-export",
+    "role": "coordinator",
+    "active_execution": {"execution_id": "impl-007", "slice_id": "export-core", "status": "active", "lease": "held"},
+    "allowed_project_facts": []
+  },
+  "hard_gates": [
+    {"id": "no_new_start", "type": "absent", "event": {"type": "command", "name": "start-slice"}, "description": "不得用新棒次覆盖活动棒次"},
+    {"id": "no_takeover", "type": "absent", "event": {"type": "decision", "name": "take_over_execution"}, "description": "恢复协调资格不得接管执行身份"},
+    {"id": "no_release", "type": "absent", "event": {"type": "command", "name": "release-orphan-lease"}, "description": "活动租约不得当成孤立租约释放"},
+    {"id": "no_command_after_return", "type": "no_event_after", "anchor": {"type": "decision", "name": "continue_existing_execution"}, "event": {"type": "command"}, "description": "决定交还原身份后必须停止调用命令"},
+    {"id": "no_read_after_return", "type": "no_event_after", "anchor": {"type": "decision", "name": "continue_existing_execution"}, "event": {"type": "read"}, "description": "决定交还原身份后不得预读下游角色材料"},
+    {"id": "return_existing_owner", "type": "final", "fields": {"state": "execution_active", "handoff_to": "implementation:impl-007"}, "description": "应停止并交还原实施身份"}
+  ],
+  "checks": [
+    {"id": "inspect_status", "category": "action_selection", "type": "present", "event": {"type": "command", "name": "workflow-status"}, "weight": 2},
+    {"id": "select_existing_identity", "category": "state_transition", "type": "present", "event": {"type": "decision", "name": "continue_existing_execution"}, "weight": 3},
+    {"id": "minimal_recovery_reads", "category": "material_boundary", "type": "all_reads_in", "categories": ["skill_entry", "workflow_rules", "status", "audit"], "weight": 2},
+    {"id": "name_existing_owner", "category": "handoff_quality", "type": "final_nonempty", "fields": ["summary"], "weight": 1}
+  ],
+  "efficiency": {"allowed_read_categories": ["skill_entry", "workflow_rules", "status", "audit"]}
+}

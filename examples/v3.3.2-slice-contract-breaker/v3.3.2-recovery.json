@@ -1,0 +1,9 @@
+{
+  "condition_evidence": [
+    {
+      "condition": "resolve:repeated_validation_failure",
+      "evidence": ["缺失能力已拆为前置切片并验收", "连续失败原因已经消除"]
+    }
+  ],
+  "confirmed_by": "示例负责人"
+}

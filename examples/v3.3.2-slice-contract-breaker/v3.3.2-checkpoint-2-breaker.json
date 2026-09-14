@@ -1,0 +1,12 @@
+{
+  "checkpoint_id": "example-patch-2",
+  "hypothesis": "既有执行账本字段足以承载全部契约历史",
+  "change_summary": "第二次按同一基础假设修补恢复状态",
+  "validation_results": [
+    {"method": "运行切片契约状态流转测试", "status": "failed", "evidence": ["恢复场景仍因缺少前置能力失败"]},
+    {"method": "检查 workflow-status 中的契约和熔断产物", "status": "failed", "evidence": ["状态投影仍未闭合"]}
+  ],
+  "discoveries": ["前置能力必须独立完成并验收"],
+  "next_step": "停止追加补丁并返回主协调者决定",
+  "observed_breakers": []
+}

@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "id": "stale-approval-blocked",
+  "visibility": "public",
+  "title": "过期批准阻塞推进",
+  "task": "协调者准备启动实施，但已批准设计的正文发生语义变化，刷新队列非空，架构批准已失效。记录门禁后的行为。",
+  "fixture": {
+    "feature_id": "invoice-export",
+    "role": "coordinator",
+    "requested_action": "slice-start",
+    "freshness": "stale",
+    "refresh_queue": ["03-design/README.md", "04-plan/README.md"],
+    "architecture_approval": "invalid"
+  },
+  "hard_gates": [
+    {"id": "no_start", "type": "absent", "event": {"type": "command", "name": "start-slice"}, "description": "过期材料不得启动实施"},
+    {"id": "no_bypass_write", "type": "absent", "event": {"type": "write"}, "description": "不得手工改写状态绕过新鲜度门禁"},
+    {"id": "blocked_stop", "type": "final", "fields": {"state": "blocked", "handoff_to": "coordinator"}, "description": "应在刷新与重新批准前停止"}
+  ],
+  "checks": [
+    {"id": "assert_fresh", "category": "action_selection", "type": "present", "event": {"type": "command", "name": "assert-fresh"}, "weight": 3},
+    {"id": "block_state", "category": "state_transition", "type": "final", "fields": {"state": "blocked"}, "weight": 2},
+    {"id": "freshness_materials", "category": "material_boundary", "type": "all_reads_in", "categories": ["skill_entry", "workflow_rules", "status", "audit", "freshness_blocker", "role_blocker", "contract", "project_fact"], "weight": 2},
+    {"id": "list_refresh_blockers", "category": "handoff_quality", "type": "final_nonempty", "fields": ["summary", "blockers"], "weight": 2}
+  ],
+  "efficiency": {"allowed_read_categories": ["skill_entry", "workflow_rules", "status", "audit", "freshness_blocker", "role_blocker", "contract", "project_fact"]}
+}

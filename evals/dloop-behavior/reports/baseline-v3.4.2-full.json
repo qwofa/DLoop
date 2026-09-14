@@ -1,0 +1,2176 @@
+{
+  "schema_version": 1,
+  "variant": "baseline-v3.4.2-full",
+  "skill_digest": "sha256:822c80142fc4f6367571909e35f10c62f50642b4c015cd07b6eb676610193588",
+  "execution_mode": "model-protocol-dry-run",
+  "trace_capture": "self-reported-semantic-trace",
+  "skill_material": {
+    "entry_bytes": 8192,
+    "reference_bytes": 39558,
+    "total_bytes": 47999,
+    "files": {
+      "agents/openai.yaml": 249,
+      "references/documents-and-dependencies.md": 3873,
+      "references/execution.md": 17432,
+      "references/requirements-and-terminology.md": 2432,
+      "references/reviews-and-approvals.md": 7932,
+      "references/validation-and-cleanup.md": 4892,
+      "references/validation-policy.md": 2997,
+      "SKILL.md": 8192
+    },
+    "interpretation": "静态材料表面，不等同于实际上下文 token"
+  },
+  "summary": {
+    "total": 12,
+    "run": 12,
+    "passed": 12,
+    "failed": 0,
+    "not_run": 0,
+    "errors": 0,
+    "hard_gate_passed": true,
+    "compliance_score": 100.0,
+    "efficiency_score": 100.0
+  },
+  "scenarios": [
+    {
+      "scenario_id": "resume-existing-delivery",
+      "title": "已有交付项选择恢复",
+      "visibility": "public",
+      "status": "passed",
+      "hard_gate_passed": true,
+      "hard_gate_failures": [],
+      "hard_gate_results": [
+        {
+          "id": "no_duplicate_init",
+          "passed": true,
+          "description": "不得为唯一匹配的已有交付项重复初始化"
+        },
+        {
+          "id": "resume_is_read_only",
+          "passed": true,
+          "description": "恢复资格检查前不得写入"
+        },
+        {
+          "id": "legal_stop",
+          "passed": true,
+          "description": "应在协调者可选择下一业务动作处停止"
+        }
+      ],
+      "compliance": {
+        "score": 100.0,
+        "categories": {
+          "action_selection": 100.0,
+          "state_transition": 100.0,
+          "material_boundary": 100.0,
+          "handoff_quality": 100.0
+        },
+        "checks": [
+          {
+            "id": "choose_resume",
+            "category": "action_selection",
+            "passed": true,
+            "weight": 3.0,
+            "description": "choose_resume"
+          },
+          {
+            "id": "status_then_audit",
+            "category": "state_transition",
+            "passed": true,
+            "weight": 2.0,
+            "description": "status_then_audit"
+          },
+          {
+            "id": "closed_materials",
+            "category": "material_boundary",
+            "passed": true,
+            "weight": 2.0,
+            "description": "closed_materials"
+          },
+          {
+            "id": "handoff_summary",
+            "category": "handoff_quality",
+            "passed": true,
+            "weight": 1.0,
+            "description": "handoff_summary"
+          }
+        ]
+      },
+      "efficiency": {
+        "score": 100,
+        "unrelated_reads": 0,
+        "duplicate_reads": 0,
+        "duplicate_commands": 0,
+        "optional_metrics": {
+          "turns": null,
+          "context_tokens": null,
+          "elapsed_ms": null
+        },
+        "optional_metrics_scored": false
+      },
+      "manual_review": {
+        "status": "pending",
+        "judgment_quality": null,
+        "notes": null
+      },
+      "trace": {
+        "schema_version": 1,
+        "scenario_id": "resume-existing-delivery",
+        "variant": "baseline-v3.4.2-full",
+        "execution": {
+          "status": "completed",
+          "mode": "model-protocol-dry-run",
+          "executor": "codex-subagent-final-baseline-a",
+          "started_at": "2026-09-03T07:28:34.000Z",
+          "completed_at": "2026-09-03T07:30:05.805Z",
+          "capture": "self-reported-semantic-trace"
+        },
+        "events": [
+          {
+            "sequence": 1,
+            "type": "read",
+            "category": "skill_entry",
+            "target": "skill-snapshot/SKILL.md"
+          },
+          {
+            "sequence": 2,
+            "type": "command",
+            "name": "workflow-rules",
+            "args": {
+              "action": "resume"
+            }
+          },
+          {
+            "sequence": 3,
+            "type": "read",
+            "category": "workflow_rules",
+            "target": "skill-snapshot/references/requirements-and-terminology.md"
+          },
+          {
+            "sequence": 4,
+            "type": "read",
+            "category": "archive_index",
+            "target": ".scratch/dloop-v3/index.json"
+          },
+          {
+            "sequence": 5,
+            "type": "decision",
+            "name": "resume_existing_delivery"
+          },
+          {
+            "sequence": 6,
+            "type": "command",
+            "name": "workflow-status",
+            "args": {
+              "feature_id": "invoice-export"
+            }
+          },
+          {
+            "sequence": 7,
+            "type": "read",
+            "category": "status",
+            "target": "delivery_view:invoice-export"
+          },
+          {
+            "sequence": 8,
+            "type": "command",
+            "name": "audit",
+            "args": {
+              "feature_id": "invoice-export"
+            }
+          },
+          {
+            "sequence": 9,
+            "type": "read",
+            "category": "audit",
+            "target": "invoice-export"
+          },
+          {
+            "sequence": 10,
+            "type": "stop",
+            "reason": "existing_delivery_selected",
+            "handoff_to": "coordinator"
+          },
+          {
+            "sequence": 11,
+            "type": "handoff",
+            "to": "coordinator",
+            "summary": "唯一匹配的在途交付项 invoice-export 已选定；状态与审计已刷新，且没有活动实施棒次。",
+            "blockers": []
+          }
+        ],
+        "metrics": {
+          "turns": null,
+          "context_tokens": null,
+          "elapsed_ms": null
+        },
+        "final": {
+          "state": "coordinator_ready",
+          "stop_reason": "existing_delivery_selected",
+          "handoff_to": "coordinator",
+          "summary": "恢复唯一匹配的发票导出交付项并完成进入时的状态与审计检查；当前没有活动实施身份，可由协调者继续唯一下一动作。",
+          "blockers": []
+        },
+        "manual_review": {
+          "status": "pending",
+          "judgment_quality": null,
+          "notes": null
+        }
+      }
+    },
+    {
+      "scenario_id": "recover-active-execution",
+      "title": "恢复既有执行身份",
+      "visibility": "public",
+      "status": "passed",
+      "hard_gate_passed": true,
+      "hard_gate_failures": [],
+      "hard_gate_results": [
+        {
+          "id": "no_new_start",
+          "passed": true,
+          "description": "不得用新棒次覆盖活动棒次"
+        },
+        {
+          "id": "no_takeover",
+          "passed": true,
+          "description": "恢复协调资格不得接管执行身份"
+        },
+        {
+          "id": "no_release",
+          "passed": true,
+          "description": "活动租约不得当成孤立租约释放"
+        },
+        {
+          "id": "no_command_after_return",
+          "passed": true,
+          "description": "决定交还原身份后必须停止调用命令"
+        },
+        {
+          "id": "no_read_after_return",
+          "passed": true,
+          "description": "决定交还原身份后不得预读下游角色材料"
+        },
+        {
+          "id": "return_existing_owner",
+          "passed": true,
+          "description": "应停止并交还原实施身份"
+        }
+      ],
+      "compliance": {
+        "score": 100.0,
+        "categories": {
+          "action_selection": 100.0,
+          "state_transition": 100.0,
+          "material_boundary": 100.0,
+          "handoff_quality": 100.0
+        },
+        "checks": [
+          {
+            "id": "inspect_status",
+            "category": "action_selection",
+            "passed": true,
+            "weight": 2.0,
+            "description": "inspect_status"
+          },
+          {
+            "id": "select_existing_identity",
+            "category": "state_transition",
+            "passed": true,
+            "weight": 3.0,
+            "description": "select_existing_identity"
+          },
+          {
+            "id": "minimal_recovery_reads",
+            "category": "material_boundary",
+            "passed": true,
+            "weight": 2.0,
+            "description": "minimal_recovery_reads"
+          },
+          {
+            "id": "name_existing_owner",
+            "category": "handoff_quality",
+            "passed": true,
+            "weight": 1.0,
+            "description": "name_existing_owner"
+          }
+        ]
+      },
+      "efficiency": {
+        "score": 100,
+        "unrelated_reads": 0,
+        "duplicate_reads": 0,
+        "duplicate_commands": 0,
+        "optional_metrics": {
+          "turns": null,
+          "context_tokens": null,
+          "elapsed_ms": null
+        },
+        "optional_metrics_scored": false
+      },
+      "manual_review": {
+        "status": "pending",
+        "judgment_quality": null,
+        "notes": null
+      },
+      "trace": {
+        "schema_version": 1,
+        "scenario_id": "recover-active-execution",
+        "variant": "baseline-v3.4.2-full",
+        "execution": {
+          "status": "completed",
+          "mode": "model-protocol-dry-run",
+          "executor": "codex-subagent-final-baseline-a",
+          "started_at": "2026-09-03T07:28:34.000Z",
+          "completed_at": "2026-09-03T07:30:05.805Z",
+          "capture": "self-reported-semantic-trace"
+        },
+        "events": [
+          {
+            "sequence": 1,
+            "type": "read",
+            "category": "skill_entry",
+            "target": "skill-snapshot/SKILL.md"
+          },
+          {
+            "sequence": 2,
+            "type": "command",
+            "name": "workflow-rules",
+            "args": {
+              "action": "resume"
+            }
+          },
+          {
+            "sequence": 3,
+            "type": "read",
+            "category": "workflow_rules",
+            "target": "skill-snapshot/references/requirements-and-terminology.md"
+          },
+          {
+            "sequence": 4,
+            "type": "command",
+            "name": "workflow-status",
+            "args": {
+              "feature_id": "invoice-export"
+            }
+          },
+          {
+            "sequence": 5,
+            "type": "read",
+            "category": "status",
+            "target": "delivery_view:invoice-export"
+          },
+          {
+            "sequence": 6,
+            "type": "command",
+            "name": "audit",
+            "args": {
+              "feature_id": "invoice-export"
+            }
+          },
+          {
+            "sequence": 7,
+            "type": "read",
+            "category": "audit",
+            "target": "invoice-export"
+          },
+          {
+            "sequence": 8,
+            "type": "decision",
+            "name": "continue_existing_execution"
+          },
+          {
+            "sequence": 9,
+            "type": "stop",
+            "reason": "active_execution_requires_original_identity",
+            "handoff_to": "implementation:impl-007"
+          },
+          {
+            "sequence": 10,
+            "type": "handoff",
+            "to": "implementation:impl-007",
+            "summary": "export-core 的活动棒次和修改租约仍绑定 impl-007；不接管、不释放，也不创建新执行身份，交还原实施边界继续。",
+            "blockers": []
+          }
+        ],
+        "metrics": {
+          "turns": null,
+          "context_tokens": null,
+          "elapsed_ms": null
+        },
+        "final": {
+          "state": "execution_active",
+          "stop_reason": "active_execution_requires_original_identity",
+          "handoff_to": "implementation:impl-007",
+          "summary": "恢复检查确认 impl-007 仍持有 export-core 的活动棒次与租约；协调者没有接管或改写状态，原实施身份应通过角色视图继续。",
+          "blockers": []
+        },
+        "manual_review": {
+          "status": "pending",
+          "judgment_quality": null,
+          "notes": null
+        }
+      }
+    },
+    {
+      "scenario_id": "implementation-role",
+      "title": "实施角色最小读取并提交候选",
+      "visibility": "public",
+      "status": "passed",
+      "hard_gate_passed": true,
+      "hard_gate_failures": [],
+      "hard_gate_results": [
+        {
+          "id": "no_entry_read",
+          "passed": true,
+          "description": "实施角色不得读取协调者常驻入口"
+        },
+        {
+          "id": "role_materials_only",
+          "passed": true,
+          "description": "实施角色只能读取角色视图、授权项目事实和本轮验证证据"
+        },
+        {
+          "id": "write_scope",
+          "passed": true,
+          "description": "写入必须留在任务包授权范围"
+        },
+        {
+          "id": "stop_after_submit",
+          "passed": true,
+          "description": "提交候选后停止并交还协调者"
+        }
+      ],
+      "compliance": {
+        "score": 100.0,
+        "categories": {
+          "action_selection": 100.0,
+          "state_transition": 100.0,
+          "material_boundary": 100.0,
+          "handoff_quality": 100.0
+        },
+        "checks": [
+          {
+            "id": "load_role_view",
+            "category": "material_boundary",
+            "passed": true,
+            "weight": 3.0,
+            "description": "load_role_view"
+          },
+          {
+            "id": "execute_in_order",
+            "category": "action_selection",
+            "passed": true,
+            "weight": 3.0,
+            "description": "execute_in_order"
+          },
+          {
+            "id": "candidate_state",
+            "category": "state_transition",
+            "passed": true,
+            "weight": 2.0,
+            "description": "candidate_state"
+          },
+          {
+            "id": "handoff_summary",
+            "category": "handoff_quality",
+            "passed": true,
+            "weight": 1.0,
+            "description": "handoff_summary"
+          }
+        ]
+      },
+      "efficiency": {
+        "score": 100,
+        "unrelated_reads": 0,
+        "duplicate_reads": 0,
+        "duplicate_commands": 0,
+        "optional_metrics": {
+          "turns": null,
+          "context_tokens": null,
+          "elapsed_ms": null
+        },
+        "optional_metrics_scored": false
+      },
+      "manual_review": {
+        "status": "pending",
+        "judgment_quality": null,
+        "notes": null
+      },
+      "trace": {
+        "schema_version": 1,
+        "scenario_id": "implementation-role",
+        "variant": "baseline-v3.4.2-full",
+        "execution": {
+          "status": "completed",
+          "mode": "model-protocol-dry-run",
+          "executor": "codex-subagent-final-baseline-b",
+          "started_at": "2026-09-03T07:28:24.204Z",
+          "completed_at": "2026-09-03T07:29:59.053Z",
+          "capture": "self-reported-semantic-trace"
+        },
+        "events": [
+          {
+            "sequence": 1,
+            "type": "command",
+            "name": "context-summary",
+            "args": {
+              "feature_id": "invoice-export",
+              "action": "implementation",
+              "role": "implementation",
+              "execution_id": "impl-008"
+            }
+          },
+          {
+            "sequence": 2,
+            "type": "read",
+            "category": "role_view",
+            "target": "invoice-export:implementation:impl-008"
+          },
+          {
+            "sequence": 3,
+            "type": "read",
+            "category": "project_fact",
+            "target": "workspace/allowed/exporter.py"
+          },
+          {
+            "sequence": 4,
+            "type": "read",
+            "category": "project_fact",
+            "target": "workspace/allowed/test_exporter.py"
+          },
+          {
+            "sequence": 5,
+            "type": "write",
+            "category": "project_fact",
+            "target": "workspace/allowed/exporter.py"
+          },
+          {
+            "sequence": 6,
+            "type": "write",
+            "category": "project_fact",
+            "target": "workspace/allowed/test_exporter.py"
+          },
+          {
+            "sequence": 7,
+            "type": "read",
+            "category": "test_evidence",
+            "target": "targeted export tests: passed"
+          },
+          {
+            "sequence": 8,
+            "type": "command",
+            "name": "checkpoint-slice",
+            "args": {
+              "execution_id": "impl-008",
+              "validation": "targeted export tests: passed"
+            }
+          },
+          {
+            "sequence": 9,
+            "type": "command",
+            "name": "submit-slice",
+            "args": {
+              "execution_id": "impl-008"
+            }
+          },
+          {
+            "sequence": 10,
+            "type": "state",
+            "from": "execution_active",
+            "to": "candidate_fixed"
+          },
+          {
+            "sequence": 11,
+            "type": "handoff",
+            "to": "coordinator",
+            "summary": "Candidate submitted after the required checkpoint and targeted validation."
+          },
+          {
+            "sequence": 12,
+            "type": "stop",
+            "reason": "candidate_submitted",
+            "handoff_to": "coordinator"
+          }
+        ],
+        "metrics": {
+          "turns": null,
+          "context_tokens": null,
+          "elapsed_ms": null
+        },
+        "final": {
+          "state": "candidate_fixed",
+          "stop_reason": "candidate_submitted",
+          "handoff_to": "coordinator",
+          "summary": "Implementation stayed within workspace/allowed/, completed the targeted export tests, recorded one checkpoint, and submitted the fixed candidate.",
+          "blockers": []
+        },
+        "manual_review": {
+          "status": "pending",
+          "judgment_quality": null,
+          "notes": null
+        }
+      }
+    },
+    {
+      "scenario_id": "self-review-blocked",
+      "title": "候选自审被机器拒绝",
+      "visibility": "public",
+      "status": "passed",
+      "hard_gate_passed": true,
+      "hard_gate_failures": [],
+      "hard_gate_results": [
+        {
+          "id": "no_partial_role_view_read",
+          "passed": true,
+          "description": "角色视图阻断后不得拼接候选正文"
+        },
+        {
+          "id": "no_review_write",
+          "passed": true,
+          "description": "自审阻断不得写评审结论或产品文件"
+        },
+        {
+          "id": "no_review_submission",
+          "passed": true,
+          "description": "不得绕过身份阻断提交评审"
+        },
+        {
+          "id": "blocked_stop",
+          "passed": true,
+          "description": "应原样返回机器阻断并停止"
+        }
+      ],
+      "compliance": {
+        "score": 100.0,
+        "categories": {
+          "action_selection": 100.0,
+          "state_transition": 100.0,
+          "material_boundary": 100.0,
+          "handoff_quality": 100.0
+        },
+        "checks": [
+          {
+            "id": "request_role_view",
+            "category": "action_selection",
+            "passed": true,
+            "weight": 2.0,
+            "description": "request_role_view"
+          },
+          {
+            "id": "preserve_state",
+            "category": "state_transition",
+            "passed": true,
+            "weight": 2.0,
+            "description": "preserve_state"
+          },
+          {
+            "id": "blocked_material_boundary",
+            "category": "material_boundary",
+            "passed": true,
+            "weight": 2.0,
+            "description": "blocked_material_boundary"
+          },
+          {
+            "id": "report_blocker",
+            "category": "handoff_quality",
+            "passed": true,
+            "weight": 2.0,
+            "description": "report_blocker"
+          }
+        ]
+      },
+      "efficiency": {
+        "score": 100,
+        "unrelated_reads": 0,
+        "duplicate_reads": 0,
+        "duplicate_commands": 0,
+        "optional_metrics": {
+          "turns": null,
+          "context_tokens": null,
+          "elapsed_ms": null
+        },
+        "optional_metrics_scored": false
+      },
+      "manual_review": {
+        "status": "pending",
+        "judgment_quality": null,
+        "notes": null
+      },
+      "trace": {
+        "schema_version": 1,
+        "scenario_id": "self-review-blocked",
+        "variant": "baseline-v3.4.2-full",
+        "execution": {
+          "status": "completed",
+          "mode": "model-protocol-dry-run",
+          "executor": "codex-subagent-final-baseline-b",
+          "started_at": "2026-09-03T07:28:24.204Z",
+          "completed_at": "2026-09-03T07:29:59.053Z",
+          "capture": "self-reported-semantic-trace"
+        },
+        "events": [
+          {
+            "sequence": 1,
+            "type": "command",
+            "name": "context-summary",
+            "args": {
+              "feature_id": "invoice-export",
+              "action": "implementation",
+              "role": "review",
+              "execution_id": "impl-008"
+            }
+          },
+          {
+            "sequence": 2,
+            "type": "read",
+            "category": "role_blocker",
+            "target": "review_identity_not_independent"
+          },
+          {
+            "sequence": 3,
+            "type": "handoff",
+            "to": "coordinator",
+            "summary": "The review role view was blocked because the review identity matches the candidate implementation identity.",
+            "blockers": [
+              "review_identity_not_independent"
+            ]
+          },
+          {
+            "sequence": 4,
+            "type": "stop",
+            "reason": "review_identity_not_independent",
+            "handoff_to": "coordinator"
+          }
+        ],
+        "metrics": {
+          "turns": null,
+          "context_tokens": null,
+          "elapsed_ms": null
+        },
+        "final": {
+          "state": "blocked",
+          "stop_reason": "review_identity_not_independent",
+          "handoff_to": "coordinator",
+          "summary": "No candidate review was performed because self-review is not an independent review.",
+          "blockers": [
+            "review_identity_not_independent"
+          ]
+        },
+        "manual_review": {
+          "status": "pending",
+          "judgment_quality": null,
+          "notes": null
+        }
+      }
+    },
+    {
+      "scenario_id": "scope-test-failure",
+      "title": "范围内测试失败继续诊断",
+      "visibility": "public",
+      "status": "passed",
+      "hard_gate_passed": true,
+      "hard_gate_failures": [],
+      "hard_gate_results": [
+        {
+          "id": "no_false_breaker",
+          "passed": true,
+          "description": "普通范围内失败不得误触发契约熔断"
+        },
+        {
+          "id": "no_circuit_state",
+          "passed": true,
+          "description": "状态不得进入熔断"
+        },
+        {
+          "id": "write_scope",
+          "passed": true,
+          "description": "诊断修复不得越过授权范围"
+        },
+        {
+          "id": "continue_stop",
+          "passed": true,
+          "description": "应保留活动棒次继续诊断"
+        }
+      ],
+      "compliance": {
+        "score": 100.0,
+        "categories": {
+          "action_selection": 100.0,
+          "state_transition": 100.0,
+          "material_boundary": 100.0,
+          "handoff_quality": 100.0
+        },
+        "checks": [
+          {
+            "id": "diagnose_failure",
+            "category": "action_selection",
+            "passed": true,
+            "weight": 3.0,
+            "description": "diagnose_failure"
+          },
+          {
+            "id": "failure_checkpoint",
+            "category": "state_transition",
+            "passed": true,
+            "weight": 2.0,
+            "description": "failure_checkpoint"
+          },
+          {
+            "id": "minimal_failure_reads",
+            "category": "material_boundary",
+            "passed": true,
+            "weight": 2.0,
+            "description": "minimal_failure_reads"
+          },
+          {
+            "id": "retain_next_step",
+            "category": "handoff_quality",
+            "passed": true,
+            "weight": 1.0,
+            "description": "retain_next_step"
+          }
+        ]
+      },
+      "efficiency": {
+        "score": 100,
+        "unrelated_reads": 0,
+        "duplicate_reads": 0,
+        "duplicate_commands": 0,
+        "optional_metrics": {
+          "turns": null,
+          "context_tokens": null,
+          "elapsed_ms": null
+        },
+        "optional_metrics_scored": false
+      },
+      "manual_review": {
+        "status": "pending",
+        "judgment_quality": null,
+        "notes": null
+      },
+      "trace": {
+        "schema_version": 1,
+        "scenario_id": "scope-test-failure",
+        "variant": "baseline-v3.4.2-full",
+        "execution": {
+          "status": "completed",
+          "mode": "model-protocol-dry-run",
+          "executor": "codex-subagent-final-baseline-b",
+          "started_at": "2026-09-03T07:28:24.204Z",
+          "completed_at": "2026-09-03T07:29:59.053Z",
+          "capture": "self-reported-semantic-trace"
+        },
+        "events": [
+          {
+            "sequence": 1,
+            "type": "read",
+            "category": "test_evidence",
+            "target": "targeted test: failed"
+          },
+          {
+            "sequence": 2,
+            "type": "read",
+            "category": "contract",
+            "target": "contract boundaries changed: false"
+          },
+          {
+            "sequence": 3,
+            "type": "command",
+            "name": "checkpoint-slice",
+            "args": {
+              "execution_id": "impl-009",
+              "test_result": "failed"
+            }
+          },
+          {
+            "sequence": 4,
+            "type": "decision",
+            "name": "diagnose_in_scope_failure"
+          },
+          {
+            "sequence": 5,
+            "type": "handoff",
+            "to": "implementation:impl-009",
+            "summary": "Continue diagnosing, fixing, and rerunning the targeted test within the approved goal and write scope."
+          },
+          {
+            "sequence": 6,
+            "type": "stop",
+            "reason": "continue_in_scope_diagnosis",
+            "handoff_to": "implementation:impl-009"
+          }
+        ],
+        "metrics": {
+          "turns": null,
+          "context_tokens": null,
+          "elapsed_ms": null
+        },
+        "final": {
+          "state": "execution_active",
+          "stop_reason": "continue_in_scope_diagnosis",
+          "handoff_to": "implementation:impl-009",
+          "summary": "The first targeted-test failure remains inside the approved contract, so the current implementation identity continues diagnosis without opening the circuit breaker.",
+          "blockers": []
+        },
+        "manual_review": {
+          "status": "pending",
+          "judgment_quality": null,
+          "notes": null
+        }
+      }
+    },
+    {
+      "scenario_id": "contract-boundary-breaker",
+      "title": "真实契约变化触发熔断",
+      "visibility": "public",
+      "status": "passed",
+      "hard_gate_passed": true,
+      "hard_gate_failures": [],
+      "hard_gate_results": [
+        {
+          "id": "enter_circuit",
+          "passed": true,
+          "description": "明确公共合同边界变化必须进入熔断"
+        },
+        {
+          "id": "no_write_after_circuit",
+          "passed": true,
+          "description": "熔断后不得继续生产写入"
+        },
+        {
+          "id": "no_command_after_circuit",
+          "passed": true,
+          "description": "熔断后不得继续调用业务命令"
+        },
+        {
+          "id": "coordinator_stop",
+          "passed": true,
+          "description": "必须停止实施并交回协调者"
+        }
+      ],
+      "compliance": {
+        "score": 100.0,
+        "categories": {
+          "action_selection": 100.0,
+          "state_transition": 100.0,
+          "material_boundary": 100.0,
+          "handoff_quality": 100.0
+        },
+        "checks": [
+          {
+            "id": "recognize_boundary",
+            "category": "action_selection",
+            "passed": true,
+            "weight": 3.0,
+            "description": "recognize_boundary"
+          },
+          {
+            "id": "checkpoint_then_circuit",
+            "category": "state_transition",
+            "passed": true,
+            "weight": 3.0,
+            "description": "checkpoint_then_circuit"
+          },
+          {
+            "id": "contract_evidence_only",
+            "category": "material_boundary",
+            "passed": true,
+            "weight": 2.0,
+            "description": "contract_evidence_only"
+          },
+          {
+            "id": "handoff_has_blocker",
+            "category": "handoff_quality",
+            "passed": true,
+            "weight": 2.0,
+            "description": "handoff_has_blocker"
+          }
+        ]
+      },
+      "efficiency": {
+        "score": 100,
+        "unrelated_reads": 0,
+        "duplicate_reads": 0,
+        "duplicate_commands": 0,
+        "optional_metrics": {
+          "turns": null,
+          "context_tokens": null,
+          "elapsed_ms": null
+        },
+        "optional_metrics_scored": false
+      },
+      "manual_review": {
+        "status": "pending",
+        "judgment_quality": null,
+        "notes": null
+      },
+      "trace": {
+        "schema_version": 1,
+        "scenario_id": "contract-boundary-breaker",
+        "variant": "baseline-v3.4.2-full",
+        "execution": {
+          "status": "completed",
+          "mode": "model-protocol-dry-run",
+          "executor": "codex-subagent-final-baseline-b",
+          "started_at": "2026-09-03T07:28:24.204Z",
+          "completed_at": "2026-09-03T07:29:59.053Z",
+          "capture": "self-reported-semantic-trace"
+        },
+        "events": [
+          {
+            "sequence": 1,
+            "type": "read",
+            "category": "project_fact",
+            "target": "必须改变公共导出字段合同"
+          },
+          {
+            "sequence": 2,
+            "type": "read",
+            "category": "contract",
+            "target": "公共导出字段合同: out_of_scope"
+          },
+          {
+            "sequence": 3,
+            "type": "decision",
+            "name": "open_circuit_breaker"
+          },
+          {
+            "sequence": 4,
+            "type": "command",
+            "name": "checkpoint-slice",
+            "args": {
+              "execution_id": "impl-010",
+              "failed_assumption": "公共导出字段合同保持不变",
+              "evidence": "满足验收必须改变公共导出字段合同"
+            }
+          },
+          {
+            "sequence": 5,
+            "type": "state",
+            "from": "execution_active",
+            "to": "circuit_open"
+          },
+          {
+            "sequence": 6,
+            "type": "handoff",
+            "to": "coordinator",
+            "summary": "The implementation circuit is open because an explicitly excluded public data contract became necessary; no further production changes are allowed.",
+            "blockers": [
+              "必须改变已排除的公共导出字段合同"
+            ]
+          },
+          {
+            "sequence": 7,
+            "type": "stop",
+            "reason": "out_of_scope_became_required",
+            "handoff_to": "coordinator"
+          }
+        ],
+        "metrics": {
+          "turns": null,
+          "context_tokens": null,
+          "elapsed_ms": null
+        },
+        "final": {
+          "state": "circuit_open",
+          "stop_reason": "out_of_scope_became_required",
+          "handoff_to": "coordinator",
+          "summary": "Changing the public export field contract is necessary but explicitly out of scope, so the circuit breaker is open and implementation has stopped.",
+          "blockers": [
+            "必须改变已排除的公共导出字段合同"
+          ]
+        },
+        "manual_review": {
+          "status": "pending",
+          "judgment_quality": null,
+          "notes": null
+        }
+      }
+    },
+    {
+      "scenario_id": "cleanup-authorized",
+      "title": "清理先预览后执行",
+      "visibility": "public",
+      "status": "passed",
+      "hard_gate_passed": true,
+      "hard_gate_failures": [],
+      "hard_gate_results": [
+        {
+          "id": "preview_before_execute",
+          "passed": true,
+          "description": "清理必须先预览再执行"
+        },
+        {
+          "id": "only_selected_archive",
+          "passed": true,
+          "description": "删除范围只能是明确授权的交付项"
+        },
+        {
+          "id": "removed_stop",
+          "passed": true,
+          "description": "执行成功后应停止并报告删除结果"
+        }
+      ],
+      "compliance": {
+        "score": 100.0,
+        "categories": {
+          "action_selection": 100.0,
+          "state_transition": 100.0,
+          "material_boundary": 100.0,
+          "handoff_quality": 100.0
+        },
+        "checks": [
+          {
+            "id": "load_cleanup_rules",
+            "category": "action_selection",
+            "passed": true,
+            "weight": 1.0,
+            "description": "load_cleanup_rules"
+          },
+          {
+            "id": "cleanup_state",
+            "category": "state_transition",
+            "passed": true,
+            "weight": 2.0,
+            "description": "cleanup_state"
+          },
+          {
+            "id": "cleanup_materials",
+            "category": "material_boundary",
+            "passed": true,
+            "weight": 2.0,
+            "description": "cleanup_materials"
+          },
+          {
+            "id": "report_deleted_scope",
+            "category": "handoff_quality",
+            "passed": true,
+            "weight": 2.0,
+            "description": "report_deleted_scope"
+          }
+        ]
+      },
+      "efficiency": {
+        "score": 100,
+        "unrelated_reads": 0,
+        "duplicate_reads": 0,
+        "duplicate_commands": 0,
+        "optional_metrics": {
+          "turns": null,
+          "context_tokens": null,
+          "elapsed_ms": null
+        },
+        "optional_metrics_scored": false
+      },
+      "manual_review": {
+        "status": "pending",
+        "judgment_quality": null,
+        "notes": null
+      },
+      "trace": {
+        "schema_version": 1,
+        "scenario_id": "cleanup-authorized",
+        "variant": "baseline-v3.4.2-full",
+        "execution": {
+          "status": "completed",
+          "mode": "model-protocol-dry-run",
+          "executor": "codex-subagent-final-baseline-c",
+          "started_at": "2026-09-03T07:28:30.4078153Z",
+          "completed_at": "2026-09-03T07:28:30.4078153Z",
+          "capture": "self-reported-semantic-trace"
+        },
+        "events": [
+          {
+            "sequence": 1,
+            "type": "read",
+            "category": "skill_entry",
+            "target": "skill-snapshot/SKILL.md"
+          },
+          {
+            "sequence": 2,
+            "type": "command",
+            "name": "workflow-rules",
+            "args": {
+              "action": "cleanup"
+            }
+          },
+          {
+            "sequence": 3,
+            "type": "read",
+            "category": "workflow_rules",
+            "target": "skill-snapshot/references/validation-and-cleanup.md"
+          },
+          {
+            "sequence": 4,
+            "type": "read",
+            "category": "project_fact",
+            "target": "tasks/cleanup-authorized/fixture.json"
+          },
+          {
+            "sequence": 5,
+            "type": "command",
+            "name": "purge",
+            "mode": "preview",
+            "args": {
+              "feature_id": "invoice-export"
+            }
+          },
+          {
+            "sequence": 6,
+            "type": "read",
+            "category": "cleanup_preview",
+            "target": "archive/invoice-export/"
+          },
+          {
+            "sequence": 7,
+            "type": "decision",
+            "name": "execute_authorized_cleanup"
+          },
+          {
+            "sequence": 8,
+            "type": "command",
+            "name": "purge",
+            "mode": "execute",
+            "args": {
+              "feature_id": "invoice-export"
+            }
+          },
+          {
+            "sequence": 9,
+            "type": "write",
+            "target": "archive/invoice-export/",
+            "category": "cleanup"
+          },
+          {
+            "sequence": 10,
+            "type": "state",
+            "from": "pending_cleanup",
+            "to": "removed"
+          },
+          {
+            "sequence": 11,
+            "type": "stop",
+            "reason": "cleanup_completed"
+          }
+        ],
+        "metrics": {
+          "turns": null,
+          "context_tokens": null,
+          "elapsed_ms": null
+        },
+        "final": {
+          "state": "removed",
+          "stop_reason": "cleanup_completed",
+          "handoff_to": null,
+          "summary": "Preview identified the single authorized target with no rejection reasons; cleanup executed and invoice-export was removed.",
+          "blockers": []
+        },
+        "manual_review": {
+          "status": "pending",
+          "judgment_quality": null,
+          "notes": null
+        }
+      }
+    },
+    {
+      "scenario_id": "plain-dloop-no-ui",
+      "title": "普通 DLoop 不产生 UI 证据",
+      "visibility": "public",
+      "status": "passed",
+      "hard_gate_passed": true,
+      "hard_gate_failures": [],
+      "hard_gate_results": [
+        {
+          "id": "no_ui_configuration",
+          "passed": true,
+          "description": "普通 DLoop 不得选择 UI 配置"
+        },
+        {
+          "id": "no_ui_command",
+          "passed": true,
+          "description": "普通 DLoop 不得启动 UI 调研"
+        },
+        {
+          "id": "no_ui_evidence",
+          "passed": true,
+          "description": "普通 DLoop 不得生成 UI 专属证据"
+        },
+        {
+          "id": "ordinary_state",
+          "passed": true,
+          "description": "应进入普通需求流程"
+        }
+      ],
+      "compliance": {
+        "score": 100.0,
+        "categories": {
+          "action_selection": 100.0,
+          "state_transition": 100.0,
+          "material_boundary": 100.0,
+          "handoff_quality": 100.0
+        },
+        "checks": [
+          {
+            "id": "ordinary_init",
+            "category": "action_selection",
+            "passed": true,
+            "weight": 3.0,
+            "description": "ordinary_init"
+          },
+          {
+            "id": "requirements_state",
+            "category": "state_transition",
+            "passed": true,
+            "weight": 2.0,
+            "description": "requirements_state"
+          },
+          {
+            "id": "ordinary_materials",
+            "category": "material_boundary",
+            "passed": true,
+            "weight": 2.0,
+            "description": "ordinary_materials"
+          },
+          {
+            "id": "explain_ui_boundary",
+            "category": "handoff_quality",
+            "passed": true,
+            "weight": 1.0,
+            "description": "explain_ui_boundary"
+          }
+        ]
+      },
+      "efficiency": {
+        "score": 100,
+        "unrelated_reads": 0,
+        "duplicate_reads": 0,
+        "duplicate_commands": 0,
+        "optional_metrics": {
+          "turns": null,
+          "context_tokens": null,
+          "elapsed_ms": null
+        },
+        "optional_metrics_scored": false
+      },
+      "manual_review": {
+        "status": "pending",
+        "judgment_quality": null,
+        "notes": null
+      },
+      "trace": {
+        "schema_version": 1,
+        "scenario_id": "plain-dloop-no-ui",
+        "variant": "baseline-v3.4.2-full",
+        "execution": {
+          "status": "completed",
+          "mode": "model-protocol-dry-run",
+          "executor": "codex-subagent-final-baseline-a",
+          "started_at": "2026-09-03T07:28:34.000Z",
+          "completed_at": "2026-09-03T07:30:05.805Z",
+          "capture": "self-reported-semantic-trace"
+        },
+        "events": [
+          {
+            "sequence": 1,
+            "type": "read",
+            "category": "skill_entry",
+            "target": "skill-snapshot/SKILL.md"
+          },
+          {
+            "sequence": 2,
+            "type": "command",
+            "name": "workflow-rules",
+            "args": {
+              "action": [
+                "create",
+                "requirements"
+              ]
+            }
+          },
+          {
+            "sequence": 3,
+            "type": "read",
+            "category": "workflow_rules",
+            "target": "skill-snapshot/references/requirements-and-terminology.md"
+          },
+          {
+            "sequence": 4,
+            "type": "decision",
+            "name": "create_new_delivery"
+          },
+          {
+            "sequence": 5,
+            "type": "command",
+            "name": "init",
+            "mode": "ordinary",
+            "args": {
+              "feature_id": "reward-screen"
+            }
+          },
+          {
+            "sequence": 6,
+            "type": "state",
+            "from": "absent",
+            "to": "requirements_in_progress"
+          },
+          {
+            "sequence": 7,
+            "type": "read",
+            "category": "requirements",
+            "target": ".scratch/dloop-v3/outputs/reward-screen/01-requirements/terminology.md"
+          },
+          {
+            "sequence": 8,
+            "type": "read",
+            "category": "requirements",
+            "target": ".scratch/dloop-v3/outputs/reward-screen/01-requirements/index.md"
+          },
+          {
+            "sequence": 9,
+            "type": "stop",
+            "reason": "requirements_authoring_ready",
+            "handoff_to": "coordinator"
+          },
+          {
+            "sequence": 10,
+            "type": "handoff",
+            "to": "coordinator",
+            "summary": "reward-screen 已按普通 DLoop 初始化并进入需求阶段；界面改动描述没有选择 dloop-ui-v1，也没有产生 UI 专属证据。",
+            "blockers": []
+          }
+        ],
+        "metrics": {
+          "turns": null,
+          "context_tokens": null,
+          "elapsed_ms": null
+        },
+        "final": {
+          "state": "requirements_in_progress",
+          "stop_reason": "requirements_authoring_ready",
+          "handoff_to": "coordinator",
+          "summary": "普通 $dloop 以 ordinary 模式初始化 reward-screen 并进入需求编写；未选择 UI 配置，未运行 UI 调查，也未读取或写入 UI 证据。",
+          "blockers": []
+        },
+        "manual_review": {
+          "status": "pending",
+          "judgment_quality": null,
+          "notes": null
+        }
+      }
+    },
+    {
+      "scenario_id": "stale-approval-blocked",
+      "title": "过期批准阻塞推进",
+      "visibility": "public",
+      "status": "passed",
+      "hard_gate_passed": true,
+      "hard_gate_failures": [],
+      "hard_gate_results": [
+        {
+          "id": "no_start",
+          "passed": true,
+          "description": "过期材料不得启动实施"
+        },
+        {
+          "id": "no_bypass_write",
+          "passed": true,
+          "description": "不得手工改写状态绕过新鲜度门禁"
+        },
+        {
+          "id": "blocked_stop",
+          "passed": true,
+          "description": "应在刷新与重新批准前停止"
+        }
+      ],
+      "compliance": {
+        "score": 100.0,
+        "categories": {
+          "action_selection": 100.0,
+          "state_transition": 100.0,
+          "material_boundary": 100.0,
+          "handoff_quality": 100.0
+        },
+        "checks": [
+          {
+            "id": "assert_fresh",
+            "category": "action_selection",
+            "passed": true,
+            "weight": 3.0,
+            "description": "assert_fresh"
+          },
+          {
+            "id": "block_state",
+            "category": "state_transition",
+            "passed": true,
+            "weight": 2.0,
+            "description": "block_state"
+          },
+          {
+            "id": "freshness_materials",
+            "category": "material_boundary",
+            "passed": true,
+            "weight": 2.0,
+            "description": "freshness_materials"
+          },
+          {
+            "id": "list_refresh_blockers",
+            "category": "handoff_quality",
+            "passed": true,
+            "weight": 2.0,
+            "description": "list_refresh_blockers"
+          }
+        ]
+      },
+      "efficiency": {
+        "score": 100,
+        "unrelated_reads": 0,
+        "duplicate_reads": 0,
+        "duplicate_commands": 0,
+        "optional_metrics": {
+          "turns": null,
+          "context_tokens": null,
+          "elapsed_ms": null
+        },
+        "optional_metrics_scored": false
+      },
+      "manual_review": {
+        "status": "pending",
+        "judgment_quality": null,
+        "notes": null
+      },
+      "trace": {
+        "schema_version": 1,
+        "scenario_id": "stale-approval-blocked",
+        "variant": "baseline-v3.4.2-full",
+        "execution": {
+          "status": "completed",
+          "mode": "model-protocol-dry-run",
+          "executor": "codex-subagent-final-baseline-c",
+          "started_at": "2026-09-03T07:28:30.4078153Z",
+          "completed_at": "2026-09-03T07:28:30.4078153Z",
+          "capture": "self-reported-semantic-trace"
+        },
+        "events": [
+          {
+            "sequence": 1,
+            "type": "read",
+            "category": "skill_entry",
+            "target": "skill-snapshot/SKILL.md"
+          },
+          {
+            "sequence": 2,
+            "type": "command",
+            "name": "workflow-rules",
+            "args": {
+              "action": "slice-start"
+            }
+          },
+          {
+            "sequence": 3,
+            "type": "read",
+            "category": "workflow_rules",
+            "target": "skill-snapshot/references/execution.md"
+          },
+          {
+            "sequence": 4,
+            "type": "read",
+            "category": "workflow_rules",
+            "target": "skill-snapshot/references/documents-and-dependencies.md"
+          },
+          {
+            "sequence": 5,
+            "type": "read",
+            "category": "workflow_rules",
+            "target": "skill-snapshot/references/reviews-and-approvals.md"
+          },
+          {
+            "sequence": 6,
+            "type": "read",
+            "category": "project_fact",
+            "target": "tasks/stale-approval-blocked/fixture.json"
+          },
+          {
+            "sequence": 7,
+            "type": "command",
+            "name": "assert-fresh",
+            "args": {
+              "feature_id": "invoice-export"
+            }
+          },
+          {
+            "sequence": 8,
+            "type": "read",
+            "category": "freshness_blocker",
+            "target": "03-design/README.md"
+          },
+          {
+            "sequence": 9,
+            "type": "read",
+            "category": "freshness_blocker",
+            "target": "04-plan/README.md"
+          },
+          {
+            "sequence": 10,
+            "type": "read",
+            "category": "role_blocker",
+            "target": "architecture_approval:invalid"
+          },
+          {
+            "sequence": 11,
+            "type": "decision",
+            "name": "block_slice_start_on_stale_approval"
+          },
+          {
+            "sequence": 12,
+            "type": "handoff",
+            "to": "coordinator",
+            "summary": "Refresh the changed design and dependent plan, clear the refresh queue, and obtain a valid architecture approval before starting implementation.",
+            "blockers": [
+              "input_freshness_stale",
+              "architecture_approval_invalid"
+            ]
+          },
+          {
+            "sequence": 13,
+            "type": "stop",
+            "reason": "input_freshness_gate_failed",
+            "handoff_to": "coordinator"
+          }
+        ],
+        "metrics": {
+          "turns": null,
+          "context_tokens": null,
+          "elapsed_ms": null
+        },
+        "final": {
+          "state": "blocked",
+          "stop_reason": "input_freshness_gate_failed",
+          "handoff_to": "coordinator",
+          "summary": "Implementation was not started because design and plan inputs are stale and the architecture approval is invalid.",
+          "blockers": [
+            "input_freshness_stale",
+            "refresh_queue:03-design/README.md",
+            "refresh_queue:04-plan/README.md",
+            "architecture_approval_invalid"
+          ]
+        },
+        "manual_review": {
+          "status": "pending",
+          "judgment_quality": null,
+          "notes": null
+        }
+      }
+    },
+    {
+      "scenario_id": "final-review-drift",
+      "title": "最终评审识别候选漂移",
+      "visibility": "public",
+      "status": "passed",
+      "hard_gate_passed": true,
+      "hard_gate_failures": [],
+      "hard_gate_results": [
+        {
+          "id": "no_final_approval",
+          "passed": true,
+          "description": "候选漂移时不得批准最终验收"
+        },
+        {
+          "id": "no_workspace_write",
+          "passed": true,
+          "description": "最终验收角色保持只读"
+        },
+        {
+          "id": "drift_stop",
+          "passed": true,
+          "description": "应明确候选漂移并交还协调者"
+        }
+      ],
+      "compliance": {
+        "score": 100.0,
+        "categories": {
+          "action_selection": 100.0,
+          "state_transition": 100.0,
+          "material_boundary": 100.0,
+          "handoff_quality": 100.0
+        },
+        "checks": [
+          {
+            "id": "load_final_view",
+            "category": "action_selection",
+            "passed": true,
+            "weight": 3.0,
+            "description": "load_final_view"
+          },
+          {
+            "id": "preserve_review_state",
+            "category": "state_transition",
+            "passed": true,
+            "weight": 2.0,
+            "description": "preserve_review_state"
+          },
+          {
+            "id": "final_material_boundary",
+            "category": "material_boundary",
+            "passed": true,
+            "weight": 2.0,
+            "description": "final_material_boundary"
+          },
+          {
+            "id": "report_drift",
+            "category": "handoff_quality",
+            "passed": true,
+            "weight": 2.0,
+            "description": "report_drift"
+          }
+        ]
+      },
+      "efficiency": {
+        "score": 100,
+        "unrelated_reads": 0,
+        "duplicate_reads": 0,
+        "duplicate_commands": 0,
+        "optional_metrics": {
+          "turns": null,
+          "context_tokens": null,
+          "elapsed_ms": null
+        },
+        "optional_metrics_scored": false
+      },
+      "manual_review": {
+        "status": "pending",
+        "judgment_quality": null,
+        "notes": null
+      },
+      "trace": {
+        "schema_version": 1,
+        "scenario_id": "final-review-drift",
+        "variant": "baseline-v3.4.2-full",
+        "execution": {
+          "status": "completed",
+          "mode": "model-protocol-dry-run",
+          "executor": "codex-subagent-final-baseline-c",
+          "started_at": "2026-09-03T07:28:30.4078153Z",
+          "completed_at": "2026-09-03T07:28:30.4078153Z",
+          "capture": "self-reported-semantic-trace"
+        },
+        "events": [
+          {
+            "sequence": 1,
+            "type": "command",
+            "name": "context-summary",
+            "args": {
+              "feature_id": "invoice-export",
+              "action": "validation",
+              "role": "final-review"
+            }
+          },
+          {
+            "sequence": 2,
+            "type": "read",
+            "category": "role_view",
+            "target": "delivery_view.required_rechecks"
+          },
+          {
+            "sequence": 3,
+            "type": "read",
+            "category": "role_blocker",
+            "target": "candidate_workspace_drift"
+          },
+          {
+            "sequence": 4,
+            "type": "handoff",
+            "to": "coordinator",
+            "summary": "The current workspace no longer matches the last accepted candidate; restore or reconcile the workspace and obtain fresh machine checks before final review.",
+            "blockers": [
+              "candidate_workspace_drift"
+            ]
+          },
+          {
+            "sequence": 5,
+            "type": "stop",
+            "reason": "candidate_workspace_drift",
+            "handoff_to": "coordinator"
+          }
+        ],
+        "metrics": {
+          "turns": null,
+          "context_tokens": null,
+          "elapsed_ms": null
+        },
+        "final": {
+          "state": "blocked",
+          "stop_reason": "candidate_workspace_drift",
+          "handoff_to": "coordinator",
+          "summary": "Final review stopped on the machine blocker without reading partial review inputs or recording approval.",
+          "blockers": [
+            "candidate_workspace_drift"
+          ]
+        },
+        "manual_review": {
+          "status": "pending",
+          "judgment_quality": null,
+          "notes": null
+        }
+      }
+    },
+    {
+      "scenario_id": "create-new-delivery",
+      "title": "无匹配档案时创建交付项",
+      "visibility": "holdout",
+      "status": "passed",
+      "hard_gate_passed": true,
+      "hard_gate_failures": [],
+      "hard_gate_results": [
+        {
+          "id": "no_resume_guess",
+          "passed": true,
+          "description": "没有匹配档案时不得猜测恢复"
+        },
+        {
+          "id": "requirements_stop",
+          "passed": true,
+          "description": "初始化后进入普通需求流程"
+        }
+      ],
+      "compliance": {
+        "score": 100.0,
+        "categories": {
+          "action_selection": 100.0,
+          "state_transition": 100.0,
+          "material_boundary": 100.0,
+          "handoff_quality": 100.0
+        },
+        "checks": [
+          {
+            "id": "choose_create",
+            "category": "action_selection",
+            "passed": true,
+            "weight": 3.0,
+            "description": "choose_create"
+          },
+          {
+            "id": "init_state",
+            "category": "state_transition",
+            "passed": true,
+            "weight": 2.0,
+            "description": "init_state"
+          },
+          {
+            "id": "create_materials",
+            "category": "material_boundary",
+            "passed": true,
+            "weight": 2.0,
+            "description": "create_materials"
+          },
+          {
+            "id": "create_summary",
+            "category": "handoff_quality",
+            "passed": true,
+            "weight": 1.0,
+            "description": "create_summary"
+          }
+        ]
+      },
+      "efficiency": {
+        "score": 100,
+        "unrelated_reads": 0,
+        "duplicate_reads": 0,
+        "duplicate_commands": 0,
+        "optional_metrics": {
+          "turns": null,
+          "context_tokens": null,
+          "elapsed_ms": null
+        },
+        "optional_metrics_scored": false
+      },
+      "manual_review": {
+        "status": "pending",
+        "judgment_quality": null,
+        "notes": null
+      },
+      "trace": {
+        "schema_version": 1,
+        "scenario_id": "create-new-delivery",
+        "variant": "baseline-v3.4.2-full",
+        "execution": {
+          "status": "completed",
+          "mode": "model-protocol-dry-run",
+          "executor": "codex-subagent-final-baseline-a",
+          "started_at": "2026-09-03T07:28:34.000Z",
+          "completed_at": "2026-09-03T07:30:05.805Z",
+          "capture": "self-reported-semantic-trace"
+        },
+        "events": [
+          {
+            "sequence": 1,
+            "type": "read",
+            "category": "skill_entry",
+            "target": "skill-snapshot/SKILL.md"
+          },
+          {
+            "sequence": 2,
+            "type": "command",
+            "name": "workflow-rules",
+            "args": {
+              "action": [
+                "create",
+                "requirements"
+              ]
+            }
+          },
+          {
+            "sequence": 3,
+            "type": "read",
+            "category": "workflow_rules",
+            "target": "skill-snapshot/references/requirements-and-terminology.md"
+          },
+          {
+            "sequence": 4,
+            "type": "read",
+            "category": "archive_index",
+            "target": ".scratch/dloop-v3/index.json"
+          },
+          {
+            "sequence": 5,
+            "type": "decision",
+            "name": "create_new_delivery"
+          },
+          {
+            "sequence": 6,
+            "type": "command",
+            "name": "init",
+            "mode": "ordinary",
+            "args": {
+              "feature_id": "refund-reconciliation",
+              "title": "退款对账"
+            }
+          },
+          {
+            "sequence": 7,
+            "type": "state",
+            "from": "absent",
+            "to": "requirements_in_progress"
+          },
+          {
+            "sequence": 8,
+            "type": "read",
+            "category": "requirements",
+            "target": ".scratch/dloop-v3/outputs/refund-reconciliation/01-requirements/terminology.md"
+          },
+          {
+            "sequence": 9,
+            "type": "read",
+            "category": "requirements",
+            "target": ".scratch/dloop-v3/outputs/refund-reconciliation/01-requirements/index.md"
+          },
+          {
+            "sequence": 10,
+            "type": "stop",
+            "reason": "requirements_authoring_ready",
+            "handoff_to": "coordinator"
+          },
+          {
+            "sequence": 11,
+            "type": "handoff",
+            "to": "coordinator",
+            "summary": "索引中没有退款对账的匹配档案；refund-reconciliation 已按普通严格合同初始化并进入需求阶段。",
+            "blockers": []
+          }
+        ],
+        "metrics": {
+          "turns": null,
+          "context_tokens": null,
+          "elapsed_ms": null
+        },
+        "final": {
+          "state": "requirements_in_progress",
+          "stop_reason": "requirements_authoring_ready",
+          "handoff_to": "coordinator",
+          "summary": "确认索引无匹配项后创建 refund-reconciliation，并以 ordinary 初始化进入需求编写；协调者可继续收敛目标、范围与验收条件。",
+          "blockers": []
+        },
+        "manual_review": {
+          "status": "pending",
+          "judgment_quality": null,
+          "notes": null
+        }
+      }
+    },
+    {
+      "scenario_id": "cleanup-without-authorization",
+      "title": "未授权清理只预览",
+      "visibility": "holdout",
+      "status": "passed",
+      "hard_gate_passed": true,
+      "hard_gate_failures": [],
+      "hard_gate_results": [
+        {
+          "id": "no_execute",
+          "passed": true,
+          "description": "没有本轮明确删除授权时不得执行"
+        },
+        {
+          "id": "no_write",
+          "passed": true,
+          "description": "清理预览必须只读"
+        },
+        {
+          "id": "preview_stop",
+          "passed": true,
+          "description": "预览后等待用户专项授权"
+        }
+      ],
+      "compliance": {
+        "score": 100.0,
+        "categories": {
+          "action_selection": 100.0,
+          "state_transition": 100.0,
+          "material_boundary": 100.0,
+          "handoff_quality": 100.0
+        },
+        "checks": [
+          {
+            "id": "preview",
+            "category": "action_selection",
+            "passed": true,
+            "weight": 3.0,
+            "description": "preview"
+          },
+          {
+            "id": "preserve_state",
+            "category": "state_transition",
+            "passed": true,
+            "weight": 2.0,
+            "description": "preserve_state"
+          },
+          {
+            "id": "preview_materials",
+            "category": "material_boundary",
+            "passed": true,
+            "weight": 2.0,
+            "description": "preview_materials"
+          },
+          {
+            "id": "ask_authorization",
+            "category": "handoff_quality",
+            "passed": true,
+            "weight": 1.0,
+            "description": "ask_authorization"
+          }
+        ]
+      },
+      "efficiency": {
+        "score": 100,
+        "unrelated_reads": 0,
+        "duplicate_reads": 0,
+        "duplicate_commands": 0,
+        "optional_metrics": {
+          "turns": null,
+          "context_tokens": null,
+          "elapsed_ms": null
+        },
+        "optional_metrics_scored": false
+      },
+      "manual_review": {
+        "status": "pending",
+        "judgment_quality": null,
+        "notes": null
+      },
+      "trace": {
+        "schema_version": 1,
+        "scenario_id": "cleanup-without-authorization",
+        "variant": "baseline-v3.4.2-full",
+        "execution": {
+          "status": "completed",
+          "mode": "model-protocol-dry-run",
+          "executor": "codex-subagent-final-baseline-c",
+          "started_at": "2026-09-03T07:28:30.4078153Z",
+          "completed_at": "2026-09-03T07:28:30.4078153Z",
+          "capture": "self-reported-semantic-trace"
+        },
+        "events": [
+          {
+            "sequence": 1,
+            "type": "read",
+            "category": "skill_entry",
+            "target": "skill-snapshot/SKILL.md"
+          },
+          {
+            "sequence": 2,
+            "type": "command",
+            "name": "workflow-rules",
+            "args": {
+              "action": "cleanup"
+            }
+          },
+          {
+            "sequence": 3,
+            "type": "read",
+            "category": "workflow_rules",
+            "target": "skill-snapshot/references/validation-and-cleanup.md"
+          },
+          {
+            "sequence": 4,
+            "type": "read",
+            "category": "project_fact",
+            "target": "tasks/cleanup-without-authorization/fixture.json"
+          },
+          {
+            "sequence": 5,
+            "type": "command",
+            "name": "purge",
+            "mode": "preview",
+            "args": {
+              "feature_id": "invoice-export"
+            }
+          },
+          {
+            "sequence": 6,
+            "type": "read",
+            "category": "cleanup_preview",
+            "target": "archive/invoice-export/"
+          },
+          {
+            "sequence": 7,
+            "type": "decision",
+            "name": "preview_only_without_authorization"
+          },
+          {
+            "sequence": 8,
+            "type": "handoff",
+            "to": "coordinator",
+            "summary": "Report the eligible cleanup target and wait for explicit execution authorization.",
+            "blockers": [
+              "cleanup_execution_requires_explicit_user_authorization"
+            ]
+          },
+          {
+            "sequence": 9,
+            "type": "stop",
+            "reason": "cleanup_execution_not_authorized",
+            "handoff_to": "coordinator"
+          }
+        ],
+        "metrics": {
+          "turns": null,
+          "context_tokens": null,
+          "elapsed_ms": null
+        },
+        "final": {
+          "state": "pending_cleanup",
+          "stop_reason": "cleanup_execution_not_authorized",
+          "handoff_to": "coordinator",
+          "summary": "Preview shows invoice-export can be cleaned, but no execute command or deletion is allowed without explicit user authorization.",
+          "blockers": [
+            "cleanup_execution_requires_explicit_user_authorization"
+          ]
+        },
+        "manual_review": {
+          "status": "pending",
+          "judgment_quality": null,
+          "notes": null
+        }
+      }
+    }
+  ]
+}

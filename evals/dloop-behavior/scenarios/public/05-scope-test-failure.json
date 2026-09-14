@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "id": "scope-test-failure",
+  "visibility": "public",
+  "title": "范围内测试失败继续诊断",
+  "task": "实施中的定向测试首次失败，失败落在已批准业务目标和写入范围内；强依赖、验收、公共合同、不变量与回退点都未变化。记录下一步。",
+  "fixture": {
+    "feature_id": "invoice-export",
+    "role": "implementation",
+    "execution_id": "impl-009",
+    "test_result": "failed",
+    "contract_boundaries_changed": false,
+    "write_scope": ["workspace/allowed/"]
+  },
+  "hard_gates": [
+    {"id": "no_false_breaker", "type": "absent", "event": {"type": "decision", "name": "open_circuit_breaker"}, "description": "普通范围内失败不得误触发契约熔断"},
+    {"id": "no_circuit_state", "type": "absent", "event": {"type": "state", "to": "circuit_open"}, "description": "状态不得进入熔断"},
+    {"id": "write_scope", "type": "all_writes_under", "prefixes": ["workspace/allowed/"], "description": "诊断修复不得越过授权范围"},
+    {"id": "continue_stop", "type": "final", "fields": {"state": "execution_active", "handoff_to": "implementation:impl-009"}, "description": "应保留活动棒次继续诊断"}
+  ],
+  "checks": [
+    {"id": "diagnose_failure", "category": "action_selection", "type": "present", "event": {"type": "decision", "name": "diagnose_in_scope_failure"}, "weight": 3},
+    {"id": "failure_checkpoint", "category": "state_transition", "type": "present", "event": {"type": "command", "name": "checkpoint-slice"}, "weight": 2},
+    {"id": "minimal_failure_reads", "category": "material_boundary", "type": "all_reads_in", "categories": ["role_view", "test_evidence", "project_fact", "contract"], "weight": 2},
+    {"id": "retain_next_step", "category": "handoff_quality", "type": "final_nonempty", "fields": ["summary"], "weight": 1}
+  ],
+  "efficiency": {"allowed_read_categories": ["role_view", "test_evidence", "project_fact", "contract"]}
+}

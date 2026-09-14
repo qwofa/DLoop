@@ -1,0 +1,7 @@
+interface:
+  display_name: "DLoop"
+  short_description: "显式运行从需求到验证、冻结与清理的完整交付闭环"
+  default_prompt: "使用 $dloop 管理这个功能的完整交付闭环。"
+
+policy:
+  allow_implicit_invocation: false
