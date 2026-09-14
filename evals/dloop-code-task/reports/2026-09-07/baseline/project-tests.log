@@ -1,0 +1,14 @@
+test_cancelled_selection_does_not_validate_or_change_data (test_inventory.BulkSalvageTests) ... ok
+test_confirmed_selection_is_removed_and_credited_once (test_inventory.BulkSalvageTests) ... ok
+test_credit_failure_restores_items_and_materials (test_inventory.BulkSalvageTests) ... ok
+test_empty_selection_does_not_issue_materials (test_inventory.BulkSalvageTests) ... ok
+test_failure_after_credit_restores_items_and_materials (test_inventory.BulkSalvageTests) ... ok
+test_locked_selection_preserves_entire_inventory (test_inventory.BulkSalvageTests) ... ok
+test_missing_selection_preserves_entire_inventory (test_inventory.BulkSalvageTests) ... ok
+test_locked_item_is_preserved (test_inventory.ExistingInventoryTests) ... ok
+test_single_salvage (test_inventory.ExistingInventoryTests) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.001s
+
+OK

@@ -1,0 +1,92 @@
+{
+  "execution_mode": "native-agent-real-code-and-cli",
+  "single_sample": true,
+  "results": {
+    "baseline": {
+      "version": "3.6.1",
+      "run_directory": "local-artifacts",
+      "initial_product_sha256": {
+        "inventory.py": "23f13650c2b2e29240b8adcd175b9cd7678e6ad08a5bdb56c3f7e8e2627a5639",
+        "shared_store.py": "a1b190010830600c059d76f73b80da14c07a315cbe85bc59d11e4c4bc083eb48",
+        "tests/test_inventory.py": "0361d1a3ecea6dd064b2416a391fc6723585e67d04830299e414793064a79697"
+      },
+      "final_product_sha256": {
+        "inventory.py": "c30eeffe5d5e206a0b084421bb6587872faa921936905c41dd898162eb2680f4",
+        "shared_store.py": "a1b190010830600c059d76f73b80da14c07a315cbe85bc59d11e4c4bc083eb48",
+        "tests/test_inventory.py": "a1450579b73746565b3b346ef008cc3e474e521a251bb21c61463fba61543714"
+      },
+      "payload_hashes": "baseline/payload-sha256.json",
+      "candidate_status": "candidate",
+      "candidate_id": "bulk-salvage-candidate-1",
+      "native_validation": {
+        "acceptance": {
+          "exit_code": 0,
+          "log": "baseline/acceptance.log"
+        },
+        "project-tests": {
+          "exit_code": 0,
+          "log": "baseline/project-tests.log"
+        }
+      },
+      "compact_json_handoff_bytes": 6663,
+      "agent_clock_interval": {
+        "start": "2026-09-07T06:47:21Z",
+        "end": "2026-09-07T06:49:00Z",
+        "elapsed_seconds": 99,
+        "source": "agent-reported-clock-tool-readings"
+      },
+      "extra_test_runs_to_save_log": {
+        "count": 0,
+        "source": "agent-final-report"
+      },
+      "metrics": {
+        "tokens": null,
+        "tool_calls": null,
+        "repeated_reads": null
+      }
+    },
+    "candidate": {
+      "version": "3.6.2",
+      "run_directory": "local-artifacts",
+      "initial_product_sha256": {
+        "inventory.py": "23f13650c2b2e29240b8adcd175b9cd7678e6ad08a5bdb56c3f7e8e2627a5639",
+        "shared_store.py": "a1b190010830600c059d76f73b80da14c07a315cbe85bc59d11e4c4bc083eb48",
+        "tests/test_inventory.py": "0361d1a3ecea6dd064b2416a391fc6723585e67d04830299e414793064a79697"
+      },
+      "final_product_sha256": {
+        "inventory.py": "7e41480252b82e46fe1fc025a395db777c351d2e622223f205fea1c2b17812b9",
+        "shared_store.py": "a1b190010830600c059d76f73b80da14c07a315cbe85bc59d11e4c4bc083eb48",
+        "tests/test_inventory.py": "6eabff0f176bea23d4c7da906f621de0bfd1b3a6410afdb1d7a352805c61d851"
+      },
+      "payload_hashes": "candidate/payload-sha256.json",
+      "candidate_status": "candidate",
+      "candidate_id": "bulk-salvage-candidate-1",
+      "native_validation": {
+        "acceptance": {
+          "exit_code": 0,
+          "log": "candidate/acceptance.log"
+        },
+        "project-tests": {
+          "exit_code": 0,
+          "log": "candidate/project-tests.log"
+        }
+      },
+      "compact_json_handoff_bytes": 785,
+      "agent_clock_interval": {
+        "start": "2026-09-07T06:47:31Z",
+        "end": "2026-09-07T06:49:20Z",
+        "elapsed_seconds": 109,
+        "source": "agent-reported-clock-tool-readings"
+      },
+      "extra_test_runs_to_save_log": {
+        "count": 1,
+        "source": "agent-final-report"
+      },
+      "metrics": {
+        "tokens": null,
+        "tool_calls": null,
+        "repeated_reads": null
+      }
+    }
+  }
+}

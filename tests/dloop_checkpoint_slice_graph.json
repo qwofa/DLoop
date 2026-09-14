@@ -1,0 +1,57 @@
+{
+  "checkpoint_id": "slice-graph-plan-first-start-repair-final",
+  "hypothesis": "切片启动在任何契约或切片状态持久化前先完成当前批准方案、目标成员资格和实时启动资格校验后，无方案、目标缺失与资格不足路径都不会污染执行状态，同时有批准方案时的契约失败记录语义保持不变",
+  "change_summary": "把切片启动的当前批准方案与资格校验前移到契约记录建立或更新之前；新增无批准方案与强依赖不可用组合、目标不在方案、资格不足无污染，以及有批准方案时契约失败仍持久化且不取得租约的回归断言。候选固定方案绑定、每份历史完整图语义校验、六/七切片边界和既有契约门禁保持不变。",
+  "validation_results": [
+    {
+      "method": "从隔离发行根执行 Python 针对性切片方案与关系图测试。",
+      "status": "passed",
+      "evidence": [
+        "python -m unittest src.FeatureArchive.tests.test_feature_archive_slice_plan src.FeatureArchive.tests.test_feature_archive_slice_contract：34 项全部通过",
+        "四个关键场景单独执行：无方案与契约失败组合、目标不在方案、资格不足、批准方案下契约失败持久化，4 项全部通过"
+      ]
+    },
+    {
+      "method": "从隔离发行根执行现有 FeatureArchive 全量 Python 单元测试。",
+      "status": "passed",
+      "evidence": [
+        "python -m unittest discover -s src/FeatureArchive/tests -p test_*.py -q：233 项通过，1 项按既有条件跳过",
+        "python -m unittest discover -s tests -p test_*.py -q：26 项全部通过，覆盖发行元数据与临时 SVN 项目安装、验证安装和卸载"
+      ]
+    },
+    {
+      "method": "检查六切片与七切片命令 JSON 和持久状态边界。",
+      "status": "passed",
+      "evidence": [
+        "聚焦与全量回归继续覆盖六切片无图字段、七切片完整派生图、六类非法关系和实时资格计算",
+        "无方案、目标不在当前方案或资格不足时，方案历史按原状态保留、切片集合为空且无修改租约",
+        "批准方案存在且目标资格满足时，契约检查失败仍保存 contract_failed 切片与契约历史且无修改租约"
+      ]
+    },
+    {
+      "method": "检查当前项目 Tools/FeatureArchive/VERSION、安装锁摘要和受管文件在实施前后保持不变。",
+      "status": "passed",
+      "evidence": [
+        "当前 Tools/FeatureArchive/VERSION 仍为 3.3.2",
+        "当前安装锁 SHA-256 仍为 f1be2527069f42e88b05b08add957545ebaf6008460f7e38ea15fcf15a89dad8",
+        "安装锁登记的 53 个受管文件全部存在且当前摘要逐项匹配，差异数为 0"
+      ]
+    },
+    {
+      "method": "检查受保护的 3.3.1 备份在实施前后保持不变。",
+      "status": "passed",
+      "evidence": [
+        "受保护备份仍含 48 个文件",
+        "按路径与文件摘要规范化 JSON 计算的复合 SHA-256 仍为 c5375ac9cc12f7c6a757a0500eb76041267a6e503213c2d9d9bd939482d22ef8，与返修前记录一致",
+        "本轮返修与验证未对 outputs-v3.3.1-backup-20260813 执行写入"
+      ]
+    }
+  ],
+  "discoveries": [
+    "方案资格校验若位于契约检查之后，会让无批准方案的返回结果和持久状态取决于任务包契约事实；前移只读门禁后，无方案语义不再分叉",
+    "资格不足与目标不在方案同样必须在契约修订持久化之前拒绝，否则失败的启动尝试仍可能改写待实施切片的契约历史",
+    "方案门禁通过后再执行契约检查，可以同时保留既有 contract_failed 可审查事实和无租约保证"
+  ],
+  "next_step": "由主协调者固定本轮返修候选并交由不同身份独立评审；本实施身份不提交切片",
+  "observed_breakers": []
+}

@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "plain-dloop-no-ui",
+  "visibility": "public",
+  "title": "普通 DLoop 不产生 UI 证据",
+  "task": "用户显式调用 $dloop 交付一个包含界面改动的功能，但没有调用 $dloop-ui。记录初始化和早期需求动作。",
+  "fixture": {
+    "invocation": "$dloop",
+    "feature_id": "reward-screen",
+    "mentions_ui": true,
+    "invoked_dloop_ui": false
+  },
+  "hard_gates": [
+    {"id": "no_ui_configuration", "type": "absent", "event": {"type": "decision", "name": "select_dloop_ui_configuration"}, "description": "普通 DLoop 不得选择 UI 配置"},
+    {"id": "no_ui_command", "type": "absent", "event": {"type": "command", "name": "ui-investigate"}, "description": "普通 DLoop 不得启动 UI 调研"},
+    {"id": "no_ui_evidence", "type": "absent", "event": {"type": "write", "category": "ui_evidence"}, "description": "普通 DLoop 不得生成 UI 专属证据"},
+    {"id": "ordinary_state", "type": "final", "fields": {"state": "requirements_in_progress"}, "description": "应进入普通需求流程"}
+  ],
+  "checks": [
+    {"id": "ordinary_init", "category": "action_selection", "type": "present", "event": {"type": "command", "name": "init", "mode": "ordinary"}, "weight": 3},
+    {"id": "requirements_state", "category": "state_transition", "type": "present", "event": {"type": "state", "to": "requirements_in_progress"}, "weight": 2},
+    {"id": "ordinary_materials", "category": "material_boundary", "type": "all_reads_in", "categories": ["skill_entry", "workflow_rules", "requirements", "status", "audit"], "weight": 2},
+    {"id": "explain_ui_boundary", "category": "handoff_quality", "type": "final_nonempty", "fields": ["summary"], "weight": 1}
+  ],
+  "efficiency": {"allowed_read_categories": ["skill_entry", "workflow_rules", "requirements", "status", "audit"]}
+}

@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>交互交付说明</title>
+<style>
+:root{color-scheme:light;font-family:"Segoe UI","Microsoft YaHei",sans-serif;color:#1d2939;background:#f3f5f8;font-size:16px}
+*{box-sizing:border-box}body{margin:0}button{font:inherit;cursor:pointer}button:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid #805ad5;outline-offset:3px}
+header{padding:24px 32px;background:#fff;border-bottom:1px solid #dce2eb}header small{color:#596579;letter-spacing:.08em}h1{font-size:26px;margin:8px 0 10px}p{line-height:1.7;margin:8px 0}.muted{color:#667085}.badge{display:inline-block;border-radius:6px;padding:4px 9px;background:#edf2ff;color:#344e9a;font-size:14px}
+.shell{max-width:1600px;height:100dvh;margin:auto;padding:20px 28px;display:grid;grid-template-rows:auto minmax(0,1fr)}nav{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 14px}nav button{white-space:nowrap;border:1px solid #d0d8e5;background:white;border-radius:8px;padding:10px 16px}nav button[aria-pressed=true]{background:#244aba;color:white;border-color:#244aba}
+.workspace{display:grid;grid-template-columns:minmax(0,1fr) clamp(320px,34vw,440px);gap:16px;min-height:0}.visual{position:relative;display:flex;flex-direction:column;min-height:0;background:#fff;border:1px solid #dce2eb;border-radius:12px;overflow:hidden}.toolbar{flex:none;display:flex;align-items:center;gap:8px;padding:12px;border-bottom:1px solid #e4e7ec;flex-wrap:wrap}.toolbar button{border:1px solid #d0d8e5;background:white;border-radius:6px;padding:7px 11px}.toolbar span{margin-left:auto;font-variant-numeric:tabular-nums}.viewport{flex:1;min-height:0;overflow:auto;background:#f0f3f9;cursor:grab;touch-action:pan-x pan-y}.viewport.dragging{cursor:grabbing}.canvas{position:relative;min-width:1px;margin:auto}.canvas img{width:calc(100% - 52px);height:auto;display:block;pointer-events:none}.pin{position:absolute;z-index:2;width:32px;height:32px;border:2px solid white;border-radius:50%;background:#2e58c4;color:white;font-size:15px;font-weight:700;box-shadow:0 1px 5px #0007;transform:translate(-50%,-50%)}.pin[aria-pressed=true]{background:#d95618;z-index:3}.focus-rect{position:absolute;pointer-events:none;border:3px solid #ffb53c;background:#ffb53c22;z-index:1}.visual-note{padding:12px 16px;font-size:14px;color:#667085;line-height:1.6}.empty-image{padding:70px 24px;color:#667085;text-align:center}.list-title{display:flex;gap:12px;align-items:center;margin-bottom:12px}.list-title h2{font-size:20px;margin:0}.drawer{display:flex;flex-direction:column;min-height:0;background:white;border:1px solid #dce2eb;border-radius:12px;overflow:hidden}.drawer-controls{display:flex;gap:8px;padding:12px;border-bottom:1px solid #e4e7ec;flex:none}.drawer-controls button,.drawer-controls select{font:inherit;border:1px solid #d0d8e5;background:white;border-radius:6px;padding:8px;color:inherit}.drawer-controls button:disabled{opacity:.35;cursor:default}.drawer-controls select{min-width:0;flex:1}.cards{min-height:0;overflow:auto;overscroll-behavior:contain}.card{background:white;padding:20px;overflow-wrap:anywhere}.card.selected .number{background:#d95618;color:white}.card-heading{display:flex;gap:10px;align-items:center;text-align:left;width:100%;border:0;background:none;color:inherit;padding:0}.card-heading strong{font-size:18px}.number{display:inline-flex;align-items:center;justify-content:center;flex:none;width:28px;height:28px;border-radius:50%;background:#eaf0ff;color:#244aba;font-weight:700}.operation-title{font-weight:600;margin-top:18px}.card dl{display:grid;grid-template-columns:4em minmax(0,1fr);gap:8px 12px;margin:16px 0;line-height:1.65}.card dt{color:#667085}.card dd{margin:0;white-space:pre-wrap}.card details{border-top:1px solid #e4e7ec;padding-top:12px}.card summary{cursor:pointer;color:#526078}.card ul{padding-left:20px;line-height:1.7}.warning{background:#fff4e9;color:#874110;border-radius:6px;padding:10px 12px;line-height:1.6}.footer{margin-top:24px;background:white;border:1px solid #dce2eb;border-radius:10px;padding:18px}.footer h2{font-size:19px;margin-top:0}[hidden]{display:none!important}
+.asset-info{flex:none;padding:12px;border-bottom:1px solid #e4e7ec;max-height:180px;overflow:auto}.asset-info summary{cursor:pointer;overflow-wrap:anywhere}.asset-info summary code{margin-left:8px;color:#667085;font-size:14px}.path-row{display:flex;gap:8px;align-items:flex-start;margin:10px 0}.path-row code{min-width:0;flex:1;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.6;color:#526078}.copy-button{flex:none;border:1px solid #d0d8e5;border-radius:5px;background:#fff;color:#344054;padding:4px 8px;font-size:13px}.elements{display:grid;gap:6px;margin:12px 0 18px;font-size:14px;color:#667085}.elements code{color:#344054;margin-left:6px;overflow-wrap:anywhere}.element-path-label{font-size:14px;color:#667085;margin-top:14px}
+@media(max-width:900px){.shell{padding:12px}.workspace{gap:12px;grid-template-columns:minmax(0,1fr) 320px}.card{padding:16px}.toolbar{gap:5px;padding:8px}.toolbar button{padding:6px}}
+@media(max-width:640px){.workspace{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) minmax(0,1fr)}.drawer-controls{padding:8px}.toolbar span{font-size:14px}}
+@media print{.workspace{display:block}.visual{position:static}nav,.toolbar{display:none}.viewport{height:auto;overflow:visible}.card{break-inside:avoid}.canvas{max-width:100%}.shell{padding:0;height:auto}.drawer,.cards{overflow:visible}.drawer-controls{display:none}}
+</style>
+</head>
+<body>
+<main class="shell">
+<nav id="pages" aria-label="界面列表"></nav>
+<div class="workspace">
+<section class="visual" aria-label="界面截图">
+<details class="asset-info" id="asset-info"><summary><span id="ui-name"></span><code id="asset-name"></code></summary><div id="asset-path"></div></details>
+<div class="toolbar"><button id="zoom-out" aria-label="缩小截图">−</button><button id="zoom-in" aria-label="放大截图">＋</button><button id="fit">适合窗口</button><button id="actual-size">原始尺寸</button><span id="zoom-label"></span></div>
+<p class="visual-note" id="capture-note" hidden></p>
+<div class="viewport" id="viewport"><div class="canvas" id="canvas"></div><p class="empty-image" id="empty-image" hidden>暂无截图</p></div>
+</section>
+<aside class="drawer" aria-label="交互详情">
+<div class="drawer-controls"><button id="previous-item" aria-label="上一个功能点">←</button><select id="item-select" aria-label="选择功能点"></select><button id="next-item" aria-label="下一个功能点">→</button></div>
+<div class="cards" id="cards" aria-live="polite"></div>
+</aside>
+</div>
+</main>
+<script id="delivery-data" type="application/json">{{DELIVERY_DATA}}</script>
+<script>
+"use strict";
+const data=JSON.parse(document.getElementById("delivery-data").textContent);
+const $=id=>document.getElementById(id);
+const node=(tag,text,className)=>{const el=document.createElement(tag);if(text!==undefined)el.textContent=text;if(className)el.className=className;return el};
+let pageIndex=0,scale=1,selected=null,drag=null;
+const page=()=>data.pages[pageIndex];
+document.title=data.title;
+function addField(dl,label,text){dl.append(node("dt",label),node("dd",text))}
+function pathRow(path,label){
+ const row=node("div",undefined,"path-row"),value=node("code",path),button=node("button","复制","copy-button");
+ button.setAttribute("aria-label",label);button.setAttribute("aria-live","polite");
+ button.addEventListener("click",async()=>{
+  let copied=false;
+  try{await navigator.clipboard.writeText(path);copied=true}catch{
+   const input=node("textarea");input.value=path;Object.assign(input.style,{position:"fixed",opacity:0});document.body.append(input);input.select();
+   try{copied=document.execCommand("copy")}catch{}finally{input.remove();button.focus()}
+  }
+  button.textContent=copied?"已复制":"请手动复制";
+  if(!copied){const range=document.createRange();range.selectNodeContents(value);const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range)}
+  setTimeout(()=>button.textContent="复制",2000);
+ });
+ row.append(value,button);return row;
+}
+function selectItem(id,reposition=true){
+ const changed=selected!==id;
+ selected=id;
+ document.querySelectorAll(".card").forEach(el=>{el.hidden=el.dataset.id!==id;el.classList.toggle("selected",el.dataset.id===id)});
+ $("item-select").value=id;
+ const index=page().items.findIndex(item=>item.id===id);
+ $("previous-item").disabled=index<=0;$("next-item").disabled=index<0||index===page().items.length-1;
+ if(changed)$("cards").scrollTop=0;
+ document.querySelectorAll(".pin").forEach(el=>el.setAttribute("aria-pressed",String(el.dataset.id===id)));
+ document.querySelectorAll(".focus-rect").forEach(el=>el.remove());
+ const item=page().items.find(item=>item.id===id);
+ if(item?.marker&&item.rect){
+  const r=item.rect,ratio=($("canvas").clientWidth-52)/page().width,highlight=node("div",undefined,"focus-rect");
+  Object.assign(highlight.style,{left:(r.x*ratio)+"px",top:(r.y*ratio)+"px",width:(r.width*ratio)+"px",height:(r.height*ratio)+"px"});
+  $("canvas").append(highlight);
+  if(reposition){const v=$("viewport");v.scrollTo({left:(r.x+r.width/2)*ratio-v.clientWidth/2,top:(r.y+r.height/2)*ratio-v.clientHeight/2,behavior:"smooth"})}
+ }
+}
+function positionPins(){
+ const w=$("canvas").clientWidth-52,ratio=w/page().width,h=page().height*ratio;
+ document.querySelectorAll(".pin-lines").forEach(el=>el.remove());
+ const lines=document.createElementNS("http://www.w3.org/2000/svg","svg");lines.classList.add("pin-lines");
+ Object.assign(lines.style,{position:"absolute",left:0,top:0,width:"100%",height:"100%",pointerEvents:"none"});$("canvas").append(lines);
+ const pins=Array.from(document.querySelectorAll(".pin")).sort((a,b)=>page().items.find(i=>i.id===a.dataset.id).marker.target_y-page().items.find(i=>i.id===b.dataset.id).marker.target_y);
+ let previous=0;
+ const positions=pins.map(pin=>{const item=page().items.find(i=>i.id===pin.dataset.id);const y=Math.max(20,item.marker.target_y*ratio,previous+38);previous=y;return{pin,item,y}});
+ const overflow=Math.max(0,previous+20-h);
+ for(let i=positions.length-1;i>=0;i--){positions[i].y=Math.max(20+i*38,positions[i].y-overflow)}
+ $("canvas").style.minHeight=Math.max(h,pins.length*38+4)+"px";
+ for(const {pin,item,y} of positions){
+  pin.style.left=(w+26)+"px";pin.style.top=y+"px";
+  const line=document.createElementNS("http://www.w3.org/2000/svg","line");
+  for(const [key,value] of Object.entries({x1:w+10,y1:y,x2:item.marker.target_x*ratio,y2:item.marker.target_y*ratio,stroke:"#d95618","stroke-width":1.5}))line.setAttribute(key,String(value));lines.append(line);
+ }
+}
+function sizeImage(){
+ const fit=Math.min(page().width,Math.max(1,$("viewport").clientWidth-52));
+ $("canvas").style.width=(fit*scale+52)+"px";
+ $("zoom-label").textContent=page().image?Math.round(fit*scale/page().width*100)+"%":"无截图";
+ positionPins();
+ if(selected)selectItem(selected,false);
+}
+function resetViewport(){
+ const targets=page().items.filter(item=>item.marker&&item.rect);
+ const top=targets.length?Math.max(0,Math.min(...targets.map(item=>item.rect.y))-24):0;
+ $("viewport").scrollTo(0,top*($("canvas").clientWidth-52)/page().width);
+}
+function renderPage(index){
+ pageIndex=index;selected=null;scale=1;
+ $("canvas").replaceChildren();$("cards").replaceChildren();$("item-select").replaceChildren();
+ $("ui-name").textContent=page().name;$("asset-name").textContent=page().asset_name;
+ $("asset-info").open=false;$("asset-info").hidden=!page().asset;$("asset-path").replaceChildren();
+ if(page().asset)$("asset-path").append(pathRow(page().asset,"复制预制体路径"));
+ $("previous-item").disabled=true;$("next-item").disabled=true;$("item-select").disabled=!page().items.length;
+ document.querySelectorAll("nav button").forEach((el,i)=>el.setAttribute("aria-pressed",String(i===index)));
+ $("capture-note").textContent=page().capture_note;$("capture-note").hidden=!page().capture_note;
+ $("empty-image").hidden=Boolean(page().image);
+ if(page().image){const img=node("img");img.src=page().image;img.alt=page().name+"采集截图";img.addEventListener("load",sizeImage);$("canvas").append(img)}
+ ["zoom-in","zoom-out","fit","actual-size"].forEach(id=>$(id).disabled=!page().image);
+ for(const item of page().items){
+  const option=node("option",item.number+" · "+item.title);option.value=item.id;$("item-select").append(option);
+  const card=node("article",undefined,"card");card.dataset.id=item.id;
+  const heading=node("button",undefined,"card-heading");heading.append(node("span",String(item.number),"number"),node("strong",item.title));heading.addEventListener("click",()=>selectItem(item.id));
+  card.append(heading);
+  const elements=node("div",undefined,"elements");
+  for(const element of item.elements){const line=node("div",element.roles.join(" / ")+"：");line.append(node("code",element.name));elements.append(line)}
+  if(!item.elements.length)elements.append(node("span","元素：未关联实际节点"));
+  card.append(elements);
+  for(const operation of item.operations){
+   if(item.operations.length>1)card.append(node("p",operation.title,"operation-title"));
+   const dl=node("dl");addField(dl,"条件",operation.conditions);addField(dl,"操作",operation.action);addField(dl,"反馈",operation.feedback);addField(dl,"结果",operation.expected);card.append(dl);
+   if(operation.location_note)card.append(node("p",operation.location_note,"muted"));
+  }
+  const details=node("details"),sources=node("ul");details.open=true;details.append(node("summary","核对依据"));
+  for(const element of item.elements){details.append(node("p",element.roles.join(" / ")+" · "+element.name,"element-path-label"),pathRow(element.path,"复制元素路径："+element.name))}
+  for(const operation of item.operations){details.append(node("p",operation.status+" · "+operation.detail));operation.sources.forEach(text=>sources.append(node("li",text)))}
+  details.append(sources);card.append(details);$("cards").append(card);
+  if(item.marker){const pin=node("button",String(item.number),"pin");pin.dataset.id=item.id;pin.title=item.title;pin.setAttribute("aria-label",item.number+"："+item.title);pin.setAttribute("aria-pressed","false");pin.addEventListener("click",()=>selectItem(item.id));$("canvas").append(pin)}
+ }
+ if(!page().items.length)$("cards").append(node("p","尚未补齐该页面的交互说明。","warning"));
+ sizeImage();resetViewport();
+ if(page().items.length)selectItem(page().items[0].id);
+}
+data.pages.forEach((page,index)=>{const button=node("button",page.name);button.addEventListener("click",()=>renderPage(index));$("pages").append(button)});
+$("item-select").addEventListener("change",event=>selectItem(event.target.value));
+for(const [id,direction] of [["previous-item",-1],["next-item",1]])$(id).addEventListener("click",()=>{const index=page().items.findIndex(item=>item.id===selected);const item=page().items[index+direction];if(item)selectItem(item.id)});
+$("zoom-in").addEventListener("click",()=>{scale=Math.min(Math.max(4,page().width/($("viewport").clientWidth-52)),scale+.25);sizeImage()});
+$("zoom-out").addEventListener("click",()=>{scale=Math.max(.5,scale-.25);sizeImage()});
+$("fit").addEventListener("click",()=>{scale=1;sizeImage();resetViewport()});
+$("actual-size").addEventListener("click",()=>{scale=page().width/Math.min(page().width,$("viewport").clientWidth-52);sizeImage();if(selected)selectItem(selected)});
+$("viewport").addEventListener("pointerdown",event=>{if(event.target.closest("button")||event.pointerType==="touch")return;drag={x:event.clientX,y:event.clientY,left:$("viewport").scrollLeft,top:$("viewport").scrollTop};$("viewport").setPointerCapture(event.pointerId);$("viewport").classList.add("dragging")});
+$("viewport").addEventListener("pointermove",event=>{if(!drag)return;$("viewport").scrollLeft=drag.left-event.clientX+drag.x;$("viewport").scrollTop=drag.top-event.clientY+drag.y});
+for(const event of ["pointerup","pointercancel","lostpointercapture"])$("viewport").addEventListener(event,()=>{drag=null;$("viewport").classList.remove("dragging")});
+window.addEventListener("resize",sizeImage);
+renderPage(0);
+</script>
+</body>
+</html>

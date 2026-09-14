@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "modules": [
+    {
+      "id": "dloop-skill",
+      "kind": "skill",
+      "source": "skills/dloop",
+      "destination": ".agents/skills/dloop"
+    },
+    {
+      "id": "dloop-ui-skill",
+      "kind": "skill",
+      "source": "skills/dloop-ui",
+      "destination": ".agents/skills/dloop-ui"
+    },
+    {
+      "id": "dloop-ui-runtime",
+      "kind": "runtime",
+      "source": "runtime",
+      "destination": "Tools/FeatureArchive"
+    },
+    {
+      "id": "dloop-ui-unity-editor",
+      "kind": "unity-editor",
+      "source": "unity-editor",
+      "destination": "Packages/com.dloop.ui-capture"
+    }
+  ]
+}

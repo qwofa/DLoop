@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "baseline": "baseline-v3.4.2-full",
+  "candidate": "candidate-v3.4.3-full",
+  "skill_material_delta": {
+    "entry_bytes": -3046,
+    "reference_bytes": -3421,
+    "total_bytes": -6467
+  },
+  "regressions": [],
+  "classification_counts": {
+    "improved": 0,
+    "unchanged": 8,
+    "degraded": 4,
+    "regression": 0,
+    "not_comparable": 0
+  },
+  "scenarios": [
+    {
+      "scenario_id": "cleanup-authorized",
+      "baseline_status": "passed",
+      "candidate_status": "passed",
+      "compliance_delta": 0.0,
+      "efficiency_delta": 0,
+      "classification": "unchanged"
+    },
+    {
+      "scenario_id": "cleanup-without-authorization",
+      "baseline_status": "passed",
+      "candidate_status": "passed",
+      "compliance_delta": -25.0,
+      "efficiency_delta": -15,
+      "classification": "degraded"
+    },
+    {
+      "scenario_id": "contract-boundary-breaker",
+      "baseline_status": "passed",
+      "candidate_status": "passed",
+      "compliance_delta": -20.0,
+      "efficiency_delta": -30,
+      "classification": "degraded"
+    },
+    {
+      "scenario_id": "create-new-delivery",
+      "baseline_status": "passed",
+      "candidate_status": "passed",
+      "compliance_delta": 0.0,
+      "efficiency_delta": 0,
+      "classification": "unchanged"
+    },
+    {
+      "scenario_id": "final-review-drift",
+      "baseline_status": "passed",
+      "candidate_status": "passed",
+      "compliance_delta": 0.0,
+      "efficiency_delta": 0,
+      "classification": "unchanged"
+    },
+    {
+      "scenario_id": "implementation-role",
+      "baseline_status": "passed",
+      "candidate_status": "passed",
+      "compliance_delta": 0.0,
+      "efficiency_delta": 0,
+      "classification": "unchanged"
+    },
+    {
+      "scenario_id": "plain-dloop-no-ui",
+      "baseline_status": "passed",
+      "candidate_status": "passed",
+      "compliance_delta": -25.0,
+      "efficiency_delta": -15,
+      "classification": "degraded"
+    },
+    {
+      "scenario_id": "recover-active-execution",
+      "baseline_status": "passed",
+      "candidate_status": "passed",
+      "compliance_delta": 0.0,
+      "efficiency_delta": 0,
+      "classification": "unchanged"
+    },
+    {
+      "scenario_id": "resume-existing-delivery",
+      "baseline_status": "passed",
+      "candidate_status": "passed",
+      "compliance_delta": 0.0,
+      "efficiency_delta": 0,
+      "classification": "unchanged"
+    },
+    {
+      "scenario_id": "scope-test-failure",
+      "baseline_status": "passed",
+      "candidate_status": "passed",
+      "compliance_delta": 0.0,
+      "efficiency_delta": 0,
+      "classification": "unchanged"
+    },
+    {
+      "scenario_id": "self-review-blocked",
+      "baseline_status": "passed",
+      "candidate_status": "passed",
+      "compliance_delta": 0.0,
+      "efficiency_delta": 0,
+      "classification": "unchanged"
+    },
+    {
+      "scenario_id": "stale-approval-blocked",
+      "baseline_status": "passed",
+      "candidate_status": "passed",
+      "compliance_delta": -22.2,
+      "efficiency_delta": -15,
+      "classification": "degraded"
+    }
+  ]
+}
