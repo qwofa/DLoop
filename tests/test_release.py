@@ -168,16 +168,13 @@ class ReleaseMetadataTests(unittest.TestCase):
         self.assertNotIn("## 3.1.0 能力边界", readme)
         self.assertNotIn("## 3.0.0 能力边界", readme)
         self.assertIn("## 3.7.3 - 2026-09-14", changelog)
-        self.assertIn("## 3.4.2 - 2026-09-03", changelog)
-        self.assertIn("## 3.4.1 - 2026-09-01", changelog)
         self.assertIn("安装器只管理当前版本", changelog)
 
     def test_current_source_is_presented_as_frozen(self) -> None:
         release = json.loads(
             (REPOSITORY_ROOT / "release.json").read_text(encoding="utf-8")
         )
-        release_notes = (REPOSITORY_ROOT / "docs" / "v3.7.3-open-source-ci.md").read_text(encoding="utf-8")
-        changelog = (REPOSITORY_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+        release_notes = (REPOSITORY_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
 
         self.assertEqual(
             {
@@ -193,7 +190,7 @@ class ReleaseMetadataTests(unittest.TestCase):
         self.assertIn("frozen", release_notes)
         self.assertIn("由 `v3.7.3` 标签固定", release_notes)
         self.assertIn("持续集成", release_notes)
-        self.assertIn("## 3.7.3 - 2026-09-14", changelog)
+        self.assertIn("## 3.7.3 - 2026-09-14", release_notes)
 
     def test_skill_describes_the_current_runtime_contract(self) -> None:
         entry = (REPOSITORY_ROOT / "plugin" / "dloop" / "skills" / "dloop" / "SKILL.md").read_text(

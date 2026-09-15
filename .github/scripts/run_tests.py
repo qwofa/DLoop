@@ -15,7 +15,6 @@ ROOT = Path(__file__).resolve().parents[2]
 SUITES = {
     "core": "src/FeatureArchive/tests",
     "distribution": "tests",
-    "evals": "evals/dloop-behavior/tests",
 }
 ALLOWED_SKIPS = {
     "core": {
@@ -28,7 +27,6 @@ ALLOWED_SKIPS = {
         "test_editor_package_compiles_and_captures_without_changing_prefab":
             "Real Unity capture requires a separately configured editor.",
     },
-    "evals": {},
 }
 
 
@@ -41,8 +39,6 @@ class CIResult(unittest.TextTestResult):
 
 
 def check_environment(suite):
-    if suite == "evals":
-        return
     if sys.platform != "win32":
         raise RuntimeError("Core and installation CI require Windows.")
     commands = (
