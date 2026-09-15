@@ -1,8 +1,0 @@
-{
-  "decision_id": "example-decision-1",
-  "decision": "split_prerequisite",
-  "approved_by": "示例负责人",
-  "rationale": "缺失能力有独立业务边界，不能继续作为当前切片补丁。",
-  "related_slice_ids": ["example-prerequisite"],
-  "workspace_restored": true
-}

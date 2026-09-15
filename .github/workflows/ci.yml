@@ -44,9 +44,6 @@ jobs:
       - name: Check CI result handling
         if: matrix.suite == 'core'
         run: python -m unittest discover -s .github/tests -v
-      - name: Check evaluation tools
-        if: matrix.suite == 'core'
-        run: python .github/scripts/run_tests.py evals
       - name: Run regression suite
         run: python .github/scripts/run_tests.py ${{ matrix.suite }}
 

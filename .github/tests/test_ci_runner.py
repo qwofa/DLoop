@@ -16,19 +16,19 @@ class CIRunnerTests(unittest.TestCase):
         return unittest.TextTestRunner(stream=io.StringIO(), resultclass=run_tests.CIResult).run(test)
 
     def test_passing_test_passes(self):
-        passed, _ = run_tests.summarize("evals", self.result(lambda: None))
+        passed, _ = run_tests.summarize("core", self.result(lambda: None))
         self.assertTrue(passed)
 
     def test_empty_suite_fails(self):
         result = unittest.TextTestRunner(stream=io.StringIO(), resultclass=run_tests.CIResult).run(unittest.TestSuite())
-        passed, summary = run_tests.summarize("evals", result)
+        passed, summary = run_tests.summarize("core", result)
         self.assertFalse(passed)
         self.assertIn("No tests were discovered", summary)
 
     def test_unexpected_skip_fails(self):
         def skip():
             raise unittest.SkipTest("missing tool")
-        passed, summary = run_tests.summarize("evals", self.result(skip))
+        passed, summary = run_tests.summarize("core", self.result(skip))
         self.assertFalse(passed)
         self.assertIn("UNEXPECTED SKIP", summary)
 
@@ -45,7 +45,7 @@ class CIRunnerTests(unittest.TestCase):
     def test_assertion_failure_fails(self):
         def fail():
             raise AssertionError("regression")
-        passed, _ = run_tests.summarize("evals", self.result(fail))
+        passed, _ = run_tests.summarize("core", self.result(fail))
         self.assertFalse(passed)
 
     def test_multiple_failed_subtests_do_not_subtract_multiple_passes(self):
@@ -55,7 +55,7 @@ class CIRunnerTests(unittest.TestCase):
                     with self.subTest(value=value):
                         self.fail("regression")
         result = unittest.TextTestRunner(stream=io.StringIO(), resultclass=run_tests.CIResult).run(Subtests())
-        passed, summary = run_tests.summarize("evals", result)
+        passed, summary = run_tests.summarize("core", result)
         self.assertFalse(passed)
         self.assertIn("Run: 1; passed: 0; failures: 2", summary)
 
