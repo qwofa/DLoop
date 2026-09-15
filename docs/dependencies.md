@@ -1,6 +1,6 @@
 # 依赖、连接与首次检查
 
-DLoop v3.7.3 面向 Windows 上的 Unity 项目，通过 Codex 组织开发工作。Unity MCP 按能力接入，不绑定供应商、包名、工具名称或某个版本。
+DLoop v3.7.4 面向 Windows 上的 Unity 项目，通过 Codex 组织开发工作。Unity MCP 按能力接入，不绑定供应商、包名、工具名称或某个版本。
 
 ## 需要准备什么
 
