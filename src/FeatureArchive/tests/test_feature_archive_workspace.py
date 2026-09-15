@@ -1,4 +1,4 @@
-"""DLoop 3.0 全局修改资格与 SVN 工作区测试。"""
+"""DLoop 全局修改资格与 SVN 工作区测试。"""
 
 from __future__ import annotations
 

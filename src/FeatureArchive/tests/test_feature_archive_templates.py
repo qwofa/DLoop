@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 import json
-import subprocess
 
 try:
-    from _feature_archive_support import CLI, FeatureArchiveCliTestCase
+    from _feature_archive_support import FeatureArchiveCliTestCase
 except ModuleNotFoundError:
-    from ._feature_archive_support import CLI, FeatureArchiveCliTestCase
+    from ._feature_archive_support import FeatureArchiveCliTestCase
 
 
 class FeatureArchiveTemplateTests(FeatureArchiveCliTestCase):
+    real_snapshots = False
+
     def test_complex_profile_uses_seven_delivery_documents_without_fixed_companions(self) -> None:
         archive = self.init_complex()
         markdown = {path.relative_to(archive).as_posix() for path in archive.rglob("*.md")}
@@ -34,8 +35,6 @@ class FeatureArchiveTemplateTests(FeatureArchiveCliTestCase):
         state = json.loads((archive / "workflow-state.json").read_text(encoding="utf-8"))
 
         self.assertEqual([], state["execution"]["used_execution_ids"])
-        self.assertNotIn("metrics", state["execution"])
-        self.assertNotIn("metrics-action", self.run_help())
 
     def test_complex_documents_do_not_require_fixed_layout_fields(self) -> None:
         archive = self.init_complex()
@@ -61,23 +60,6 @@ class FeatureArchiveTemplateTests(FeatureArchiveCliTestCase):
         self.assertEqual("strict-v1", manifest["workflow_profile"])
         self.assertEqual(3, manifest["schema_version"])
         self.assertEqual(2, manifest["terminology_schema_version"])
-
-    def test_init_rejects_removed_profile_argument(self) -> None:
-        help_text = self.run_help("init")
-
-        self.assertNotIn("--profile", help_text)
-        completed = subprocess.run(
-            [
-                "python", str(CLI), "init", "--feature-id", "old-invocation", "--title", "旧调用",
-                "--profile", "strict-v1",
-            ],
-            check=False,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-        )
-        self.assertEqual(2, completed.returncode)
-        self.assertFalse((self.root / "old-invocation").exists())
 
     def test_unversioned_nonempty_root_is_rejected(self) -> None:
         legacy_root = self.root

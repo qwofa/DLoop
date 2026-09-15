@@ -10,6 +10,8 @@ except ModuleNotFoundError:
 
 
 class FeatureArchiveApprovalTests(FeatureArchiveCliTestCase):
+    real_snapshots = False
+
     def accept_modification(self) -> None:
         package = self.write_package("slice-1")
         self.run_cli(
@@ -712,11 +714,11 @@ class FeatureArchiveApprovalTests(FeatureArchiveCliTestCase):
 
         self.assertEqual("INVALID_WORKFLOW_STATE", status["code"])
 
-    def test_previous_workflow_state_schema_is_rejected_without_compatibility_path(self) -> None:
+    def test_invalid_workflow_state_schema_is_rejected(self) -> None:
         archive = self.init_complex()
         state_path = archive / "workflow-state.json"
         state = json.loads(state_path.read_text(encoding="utf-8"))
-        state["schema_version"] = 4
+        state["schema_version"] += 1
         state_path.write_text(
             json.dumps(state, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",

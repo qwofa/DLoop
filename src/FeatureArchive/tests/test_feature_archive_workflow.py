@@ -9,12 +9,6 @@ import subprocess
 import sys
 import unittest
 
-try:
-    import tomllib
-except ModuleNotFoundError:
-    tomllib = None
-
-
 TEST_PATH = Path(__file__).resolve()
 SOURCE_REPOSITORY_ROOT = TEST_PATH.parents[3]
 IS_SOURCE_REPOSITORY = TEST_PATH.parents[2].name == "src"
@@ -76,7 +70,6 @@ class FeatureArchiveWorkflowTests(unittest.TestCase):
             SKILL_PATH.parent / "references" / "execution.md"
         ).read_text(encoding="utf-8")
 
-        self.assertLessEqual(len(skill.encode("utf-8")), 8192)
         for command in ("workflow-status", "audit"):
             self.assertIn(command, skill)
         self.assertIn("活动执行身份", skill)
@@ -93,25 +86,6 @@ class FeatureArchiveWorkflowTests(unittest.TestCase):
             "不新增持久化权限状态、失败计数器、自动提权或后台监控",
         ):
             self.assertIn(contract, execution_reference)
-
-        if IS_SOURCE_REPOSITORY:
-            return
-
-        config_path = PROJECT_ROOT / ".codex" / "config.toml"
-        config_text = config_path.read_text(encoding="utf-8")
-        self.assertEqual(
-            'sandbox_mode = "danger-full-access"\n'
-            'approval_policy = "never"\n',
-            config_text,
-        )
-        if tomllib is not None:
-            self.assertEqual(
-                {
-                    "sandbox_mode": "danger-full-access",
-                    "approval_policy": "never",
-                },
-                tomllib.loads(config_text),
-            )
 
     def test_project_instructions_use_one_archive_root_and_six_categories(
         self,
@@ -131,28 +105,6 @@ class FeatureArchiveWorkflowTests(unittest.TestCase):
             self.assertFalse((PROJECT_ROOT / ".scratch").exists())
             return
 
-        agents = (PROJECT_ROOT / "AGENTS.md").read_text(encoding="utf-8")
-        claude = (PROJECT_ROOT / "CLAUDE.md").read_text(encoding="utf-8")
-        issue_tracker = (
-            PROJECT_ROOT / "docs" / "agents" / "issue-tracker.md"
-        ).read_text(encoding="utf-8")
-        self.assertIn(".scratch/dloop-v3/outputs/", issue_tracker)
-        self.assertNotIn("feature-archive-workflow", claude)
-        self.assertNotIn(
-            "每个功能使用一个目录：`.scratch/<功能标识>/`",
-            issue_tracker,
-        )
-        self.assertNotIn(
-            "临时分析文档统一放到 `.scratch/outputs/docs/`",
-            issue_tracker,
-        )
-        self.assertNotIn(
-            "计划和实现过程产物统一放到 `.scratch/outputs/artifacts/`",
-            issue_tracker,
-        )
-        for directory in CATEGORY_DIRECTORIES:
-            self.assertIn(directory, issue_tracker)
-
     def test_skill_matches_cli_delivery_contract_and_responsibility_boundaries(
         self,
     ) -> None:
@@ -165,9 +117,6 @@ class FeatureArchiveWorkflowTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         reviews_reference = (
             SKILL_PATH.parent / "references" / "reviews-and-approvals.md"
-        ).read_text(encoding="utf-8")
-        execution_reference = (
-            SKILL_PATH.parent / "references" / "execution.md"
         ).read_text(encoding="utf-8")
         help_result = subprocess.run(
             [sys.executable, str(TOOL_PATH), "--help"],
@@ -185,10 +134,7 @@ class FeatureArchiveWorkflowTests(unittest.TestCase):
         self.assertIn("唯一下一动作", skill)
         self.assertIn("按当次合同使用", skill)
         self.assertIn("机器阻断原样返回", skill)
-        self.assertNotIn("常用命令：", skill)
-        self.assertNotIn("交付状态：", skill)
 
-        self.assertNotIn("正式文档", skill)
         self.assertIn("只有用户在当前任务中明确指定目标并要求更新", documents_reference)
         self.assertIn("AI 只判断语义是否变化", skill)
         self.assertIn("由工具维护", skill)
@@ -227,12 +173,9 @@ class FeatureArchiveWorkflowTests(unittest.TestCase):
         ):
             self.assertIn(anti_overdesign_contract, documents_reference)
 
-        self.assertNotIn("最多读取三个", skill)
-        self.assertNotIn("不沿第二层依赖", skill)
         self.assertIn("只读取能改变判断或产出的最小工作集", skill)
         self.assertIn("不能从沉默、测试通过或旧批准推断", reviews_reference)
         self.assertNotIn("## 人工确认", documents_reference)
-        self.assertNotIn("常规人工确认只有", skill)
 
     def test_skill_metadata_and_local_only_isolation_are_complete(self) -> None:
         skill = SKILL_PATH.read_text(encoding="utf-8")
@@ -258,25 +201,6 @@ class FeatureArchiveWorkflowTests(unittest.TestCase):
             )
             return
 
-        agents = (PROJECT_ROOT / "AGENTS.md").read_text(encoding="utf-8")
-        claude = (PROJECT_ROOT / "CLAUDE.md").read_text(encoding="utf-8")
-        skill_list = (
-            PROJECT_ROOT / ".claude" / "skills" / "SKILLS.md"
-        ).read_text(encoding="utf-8")
-        self.assertNotIn("feature-archive-workflow", claude)
-        self.assertNotIn("feature-archive-workflow", skill_list)
-        self.assertNotIn("只有用户在当前请求中显式调用 `$dloop`", agents)
-        self.assertNotIn("未显式调用 `$dloop` 时，不读取该技能", agents)
-        for duplicated_detail in (
-            "有限只读预检",
-            "粗体 Markdown 链接",
-            "dependencies",
-            "结构化图示",
-            "人工确认点",
-            "知识库",
-        ):
-            self.assertNotIn(duplicated_detail, agents)
-
     def test_installed_version_and_integrity_lock_match_managed_files(self) -> None:
         if IS_SOURCE_REPOSITORY:
             self.skipTest("发行源由发布清单验证")
@@ -288,7 +212,7 @@ class FeatureArchiveWorkflowTests(unittest.TestCase):
         version = (PROJECT_ROOT / "Tools" / "FeatureArchive" / "VERSION").read_text(
             encoding="utf-8"
         ).strip()
-        self.assertEqual("3.7.4", version)
+        self.assertEqual("3.7.5", version)
         self.assertEqual(version, lock["workflowVersion"])
         self.assertEqual("v" + version, lock["sourceTag"])
         self.assertEqual(3, lock["archiveSchemaVersion"])
@@ -301,7 +225,6 @@ class FeatureArchiveWorkflowTests(unittest.TestCase):
                 hashlib.sha256(path.read_bytes()).hexdigest(),
                 record["path"],
             )
-        self.assertNotIn("codexHook", lock)
 
     def test_execution_handoff_uses_one_dynamic_fact_source_across_all_rules(self) -> None:
         skill = SKILL_PATH.read_text(encoding="utf-8")

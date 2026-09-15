@@ -352,7 +352,7 @@ def _expected_document_ids(
 def _check_existing_manifest(
     target: Path,
     feature_id: str,
-) -> str | None:
+) -> None:
     manifest_path = target / "feature.json"
     if not manifest_path.exists():
         raise ArchiveError(
@@ -378,24 +378,22 @@ def _check_existing_manifest(
             "FEATURE_ID_CONFLICT",
             f"已有生命周期清单“{manifest_path}”的 feature_id 与“{feature_id}”不一致。",
         )
-    lifecycle = manifest.get("lifecycle")
     if manifest.get("schema_version") != SCHEMA_VERSION:
         raise ArchiveError(
             "INCOMPATIBLE_ARCHIVE_VERSION",
-            f"已有生命周期清单“{manifest_path}”不属于 DLoop 3.0，且不提供历史兼容。",
+            f"已有生命周期清单“{manifest_path}”不属于当前 DLoop 合同，且不提供历史兼容。",
         )
     if manifest.get("terminology_schema_version") != TERMINOLOGY_SCHEMA_VERSION:
         raise ArchiveError(
             "INCOMPATIBLE_TERMINOLOGY_VERSION",
-            f"已有生命周期清单“{manifest_path}”缺少 DLoop 3.0 术语合同。",
+            f"已有生命周期清单“{manifest_path}”缺少 DLoop 术语合同。",
         )
     workflow_profile = manifest.get("workflow_profile")
     if workflow_profile != STRICT_PROFILE:
         raise ArchiveError(
             "INVALID_EXISTING_MANIFEST",
-            f"已有生命周期清单“{manifest_path}”不属于 DLoop 3.0 唯一严格合同。",
+            f"已有生命周期清单“{manifest_path}”不属于 DLoop 唯一严格合同。",
         )
-    return lifecycle if isinstance(lifecycle, str) else None
 
 
 def _check_existing_documents(
@@ -495,7 +493,7 @@ def _preflight_existing(
     target: Path,
     templates: Mapping[Path, str],
     feature_id: str,
-) -> str | None:
+) -> None:
     _check_existing_layout(target)
 
     for relative_path in templates:
@@ -507,7 +505,7 @@ def _preflight_existing(
                 "请移动冲突目录后重试。",
             )
 
-    lifecycle = _check_existing_manifest(target, feature_id)
+    _check_existing_manifest(target, feature_id)
     _check_existing_documents(target, feature_id)
     missing_paths = [
         relative_path.as_posix()
@@ -525,7 +523,6 @@ def _preflight_existing(
             f"已有交付档案“{feature_id}”缺少必需内容："
             + "、".join(sorted(set(missing_paths))),
         )
-    return lifecycle
 
 
 def _write_tree(base: Path, templates: Mapping[Path, str]) -> None:

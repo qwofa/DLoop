@@ -210,7 +210,7 @@ def _capture(root: Path, feature_id: str, previous: dict, workspace: Path | None
     for path, oid in initial.items():
         entries["initial/" + path] = oid
     value = {
-        "version": "3.7.4", "feature_id": feature_id,
+        "version": "3.7.5", "feature_id": feature_id,
         "workspace": str(workspace) if workspace else None,
         "scopes": scopes, "initial": initial, "source": source,
         "initial_source": previous.get("initial_source") or source,
@@ -300,7 +300,7 @@ def _target(repository: Path, snapshot_id: str | None, stage: str | None = None)
         if (snapshot_id and value["id"] == snapshot_id) or (
             stage and value.get("stage") == stage and value["reason"] == "stage-start"
         ):
-            if value.get("version") != "3.7.4":
+            if value.get("version") != "3.7.5":
                 raise _error("SNAPSHOT_VERSION_MISMATCH", "只能恢复当前版本创建的保存点。")
             return commit, value
     raise _error("SNAPSHOT_NOT_FOUND", "找不到指定保存点或该阶段的开始保存点；请先查看保存点列表。")
@@ -549,7 +549,7 @@ def _apply_files(root: Path, feature_id: str, workspace: Path | None, scopes, fi
             raise _error("SNAPSHOT_RESTORE_MISMATCH", "恢复后的文件与保存点内容不一致。")
 
 
-def _restore_payload(root: Path, feature_id: str, repository: Path, value: dict, latest: dict, files: dict) -> None:
+def _restore_payload(root: Path, feature_id: str, value: dict, latest: dict, files: dict) -> None:
     workspace = Path(latest["workspace"]) if latest.get("workspace") else None
     if workspace and latest.get("source", {}).get("source") == "svn":
         from archive_snapshot_svn import restore_svn
@@ -574,7 +574,7 @@ def recover_snapshots(root: Path, feature_id: str) -> Mapping[str, object]:
             _, value = _target(repository, recovery["backup"])
             _, latest = _latest(repository)
             files = _read_files(repository, _restore_entries(value, latest))
-            _restore_payload(root, feature_id, repository, value, latest, files)
+            _restore_payload(root, feature_id, value, latest, files)
             _atomic(lease_path(root), _json(recovery["lease"]))
             from archive_validation import rebuild_indexes, validate_archive_root
             rebuild_indexes(validate_archive_root(root))
@@ -670,7 +670,7 @@ def restore_snapshot(root: Path, feature_id: str, snapshot_id: str | None = None
         backup = _save(root, feature_id, "before-restore")["snapshot"]["id"]
         _atomic(repository / "restore.json", _json({"backup": backup, "lease": load_workspace_state(root)}))
         try:
-            _restore_payload(root, feature_id, repository, target, latest, files)
+            _restore_payload(root, feature_id, target, latest, files)
             # 恢复文件中的旧租约从不生效，当前状态使用全新身份再启动。
             workspace_state = load_workspace_state(root)
             workspace_state["modification_lease"] = None

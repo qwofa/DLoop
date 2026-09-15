@@ -27,13 +27,8 @@ UI_VIEW_PATHS = {
 }
 CURRENT_SUMMARY_REQUIRED = {
     "model_sha256",
-    "requirements_audit_status",
     "plan_audit_status",
     "generated_paths",
-}
-CURRENT_SUMMARY_ALLOWED = CURRENT_SUMMARY_REQUIRED | {
-    "audit_sha256",
-    "computed_counts",
 }
 
 
@@ -41,9 +36,7 @@ def _summary_format(summary: object) -> str:
     if not isinstance(summary, dict):
         return "invalid"
     fields = set(summary)
-    if CURRENT_SUMMARY_REQUIRED.issubset(fields) and fields.issubset(
-        CURRENT_SUMMARY_ALLOWED
-    ):
+    if fields == CURRENT_SUMMARY_REQUIRED:
         return "current"
     return "invalid"
 
@@ -137,35 +130,10 @@ def _validate_configuration(
             "INVALID_DLOOP_UI_CONFIGURATION",
             "DloopUI 模型摘要不合法。",
         )
-    for field in ("requirements_audit_status", "plan_audit_status"):
-        if summary.get(field) not in {"blocked", "pass"}:
-            raise ArchiveConfigurationError(
-                "INVALID_DLOOP_UI_CONFIGURATION",
-                f"DloopUI {field} 不合法。",
-            )
-    audit_sha256 = summary.get("audit_sha256")
-    if audit_sha256 is not None and (
-        not isinstance(audit_sha256, str)
-        or not FINGERPRINT_PATTERN.fullmatch(audit_sha256)
-    ):
+    if summary.get("plan_audit_status") not in {"blocked", "pass"}:
         raise ArchiveConfigurationError(
             "INVALID_DLOOP_UI_CONFIGURATION",
-            "DloopUI 计划审计摘要不合法。",
-        )
-    counts = summary.get("computed_counts")
-    expected_count_fields = set(_runtime().COUNT_FIELDS)
-    if counts is not None and (
-        not isinstance(counts, dict)
-        or set(counts) != expected_count_fields
-        or any(not isinstance(field, str) or not field for field in counts)
-        or any(
-            not isinstance(item, int) or isinstance(item, bool) or item < 0
-            for item in counts.values()
-        )
-    ):
-        raise ArchiveConfigurationError(
-            "INVALID_DLOOP_UI_CONFIGURATION",
-            "DloopUI 数量摘要不合法。",
+            "DloopUI plan_audit_status 不合法。",
         )
     generated_paths = summary.get("generated_paths")
     if (
@@ -191,7 +159,6 @@ def _validate_configuration(
 
 def _document(
     feature_id: str,
-    relative_path: str,
     body: str,
     status: str,
     requirements_version: str,
@@ -295,146 +262,38 @@ def interaction_plan_snapshot(feature_path: Path, configuration: Mapping[str, ob
 def _evaluate(
     feature_path: Path,
     configuration: Mapping[str, object],
-    stage: str,
 ) -> Mapping[str, object]:
     runtime, _, model = _read_model(feature_path, configuration)
-    if stage not in {"requirements", "plan"}:
-        raise ArchiveConfigurationError(
-            "INVALID_CONFIGURATION_STAGE",
-            f"未知 DloopUI 检查阶段：{stage}",
-        )
     summary = configuration["summary"]
     assert isinstance(summary, Mapping)
     model_current = summary["model_sha256"] == _model_sha256(model)
-    status_field = (
-        "requirements_audit_status"
-        if stage == "requirements"
-        else "plan_audit_status"
-    )
-    sealed_status = summary[status_field] == "pass"
-    current_report = runtime.validate_model(model, stage)
-    if stage == "plan":
-        current_report["errors"].extend(runtime.delivery_errors(model))
-        if not (feature_path / UI_DELIVERY_PATH).is_file():
-            current_report["errors"].append({"code": "UI_DELIVERY_MISSING", "message": "尚未生成统一交付页。"})
-        if current_report["errors"]:
-            current_report["status"] = "BLOCKED"
-        media_errors = runtime.validate_annotation_media(model, feature_path)
-        if media_errors:
-            current_report["errors"].extend(media_errors)
-            current_report["status"] = "BLOCKED"
+    sealed_status = summary["plan_audit_status"] == "pass"
+    current_report = runtime.validate_model(model, "plan")
+    current_report["errors"].extend(runtime.delivery_errors(model))
+    if not (feature_path / UI_DELIVERY_PATH).is_file():
+        current_report["errors"].append({"code": "UI_DELIVERY_MISSING", "message": "尚未生成统一交付页。"})
+    if current_report["errors"]:
+        current_report["status"] = "BLOCKED"
+    media_errors = runtime.validate_annotation_media(model, feature_path)
+    if media_errors:
+        current_report["errors"].extend(media_errors)
+        current_report["status"] = "BLOCKED"
     current_status = current_report["status"] == "PASS"
     blocked = not model_current or not sealed_status or not current_status
-    if stage == "requirements":
-        code = "DLOOP_UI_REQUIREMENTS_REQUIRED"
-        message = (
-            "ui-model.json 自上次需求同步后已变化，需要重新同步 UI 需求。"
-            if not model_current
-            else (
-                "UI 需求证据已变化或缺失，需要修正后重新同步。"
-                if sealed_status and not current_status
-                else "上次同步的 UI 需求提取仍为 BLOCKED。"
-            )
+    code = "DLOOP_UI_PLAN_BLOCKED"
+    message = (
+        "ui-model.json 自上次规划同步后已变化，需要重新同步 UI 标注计划。"
+        if not model_current
+        else (
+            "UI 截图或需求证据已变化或缺失，需要修正后重新同步。"
+            if sealed_status and not current_status
+            else "交互交付说明或双向核对尚未完成，不能进入最终验收。"
         )
-    else:
-        code = "DLOOP_UI_PLAN_BLOCKED"
-        message = (
-            "ui-model.json 自上次规划同步后已变化，需要重新同步 UI 标注计划。"
-            if not model_current
-            else (
-                "UI 截图或需求证据已变化或缺失，需要修正后重新同步。"
-                if sealed_status and not current_status
-                else "交互交付说明或双向核对尚未完成，不能进入最终验收。"
-            )
-        )
+    )
     return {
         "status": "BLOCKED" if blocked else "PASS",
         "code": code if blocked else None,
         "message": message if blocked else None,
-        "details": {
-            "stage": stage,
-            "model_path": str(configuration["model_path"]),
-            "model_status": "current" if model_current else "changed",
-            "requirements_audit_status": summary["requirements_audit_status"],
-            "plan_audit_status": summary["plan_audit_status"],
-            "computed_counts": dict(summary.get("computed_counts", {})),
-            "current_errors": list(current_report["errors"]),
-        },
-    }
-
-
-def _synchronize(
-    feature_path: Path,
-    configuration: Mapping[str, object],
-    stage: str,
-) -> Mapping[str, object]:
-    runtime, model_path, model = _read_model(feature_path, configuration)
-    try:
-        runtime.sync_ids(model)
-        reports = {
-            name: runtime.validate_model(model, name)
-            for name in runtime.STAGES
-        }
-        media_errors = runtime.validate_annotation_media(model, feature_path)
-        if media_errors:
-            for name in ("design", "plan", "validation"):
-                reports[name]["errors"].extend(media_errors)
-                reports[name]["status"] = "BLOCKED"
-        plan_report = reports["plan"]
-        views = runtime.render_views(model, plan_report, feature_path)
-        annotation_media = runtime.render_annotation_media(model, feature_path)
-    except (OSError, UnicodeError, ValueError, json.JSONDecodeError) as exception:
-        raise ArchiveConfigurationError(
-            "INVALID_DLOOP_UI_MODEL",
-            f"无法同步 DloopUI 模型：{exception}",
-        ) from exception
-
-    model_content = json.dumps(model, ensure_ascii=False, indent=2) + "\n"
-    updated_configuration = dict(configuration)
-    current_generated_paths = sorted(set(annotation_media) | _owned_capture_paths(model, feature_path) | {UI_VIEW_PATHS["ui-annotation-plan.md"], UI_DELIVERY_PATH})
-    previous_summary = configuration["summary"]
-    assert isinstance(previous_summary, Mapping)
-    previous_generated_paths = {
-        str(item) for item in previous_summary.get("generated_paths", [])
-    }
-    updated_configuration["summary"] = _configuration_summary(
-        model,
-        reports,
-        current_generated_paths,
-    )
-    files = {
-        model_path.relative_to(feature_path).as_posix(): model_content,
-    }
-    relative_path = UI_VIEW_PATHS["ui-annotation-plan.md"]
-    files[relative_path] = _document(
-        feature_path.name,
-        relative_path,
-        views["ui-annotation-plan.md"],
-        "confirmed",
-        _requirements_version(feature_path),
-    )
-    files.update(annotation_media)
-    files[UI_DELIVERY_PATH] = runtime.render_delivery_html(model, feature_path)
-    return {
-        "status": reports[stage]["status"],
-        "configuration": updated_configuration,
-        "files": files,
-        "remove_files": sorted(
-            previous_generated_paths.difference(current_generated_paths)
-        ),
-        "result": {
-            "status": "synced",
-            "configuration": DLOOP_UI_CONFIGURATION,
-            "stage": stage,
-            "audit_status": reports[stage]["status"],
-            "requirements_audit_status": reports["requirements"]["status"],
-            "plan_audit_status": plan_report["status"],
-            "computed_counts": dict(reports[stage]["computed_counts"]),
-            "model_path": UI_MODEL_RELATIVE_PATH,
-            "view_paths": [UI_DELIVERY_PATH, relative_path],
-            "errors": list(reports[stage]["errors"]),
-            "warnings": list(reports[stage]["warnings"]),
-        },
     }
 
 
@@ -446,20 +305,8 @@ def _configuration_summary(
     plan_report = reports["plan"]
     return {
         "model_sha256": _model_sha256(model),
-        "requirements_audit_status": str(
-            reports["requirements"]["status"]
-        ).lower(),
         "plan_audit_status": str(plan_report["status"]).lower(),
         "generated_paths": sorted(set(generated_paths)),
-        "audit_sha256": "sha256:"
-        + hashlib.sha256(
-            json.dumps(
-                plan_report,
-                ensure_ascii=False,
-                sort_keys=True,
-            ).encode("utf-8")
-        ).hexdigest(),
-        "computed_counts": dict(plan_report["computed_counts"]),
     }
 
 
@@ -512,18 +359,16 @@ def _reports(
     evidence_sources: Mapping[str, str | Path | bytes] | None = None,
 ) -> dict[str, dict[str, object]]:
     reports = {
-        name: runtime.validate_model(
+        "plan": runtime.validate_model(
             model,
-            name,
+            "plan",
             evidence_sources=evidence_sources,
         )
-        for name in runtime.STAGES
     }
     media_errors = runtime.validate_annotation_media(model, feature_path)
     if media_errors:
-        for name in ("design", "plan", "validation"):
-            reports[name]["errors"].extend(media_errors)
-            reports[name]["status"] = "BLOCKED"
+        reports["plan"]["errors"].extend(media_errors)
+        reports["plan"]["status"] = "BLOCKED"
     return reports
 
 
@@ -618,7 +463,7 @@ def _investigate(
         "captures": operation["captures"],
         "skips": operation["skips"],
         "issues": operation["issues"],
-        "computed_counts": dict(reports["investigation"]["computed_counts"]),
+        "computed_counts": dict(reports["plan"]["computed_counts"]),
     }
     return _operation_result(
         configuration,
@@ -678,7 +523,7 @@ def _publish(
                 "界面标注评审未形成完整结果："
                 + "；".join(item["message"] for item in plan_report["errors"]),
             )
-        views = runtime.render_views(model, plan_report, feature_path, project_root)
+        views = runtime.render_views(model, plan_report, feature_path)
         annotation_media = runtime.render_annotation_media(model, feature_path)
     except runtime.DloopUiError as exception:
         raise ArchiveConfigurationError(exception.code, exception.message) from exception
@@ -691,7 +536,6 @@ def _publish(
         ),
         relative_plan: _document(
             feature_path.name,
-            relative_plan,
             views["ui-annotation-plan.md"],
             "confirmed",
             _requirements_version(feature_path),
@@ -746,10 +590,7 @@ def _initialize(
             ),
         )
     runtime.sync_ids(model)
-    reports = {
-        name: runtime.validate_model(model, name)
-        for name in runtime.STAGES
-    }
+    reports = {"plan": runtime.validate_model(model, "plan")}
     model_content = json.dumps(model, ensure_ascii=False, indent=2) + "\n"
     return {
         "configuration": _initial_configuration(model, reports),
@@ -819,21 +660,7 @@ def handle(operation: str, **arguments: object) -> Mapping[str, object]:
             arguments.get("execution", {}),
         )
     if operation == "evaluate":
-        stage = arguments.get("stage")
-        if not isinstance(stage, str):
-            raise ArchiveConfigurationError(
-                "INVALID_CONFIGURATION_INPUT",
-                "DloopUI 检查缺少阶段。",
-            )
-        return _evaluate(feature_path, configuration, stage)
-    if operation == "synchronize":
-        stage = arguments.get("stage")
-        if not isinstance(stage, str):
-            raise ArchiveConfigurationError(
-                "INVALID_CONFIGURATION_INPUT",
-                "DloopUI 同步缺少阶段。",
-            )
-        return _synchronize(feature_path, configuration, stage)
+        return _evaluate(feature_path, configuration)
     raise ArchiveConfigurationError(
         "INVALID_CONFIGURATION_OPERATION",
         f"DloopUI 不支持操作：{operation}",

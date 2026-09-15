@@ -7,7 +7,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from archive_slice_plan import digest as plan_digest, eligibility, evaluate_plan, normalize_plan
+from archive_slice_plan import digest as plan_digest, eligibility, normalize_plan
 
 try:
     from _feature_archive_support import FeatureArchiveCliTestCase, write_candidate
@@ -16,6 +16,8 @@ except ModuleNotFoundError:
 
 
 class FeatureArchiveSlicePlanTests(FeatureArchiveCliTestCase):
+    real_snapshots = False
+
     def setUp(self) -> None:
         super().setUp()
         self.archive = self.init_complex()
@@ -209,7 +211,7 @@ class FeatureArchiveSlicePlanTests(FeatureArchiveCliTestCase):
 
     def test_digest_drift_does_not_modify_current_plan(self) -> None:
         plan = self.write_plan(1, self.declarations(2))
-        checked = self.check(plan)
+        self.check(plan)
         before = self.state()["execution"]["slice_plan"]
         result = self.approve(plan, "sha256:" + "0" * 64, expected=1)
         self.assertEqual("SLICE_PLAN_DIGEST_MISMATCH", result["code"])

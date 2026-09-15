@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import nullcontext, redirect_stderr, redirect_stdout
 import hashlib
 import io
 import json
@@ -17,6 +17,7 @@ CLI = Path(__file__).resolve().parents[1] / "feature_archive.py"
 sys.path.insert(0, str(CLI.parent))
 
 from archive_approvals import accepted_candidate_summary, last_accepted_candidate
+import archive_snapshots
 import archive_workspace
 import feature_archive
 
@@ -83,6 +84,8 @@ def invoke_feature_archive(
 
 
 class FeatureArchiveCliTestCase(unittest.TestCase):
+    real_snapshots = True
+
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
         self.base = Path(self.temporary.name)
@@ -90,6 +93,17 @@ class FeatureArchiveCliTestCase(unittest.TestCase):
         self.root = self._project_root / ".scratch" / "dloop-v3" / "outputs"
         self.workspace = self.base / "workspace"
         self.workspace.mkdir()
+        if not self.real_snapshots:
+            # 业务规则测试隔离历史写入；工作区保护、审批及事务仍使用真实实现。
+            # Git/SVN、UI、命令行和快照集成测试保留默认的真实历史。
+            for name, replacement in (
+                ("snapshot_operation", lambda *args, **kwargs: nullcontext()),
+                ("initialize_snapshots", lambda *args, **kwargs: None),
+                ("register_snapshot_scopes", lambda *args, **kwargs: None),
+            ):
+                patcher = mock.patch.object(archive_snapshots, name, replacement)
+                patcher.start()
+                self.addCleanup(patcher.stop)
 
     @property
     def project_root(self) -> Path:

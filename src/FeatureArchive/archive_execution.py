@@ -1,4 +1,4 @@
-"""DLoop 3.0 严格任务包与当前切片状态。"""
+"""DLoop 严格任务包与当前切片状态。"""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import json
 from pathlib import Path, PurePosixPath
 import re
-from typing import Dict, Mapping, Sequence, Tuple
+from typing import Dict, Mapping, Sequence
 
 from archive_changes import ArchiveChangeError, _body_fingerprint, stale_reasons
 from archive_handoff import slice_handoff_materials
@@ -45,7 +45,6 @@ from archive_workspace import (
     serialized_workflow_state,
 )
 from archive_configuration import (
-    require_configuration_checkpoint,
     require_configuration_task_materials,
 )
 
@@ -192,7 +191,7 @@ def _context_materials(value: Mapping[str, object]) -> Sequence[Mapping[str, obj
     if version != CONTEXT_CONTRACT_VERSION:
         raise ArchiveExecutionError("INVALID_TASK_PACKAGE", "任务包上下文合同版本不受支持。")
     normalized = []
-    for index, item in enumerate(materials):
+    for item in materials:
         if not isinstance(item, dict):
             raise ArchiveExecutionError("INVALID_TASK_PACKAGE", "任务包材料必须是结构化对象。")
         source = _required_string(item, "source")
@@ -439,7 +438,6 @@ def start_execution(
     graph = validate_feature_archive(root, feature_id)
     feature = _require_complex_feature(graph, feature_id)
     state = _load_state(feature.path, feature_id)
-    require_configuration_checkpoint(feature.path, state, "implementation")
     _require_ready_execution_inputs(graph, feature_id)
     execution = _execution_state(state)
     package = package_target.resolve(execution)
@@ -498,7 +496,7 @@ def start_execution(
         ):
             raise ArchiveExecutionError("RESTORED_WORKSPACE_CHANGED", "工作区已偏离恢复结果，请重新保存并选择恢复起点。")
     elif last_candidate is not None:
-        last_package_id, candidate = last_candidate
+        last_package_id, _ = last_candidate
         current_workspace = matching_accepted_workspace_snapshot(workspace_root, execution)
         if current_workspace is None:
             raise ArchiveExecutionError(
