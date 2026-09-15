@@ -1,4 +1,4 @@
-"""DLoop 3.0 当前候选、独立验收与人工收敛。"""
+"""DLoop 当前候选、独立验收与人工收敛。"""
 
 from __future__ import annotations
 
@@ -18,7 +18,6 @@ from archive_approvals import (
 )
 from archive_execution import (
     EXECUTION_ID_PATTERN,
-    ArchiveExecutionError,
     _execution_state,
     _require_ready_execution_inputs,
     ensure_execution_id_unused,
@@ -654,7 +653,7 @@ def release_blocked_slice(
     if slice_status == "candidate" and isinstance(candidate, dict):
         _, lease = require_modification_lease(root, feature_id, package_id)
         candidate_drifted = not candidate_matches_workspace(lease, candidate)
-    if slice_status not in {"failed", "interrupted", "review_failed", "circuit_open", "abandoned"} and not candidate_drifted:
+    if slice_status not in {"failed", "interrupted", "review_failed", "circuit_open"} and not candidate_drifted:
         raise ArchiveCandidateError(
             "SLICE_NOT_RELEASABLE",
             "只有失败、中断、熔断或验收未通过的切片才能在人工处理后放弃。",

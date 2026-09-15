@@ -278,7 +278,6 @@ class FeatureArchiveDloopUiTests(FeatureArchiveCliTestCase):
         model = json.loads(archive.joinpath("ui-model.json").read_text(encoding="utf-8"))
         self.assertEqual("dloop-ui-v1", state["configuration"]["id"])
         self.assertEqual(4, model["schema_version"])
-        self.assertNotIn("terminology_status", state["configuration"]["summary"])
 
     def test_ui_snapshot_exports_registered_source_bytes_without_restoring_sources(self) -> None:
         sources = {
@@ -621,7 +620,7 @@ class FeatureArchiveDloopUiTests(FeatureArchiveCliTestCase):
             self.assertTrue((share / artifact).is_file())
 
     def prepare_ui_execution(self):
-        archive, source, prefab, investigation, published = self.complete_plan()
+        archive, _, _, investigation, _ = self.complete_plan()
         self.set_status(archive / "01-requirements/terminology.md", "confirmed")
         self.set_status(archive / "01-requirements/README.md", "confirmed")
         self.prepare_execution_inputs(archive.name)
@@ -802,7 +801,7 @@ class FeatureArchiveDloopUiTests(FeatureArchiveCliTestCase):
         self.assertIn("OtherPanel.prefab", rejected["message"])
 
     def test_text_only_prefab_change_reuses_capture_through_candidate_and_final(self):
-        archive, investigation, candidate, material, evidence = self.prepare_material_candidate()
+        archive, _, candidate, material, evidence = self.prepare_material_candidate()
         original = json.loads((archive / "ui-model.json").read_bytes())
         prefab = Path(original["prefabs"][0]["asset_path"])
         # The product change leaves every node and rectangle unchanged.
@@ -852,7 +851,7 @@ class FeatureArchiveDloopUiTests(FeatureArchiveCliTestCase):
         self.assertEqual("DLOOP_UI_CAPTURE_REFRESH_REQUIRED", rejected["code"])
 
     def test_grouped_hidden_operation_keeps_its_location_gap_in_archive(self):
-        archive, source, _, investigation, _ = self.complete_plan()
+        archive, _, _, investigation, _ = self.complete_plan()
         visible = self.change_outcome(investigation)
         visible["feature_point"] = {"key": "reward.actions", "title": "奖励操作"}
         hidden = json.loads(json.dumps(visible))

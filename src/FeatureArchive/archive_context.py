@@ -29,11 +29,9 @@ from archive_execution import EXECUTION_ID_PATTERN, _execution_state
 from archive_handoff import ArchiveHandoffError, _repair_role_projection, slice_handoff_materials
 from archive_slice_contract import latest_review, reviewed_candidate
 from archive_slice_plan import (
-    SlicePlanError,
     current_plan,
     evaluate_plan,
     pending_plan_slices,
-    require_slice_eligible,
 )
 from archive_validation import ArchiveGraph, DocumentRecord, validate_feature_archive
 from archive_workspace import (
@@ -48,7 +46,7 @@ from archive_paths import (
     share_snapshot_ancestor,
     stage_overview_target,
 )
-from archive_configuration import ArchiveConfigurationError, configuration_evaluation
+from archive_configuration import ArchiveConfigurationError
 from archive_action_inputs import action_input_preparation
 from archive_failure_attribution import friction_note_contract
 
@@ -827,7 +825,6 @@ def _next_action_contract(
                 execution, package_id, "repair"
             )
     if command == "stage-action" and action.get("stage") == "final":
-        feature = graph.features[feature_id]
         summary = accepted_candidate_summary(execution)
         if summary["items"]:
             required_inputs.append("integration_confirmation")
@@ -891,8 +888,6 @@ def _stage_projection(
     slices: Mapping[str, Mapping[str, object]],
     stale_documents: Sequence[str],
     lease: Mapping[str, object] | None,
-    requirements_configuration: Mapping[str, object] | None = None,
-    configuration_plan: Mapping[str, object] | None = None,
     candidate_rechecks: Sequence[Mapping[str, object]] = (),
 ) -> Tuple[str, Mapping[str, object] | None, Mapping[str, object], Sequence[Mapping[str, str]]]:
     """依据现有事实选择唯一动作；事实不足时保留人工判断点。"""
@@ -910,22 +905,6 @@ def _stage_projection(
 
     if requirements not in {"approve", "ready"}:
         stage = "requirements"
-        if (
-            requirements_configuration is not None
-            and requirements_configuration.get("status") != "PASS"
-        ):
-            code = str(
-                requirements_configuration.get("code")
-                or "CONFIGURATION_REQUIREMENTS_BLOCKED"
-            )
-            message = str(
-                requirements_configuration.get("message")
-                or "可选配置的需求检查仍为 BLOCKED。"
-            )
-            blockers.append({"code": code, "message": message})
-            details = requirements_configuration.get("details")
-            next_action = {"command": "ui-investigate"}
-            return stage, next_action, requires_human, blockers
         requirements_document = _feature_document(
             graph, feature_id, "requirements.overview"
         )
@@ -1008,15 +987,6 @@ def _stage_projection(
             requires_human,
             blockers,
         )
-    if configuration_plan is not None and configuration_plan.get("status") != "PASS":
-        code = configuration_plan.get("code")
-        message = configuration_plan.get("message")
-        blockers.append({
-            "code": str(code or "CONFIGURATION_PLAN_BLOCKED"),
-            "message": str(message or "可选配置的计划检查仍为 BLOCKED。"),
-        })
-        return "plan", {"command": "ui-publish"}, requires_human, blockers
-
     if feature.lifecycle not in {"validating", "frozen", "pending_cleanup"} and (
         feature.lifecycle == "active" or slices
     ):
@@ -1384,16 +1354,6 @@ def _delivery_view(
     )
     lease = active_modification_lease(root)
     normalized_lease = lease if isinstance(lease, dict) else None
-    current_configuration_requirements = configuration_evaluation(
-        feature.path,
-        state,
-        "requirements",
-    )
-    current_configuration_plan = configuration_evaluation(
-        feature.path,
-        state,
-        "implementation",
-    )
     stage, next_action, requires_human, blockers = _stage_projection(
         graph,
         feature_id,
@@ -1402,12 +1362,10 @@ def _delivery_view(
         slices,
         stale_documents,
         normalized_lease,
-        current_configuration_requirements,
-        current_configuration_plan,
         required_rechecks,
     )
     if stage in {"final-review", "freeze-ready"}:
-        execution_blockers = final_execution_blockers(root, feature_id, state)
+        execution_blockers = final_execution_blockers(root, state)
         if execution_blockers:
             stage = "validation-recovery"
             next_action = None
@@ -1446,17 +1404,6 @@ def _delivery_view(
             },
             "modification_lease": lease_summary,
             "stale_documents": stale_documents,
-            "configuration": (
-                {
-                    "id": state["configuration"].get("id"),
-                    "requirements_status": current_configuration_requirements.get("status"),
-                    "plan_status": current_configuration_plan.get("status"),
-                }
-                if isinstance(state.get("configuration"), dict)
-                and current_configuration_requirements is not None
-                and current_configuration_plan is not None
-                else None
-            ),
         },
         "required_rechecks": list(required_rechecks),
     }
@@ -1514,7 +1461,6 @@ def _cold_read_role_view(
             "message": "冷读角色必须由主协调者声明当次允许材料。",
         })
 
-    feature = graph.features[feature_id]
     execution = _execution_state(context.state)
     slices = execution.get("slices")
     unresolved = [
@@ -1650,7 +1596,6 @@ def _design_review_role_view(
     if architecture_status == "reject":
         return None, ({"code": "DESIGN_REVISION_REQUIRED", "message": "当前设计已经被退回，必须先修改正式设计。"},)
 
-    feature = graph.features[feature_id]
     execution = _execution_state(context.state)
     slices = execution.get("slices")
     unresolved = [
@@ -2113,7 +2058,7 @@ def context_summary(
     if action not in CONTEXT_ACTIONS:
         raise ArchiveContextError("INVALID_CONTEXT_ACTION", f"上下文动作“{action}”不受支持。")
     if role is None:
-        raise ArchiveContextError("CONTEXT_ROLE_REQUIRED", "DLoop 3.0 上下文摘要必须显式声明角色。")
+        raise ArchiveContextError("CONTEXT_ROLE_REQUIRED", "DLoop 上下文摘要必须显式声明角色。")
     if role not in CONTEXT_ROLES:
         raise ArchiveContextError("INVALID_CONTEXT_ROLE", f"上下文角色“{role}”不受支持。")
     contract = ROLE_CONTRACTS[role]

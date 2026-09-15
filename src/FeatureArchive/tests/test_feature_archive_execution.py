@@ -35,6 +35,8 @@ except ModuleNotFoundError:
 
 
 class FeatureArchiveExecutionTests(FeatureArchiveCliTestCase):
+    real_snapshots = False
+
     def start_modification(self, package_id: str = "slice-1", execution_id: str = "exec-1"):
         package = self.write_package(package_id)
         return self.run_cli(

@@ -1,6 +1,6 @@
 {
   "name": "dloop",
-  "version": "3.7.4",
+  "version": "3.7.5",
   "description": "DLoop delivery workflow with an explicitly selected Unity UI planning configuration.",
   "author": {
     "name": "DLoop"
@@ -9,7 +9,7 @@
   "interface": {
     "displayName": "DLoop",
     "shortDescription": "Run DLoop or its explicit Unity UI planning configuration.",
-    "longDescription": "DLoop manages the delivery archive and approvals. The bundled DloopUI skill adds Unity UI planning gates only when explicitly selected.",
+    "longDescription": "DLoop manages the delivery archive and approvals. When explicitly selected, the bundled DloopUI skill completes interaction details during implementation and presents the delivery for final user acceptance.",
     "developerName": "DLoop",
     "category": "Productivity",
     "capabilities": ["Interactive", "Write"],

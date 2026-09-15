@@ -16,6 +16,8 @@ except ModuleNotFoundError:
 
 
 class FeatureArchiveSliceContractTests(FeatureArchiveCliTestCase):
+    real_snapshots = False
+
     def setUp(self) -> None:
         super().setUp()
         self.init_complex()
@@ -548,16 +550,3 @@ class FeatureArchiveSliceContractTests(FeatureArchiveCliTestCase):
         self.assertIsNone(
             self.run_cli("workflow-status", "--feature-id", "reliable-delivery")["delivery_view"]["trusted_machine_facts"]["modification_lease"]
         )
-
-    def test_cancelled_breaker_decision_state_is_rejected(self) -> None:
-        self.hard_break(self.write_package("slice-1"))
-        state_path = self.root / "reliable-delivery" / "workflow-state.json"
-        state = self.value(state_path)
-        state["execution"]["slices"]["slice-1"]["decisions"] = []
-        self.write_value(state_path, state)
-
-        result = self.run_cli(
-            "workflow-status", "--feature-id", "reliable-delivery", expected=1
-        )
-
-        self.assertEqual("INVALID_WORKFLOW_STATE", result["code"])

@@ -14,8 +14,6 @@ from archive_approvals import (
     _utc_now,
     _write_state,
     invalidate_final_approval,
-    approval_status_from_state,
-    is_ui_delivery,
 )
 from archive_configuration import require_configuration_task_materials
 from archive_delivery_materials import require_task_delivery
@@ -25,7 +23,6 @@ from archive_execution import (
     _execution_state,
     _require_ready_execution_inputs,
     find_slice_by_execution,
-    require_slice,
 )
 from archive_slice_contract import (
     BREAKER_ALLOWED_ACTIONS,
@@ -193,7 +190,6 @@ def _normalize_checkpoint(value: Mapping[str, object], contract: Mapping[str, ob
     validations = value.get("validation_results")
     if not isinstance(validations, list) or any(not isinstance(item, dict) for item in validations):
         raise ArchiveSliceFlowError("INVALID_CHECKPOINT", "验证结果必须是对象列表。")
-    normalized_validations = []
     by_method = {}
     for item in validations:
         if set(item) != {"method", "status", "evidence"}:

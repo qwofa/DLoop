@@ -37,14 +37,14 @@ class OnlineInstallationTests(unittest.TestCase):
     def tearDownClass(cls):
         cls.temporary.cleanup()
 
-    def install(self, target, *, failure=False, stdin=False, archive=None):
+    def install(self, target, *, failure=False, stdin=False):
         environment = os.environ.copy()
         environment.pop("FEATURE_ARCHIVE_INSTALL_FAIL_STEP", None)
         if failure:
             environment["FEATURE_ARCHIVE_INSTALL_FAIL_STEP"] = "after-lock"
         return subprocess.run(
             [sys.executable, "-" if stdin else str(ROOT / "install.py"),
-             "--archive", str(archive or self.archive)],
+             "--archive", str(self.archive)],
             input=(ROOT / "install.py").read_bytes() if stdin else None,
             cwd=target, capture_output=True, env=environment,
         )

@@ -830,19 +830,6 @@ def require_modification_lease(
     return state, lease
 
 
-def update_modification_lease(
-    root: Path,
-    feature_id: str,
-    package_id: str,
-    **updates: object,
-) -> Mapping[str, object]:
-    with workspace_state_lock(root):
-        state, lease = require_modification_lease(root, feature_id, package_id)
-        lease.update(updates)
-        _write_workspace_state(root, state)
-        return lease
-
-
 def release_modification_lease(
     root: Path,
     feature_id: str,
@@ -877,7 +864,6 @@ def current_workspace_guard_snapshot(lease: Mapping[str, object]) -> Mapping[str
 
 def final_execution_blockers(
     root: Path,
-    feature_id: str,
     state: Mapping[str, object],
 ) -> Tuple[Mapping[str, str], ...]:
     execution = state.get("execution")

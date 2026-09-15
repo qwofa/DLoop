@@ -118,6 +118,8 @@ class FeatureArchiveFrictionLogTests(unittest.TestCase):
 
 
 class FeatureArchiveFrictionCliTests(FeatureArchiveCliTestCase):
+    real_snapshots = False
+
     def test_failed_workflow_action_returns_a_structured_incident(self) -> None:
         result = self.run_cli(
             "init", "--feature-id", "INVALID", "--title", "非法标识",
