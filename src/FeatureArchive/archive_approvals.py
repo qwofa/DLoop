@@ -1,4 +1,4 @@
-"""DLoop 3.0 最小人工确认状态。"""
+"""DLoop 最小人工确认状态。"""
 
 from __future__ import annotations
 
@@ -94,7 +94,7 @@ def _require_complex_feature(
         ) from exception
     if manifest.get("workflow_profile") != STRICT_PROFILE:
         raise ArchiveApprovalError(
-            "WORKFLOW_NOT_ENABLED", f"交付项“{feature_id}”不属于 DLoop 3.0 严格合同。"
+            "WORKFLOW_NOT_ENABLED", f"交付项“{feature_id}”不属于 DLoop 严格合同。"
         )
     if require_writable and feature.lifecycle in {"frozen", "pending_cleanup"}:
         raise ArchiveApprovalError(
@@ -564,16 +564,6 @@ def _approval_record_status(
     saved = record.get("snapshot")
     if saved != current:
         return "stale"
-    if stage == "requirements" and record.get("decision") == "approve":
-        try:
-            feature = graph.features[feature_id]
-            require_configuration_checkpoint(
-                feature.path,
-                state,
-                "requirements",
-            )
-        except ArchiveConfigurationError:
-            return "stale"
     if stage == "final" and record.get("decision") == "approve":
         try:
             current_summary = accepted_candidate_summary(
@@ -676,8 +666,6 @@ def approve_stage(
             raise ArchiveApprovalError("UI_DELIVERY_OUTDATED", "最终验收与展示版本不一致，请展示当前交付页。")
     elif reviewed_digest is not None or user_confirmation is not None:
         raise ArchiveApprovalError("INVALID_UI_DELIVERY_APPROVAL", "展示确认依据只适用于 DloopUI 最终验收。")
-    if stage == "requirements" and decision == "approve":
-        require_configuration_checkpoint(feature.path, state, "requirements")
     approvals = state["approvals"]
     requirements_record = approvals.get("requirements")
     requirements_status = _approval_record_status(
@@ -707,7 +695,7 @@ def approve_stage(
 
         from archive_workspace import final_execution_blockers
 
-        blockers = final_execution_blockers(root, feature_id, state)
+        blockers = final_execution_blockers(root, state)
         if blockers:
             raise ArchiveApprovalError(
                 "FINAL_EXECUTION_BLOCKED",

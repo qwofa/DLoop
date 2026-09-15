@@ -46,7 +46,6 @@ class InstallationTests(unittest.TestCase):
         target: Path,
         *arguments: str,
         fail_step: str | None = None,
-        installer: Path = INSTALLER,
     ) -> subprocess.CompletedProcess[str]:
         environment = os.environ.copy()
         if fail_step is None:
@@ -60,7 +59,7 @@ class InstallationTests(unittest.TestCase):
                 "-ExecutionPolicy",
                 "Bypass",
                 "-File",
-                str(installer),
+                str(INSTALLER),
                 "-Target",
                 str(target),
                 *arguments,
@@ -196,7 +195,7 @@ class InstallationTests(unittest.TestCase):
             ui_help = subprocess.run(
                 [
                     sys.executable,
-                    str(target / ".agents/skills/dloop-ui/scripts/dloop_ui.py"),
+                    str(target / CORE_CLI),
                     "--help",
                 ],
                 check=False,
@@ -232,8 +231,6 @@ class InstallationTests(unittest.TestCase):
             for payload in REQUIRED_CONFIGURATION_PAYLOADS:
                 self.assertTrue((target / payload).is_file())
                 self.assertIn(payload.as_posix(), locked_paths)
-            self.assertNotIn("codexHook", lock)
-            self.assertNotIn("vcsExclude", lock)
             self.assertEqual(ignore_before, self._ignore(target))
 
     def test_missing_required_ignore_refuses_without_partial_config(self) -> None:

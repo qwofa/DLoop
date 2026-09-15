@@ -1,5 +1,15 @@
 # 安装与卸载
 
+## 源码安装
+
+当前版本为 v3.7.5（`frozen`），由 `v3.7.5` 标签固定。源码安装时，在隔离的 Git/SVN 项目中准备 `.scratch` 忽略规则，再从本版源码目录运行：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Target "D:\projects\test-project" -Version v3.7.5
+```
+
+同一命令追加 `-Verify` 校验，追加 `-Uninstall` 卸载。需要在线安装或 ZIP 安装时使用下文对应入口。
+
 ## 一行安装
 
 当前使用环境为 Windows、Python 3.10+、Codex、Unity MCP、Git 客户端和 Git/SVN 项目。Unity MCP 不限实现或版本；首次使用先按[依赖与连接说明](dependencies.md)准备环境，确认 Codex 能访问当前项目的编辑器。SVN 项目也需要 Git 来保存本地阶段快照。
@@ -10,23 +20,17 @@
 irm https://raw.githubusercontent.com/qwofa/DLoop/main/install.py -ErrorAction Stop | python -
 ```
 
-当前发行版为 v3.7.4，状态为 `frozen`，下载源码由 `v3.7.4` 标签固定。直接使用本版源码安装时，请预先为项目配置 `.scratch` 忽略规则，再在源码目录执行 `powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Target "D:\projects\my-project" -Version v3.7.4`；验证可追加 `-Verify`。模板随共享工具一起安装。
+一行入口固定下载 `v3.7.5` 标签对应的源码包。模板随共享工具一起安装；本地源码安装可使用上文命令。
 
 ## 本地或离线安装
 
-在源码目录执行在线下载入口：
+在本版源码目录使用当前源码 ZIP 安装：
 
 ```powershell
-python install.py --target "D:\projects\my-project"
+python install.py --target "D:\projects\my-project" --archive "D:\downloads\DLoop-3.7.5.zip"
 ```
 
-此方式需要下载 v3.7.4 标签源码。已有本版源码 ZIP 时可完全使用本地文件：
-
-```powershell
-python install.py --target "D:\projects\my-project" --archive "D:\downloads\DLoop-3.7.4.zip"
-```
-
-ZIP 使用 GitHub 标签源码包布局。可下载 [v3.7.4 标签源码包](https://github.com/qwofa/DLoop/archive/refs/tags/v3.7.4.zip)，或通过 `git archive --format=zip --prefix=DLoop-3.7.4/ --output=DLoop-3.7.4.zip v3.7.4` 生成；该命令不包含未提交改动。不要把任意旧版本 ZIP 用于当前入口。
+ZIP 使用带顶层目录的源码包布局。将本版修改提交后，可用 `git archive --format=zip --prefix=DLoop-3.7.5/ --output=DLoop-3.7.5.zip HEAD` 生成；该命令不包含未提交改动。存在未提交修改时使用上文的源码安装。不要用旧标签或其他版本的 ZIP 替代当前源码。
 
 安装完成会显示 `DLoop installed and verified.`，接着在目标项目的 Codex 中使用 `$dloop` 或 `$dloop-ui`。
 
@@ -40,7 +44,7 @@ ZIP 使用 GitHub 标签源码包布局。可下载 [v3.7.4 标签源码包](htt
 
 Git 忽略规则可能成为一项本地改动；入口不暂存或提交它。安装不会替你配置 Codex 或 Unity MCP。
 
-入口采用 v3.7.4 安装器：支持全新安装和同版本重装；其他版本已安装时拒绝覆盖。重复安装保留已有忽略内容，不重复添加规则。
+入口采用 v3.7.5 安装器：支持全新安装和同版本重装；其他版本已安装时拒绝覆盖。重复安装保留已有忽略内容，不重复添加规则。
 
 ## 常见问题
 
@@ -65,13 +69,13 @@ Git 忽略规则可能成为一项本地改动；入口不暂存或提交它。�
 取得并解压对应版本的 DLoop 源码，在该源码目录运行：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Target "D:\projects\my-project" -Version v3.7.4 -Verify
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Target "D:\projects\my-project" -Version v3.7.5 -Verify
 ```
 
 卸载：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Target "D:\projects\my-project" -Version v3.7.4 -Uninstall
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Target "D:\projects\my-project" -Version v3.7.5 -Uninstall
 ```
 
 卸载移除本版管理的 Skill、工具和截图包，保留交付档案与项目忽略规则。受管文件被修改或无法确认归属时会停止并说明原因。

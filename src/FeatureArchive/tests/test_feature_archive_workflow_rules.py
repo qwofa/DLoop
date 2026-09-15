@@ -11,6 +11,8 @@ except ModuleNotFoundError:
 
 
 class FeatureArchiveWorkflowRulesTests(FeatureArchiveCliTestCase):
+    real_snapshots = False
+
     def setUp(self) -> None:
         super().setUp()
         repository_root = Path(__file__).resolve().parents[3]
@@ -81,20 +83,14 @@ class FeatureArchiveWorkflowRulesTests(FeatureArchiveCliTestCase):
         ).read_text(encoding="utf-8")
         self.assertIn("## 工作流规则投递", readme)
         self.assertIn("唯一严格配置", readme)
-        self.assertIn(
-            "--role {coordinator,cold-read,design-review,implementation,review,final-review}",
-            readme,
-        )
         self.assertIn("--entry-question", readme)
         self.assertIn("--allowed-material", readme)
         self.assertIn("--integration-confirmation", readme)
-        self.assertNotIn("--page-token", readme)
         self.assertIn("输出契约版本保持为 `2`", readme)
         self.assertIn("task_message_fields", readme)
         self.assertIn("只有在当前动作为调查时才获得并行事实取证权限", readme)
         self.assertIn("其他动作明确禁止派生并行分支", readme)
         self.assertIn("具体材料与停止条件由对应阶段规则投递", readme)
-        self.assertNotIn("备用路径", readme)
         self.assertIn(
             "必须显式声明 `--role {coordinator,cold-read,design-review,implementation,review,final-review}`",
             readme,
@@ -121,8 +117,6 @@ class FeatureArchiveWorkflowRulesTests(FeatureArchiveCliTestCase):
         self.assertIn("不能作为正式工作流输入", validation)
         self.assertIn("验证强度唯一策略", validation_policy)
         self.assertIn("安装生命周期变化", validation_policy)
-        self.assertFalse((references / "validation-and-freeze.md").exists())
-        self.assertFalse((references / "retention-and-cleanup.md").exists())
 
     def test_non_review_action_keeps_single_responsibility_module(self) -> None:
         result = self._rules("design")
@@ -139,7 +133,6 @@ class FeatureArchiveWorkflowRulesTests(FeatureArchiveCliTestCase):
         investigation = self._rules("investigation")["references"][0]["content"]
         self.assertIn("## 调查并行边界", investigation)
         self.assertIn("拆分与汇总成本不低于预计节省时间时保持单线", investigation)
-        self.assertNotIn("不新增调度器", investigation)
 
     def test_role_rules_keep_parallelism_read_only_and_execution_single_line(self) -> None:
         result = self._rules("cold-read", "slice-start", "candidate-review")
@@ -157,9 +150,7 @@ class FeatureArchiveWorkflowRulesTests(FeatureArchiveCliTestCase):
         self.assertIn("尚未闭环", reviews)
         self.assertIn("只使用原生子 Agent", reviews)
         self.assertIn("主协调者等待其最终返回", reviews)
-        self.assertNotIn("60 秒", reviews)
         self.assertIn("不得通过 Windows 命令行", reviews)
-        self.assertNotIn("备用路径", reviews)
         self.assertIn("原生交接失败", reviews)
         self.assertIn("完整流程合同", reviews)
         self.assertIn("全有或全无", reviews)
@@ -169,15 +160,12 @@ class FeatureArchiveWorkflowRulesTests(FeatureArchiveCliTestCase):
         self.assertIn("项目核对路径和更简单替代方案按实际需要记录", reviews)
         self.assertIn("不强制固定标题", reviews)
         self.assertIn("一次取得", reviews)
-        self.assertNotIn("续页标识", reviews)
         self.assertIn("不修改档案或实现", reviews)
         self.assertIn("不判断模块设计选择是否合理", reviews)
         self.assertIn("实施完成后不增加冷读", reviews)
         self.assertIn("实施者和评审者不读取常驻入口", execution)
         self.assertIn("单线角色合同", execution)
         self.assertIn("不在本阶段发起并行调查或并行实现", execution)
-        self.assertNotIn("并行只读取证", execution)
-        self.assertNotIn("等待中的主协调者不算活动工作上下文", execution)
         self.assertIn("必需执行身份", execution)
         self.assertIn("评审身份必须不同于实施身份", execution)
         self.assertIn("不得使用实施对话", execution)

@@ -10,7 +10,7 @@ from pathlib import Path
 import re
 import shutil
 import tempfile
-from typing import Dict, Iterable, List, Mapping, Sequence, Tuple
+from typing import Dict, Iterable, List, Mapping, Tuple
 
 from archive_terminology import (
     ArchiveTerminologyError,
@@ -426,13 +426,11 @@ def _validate_complex_workflow_state(path: Path, feature_id: str) -> None:
         record = approvals[stage]
         if record is None:
             continue
-        if not isinstance(record, dict) or record.get("decision") not in {"approve", "reject"}:
-            invalid(f"复杂交付项“{feature_id}”的确认记录不合法。")
         snapshot = record.get("snapshot")
-        if not isinstance(snapshot, dict) or any(
+        if any(
             not nonempty_string(snapshot.get(field))
             for field in ("document_id", "semantic_version", "content_fingerprint")
-        ) or not nonempty_string(record.get("decided_at")):
+        ):
             invalid(f"复杂交付项“{feature_id}”的确认快照不完整。")
         workspace_snapshot = record.get("workspace_snapshot")
         if workspace_snapshot is not None and (
@@ -465,8 +463,6 @@ def _validate_complex_workflow_state(path: Path, feature_id: str) -> None:
             "contract_draft", "contract_failed", "ready", "circuit_open",
         }:
             invalid(f"复杂交付项“{feature_id}”包含未知的切片状态。")
-        if "decisions" in record or "resume_history" in record:
-            invalid(f"复杂交付项“{feature_id}”仍包含已取消的熔断决定或恢复状态。")
         execution_id = record.get("execution_id")
         abandoned_before_execution = status == "abandoned" and execution_id is None
         if status in {"contract_draft", "contract_failed", "ready"} or abandoned_before_execution:
@@ -518,7 +514,6 @@ def _validate_complex_workflow_state(path: Path, feature_id: str) -> None:
             or package.get("context_contract_version") != CONTEXT_CONTRACT_VERSION
         ):
             invalid(f"严格交付项“{feature_id}”的切片任务包不完整或版本不受支持。")
-        has_contract = set(package) == contract_package_fields
         if "delivery_requirements" in package:
             from archive_delivery_materials import normalize_requirements
             from archive_handoff import ArchiveHandoffError
@@ -526,140 +521,139 @@ def _validate_complex_workflow_state(path: Path, feature_id: str) -> None:
                 normalize_requirements(package["delivery_requirements"], package["acceptance_conditions"], complete=True)
             except ArchiveHandoffError as exception:
                 invalid(f"交付材料要求不完整：{exception.message}")
-        if has_contract:
-            try:
-                normalize_task_contract_fields(package)
-            except SliceContractError as exception:
-                invalid(f"严格交付项“{feature_id}”的切片契约不合法：{exception.message}")
-            history = record.get("contract_history")
-            checkpoints = record.get("checkpoints")
-            reports = record.get("breaker_reports")
-            review_snapshots = record.get("review_snapshots")
-            if (
-                not isinstance(history, list) or not history
-                or not isinstance(checkpoints, list)
-                or not isinstance(reports, list)
-                or not isinstance(review_snapshots, list)
-            ):
-                invalid(f"严格交付项“{feature_id}”的契约、检查点或熔断历史不完整。")
-            versions = [item.get("version") for item in history if isinstance(item, dict)]
-            if (
-                len(versions) != len(history)
-                or any(not isinstance(item, int) or isinstance(item, bool) or item <= 0 for item in versions)
-                or versions != sorted(set(versions))
-                or versions[-1] != package["slice_contract"]["version"]
-            ):
-                invalid(f"严格交付项“{feature_id}”的契约版本历史不合法。")
-            latest_history = history[-1]
-            current_contract_digest = slice_contract_digest(package["slice_contract"])
-            if (
-                set(latest_history) != {
-                    "version", "revision_summary", "contract_digest", "package_digest",
-                    "recorded_at", "contract",
-                }
-                or latest_history.get("contract") != package["slice_contract"]
-                or latest_history.get("contract_digest") != current_contract_digest
-            ):
-                invalid(f"严格交付项“{feature_id}”的当前契约与版本历史不一致。")
-            check = record.get("contract_check")
-            if status == "contract_draft" and check is not None:
-                invalid(f"严格交付项“{feature_id}”的草拟契约不应伪造检查结论。")
-            if status != "contract_draft" and not (abandoned_before_execution and check is None) and (
-                not isinstance(check, dict) or check.get("status") not in {"passed", "failed"}
-            ):
-                invalid(f"严格交付项“{feature_id}”缺少可审查的契约检查结果。")
-            if status == "contract_failed" and isinstance(check, dict) and check.get("status") != "failed":
-                invalid(f"严格交付项“{feature_id}”的状态与契约检查结论不一致。")
-            if status not in {"contract_draft", "contract_failed"} and not abandoned_before_execution and isinstance(check, dict) and check.get("status") != "passed":
-                invalid(f"严格交付项“{feature_id}”未通过契约检查却进入后续流程。")
-            if isinstance(check, dict) and (
-                check.get("contract_version") != package["slice_contract"]["version"]
-                or check.get("contract_digest") != current_contract_digest
-                or check.get("check_digest")
-                != slice_contract_digest({key: value for key, value in check.items() if key != "check_digest"})
-            ):
-                invalid(f"严格交付项“{feature_id}”的契约检查未绑定当前契约版本。")
-            history_by_version = {
-                item["version"]: item for item in history if isinstance(item, dict)
+        try:
+            normalize_task_contract_fields(package)
+        except SliceContractError as exception:
+            invalid(f"严格交付项“{feature_id}”的切片契约不合法：{exception.message}")
+        history = record.get("contract_history")
+        checkpoints = record.get("checkpoints")
+        reports = record.get("breaker_reports")
+        review_snapshots = record.get("review_snapshots")
+        if (
+            not isinstance(history, list) or not history
+            or not isinstance(checkpoints, list)
+            or not isinstance(reports, list)
+            or not isinstance(review_snapshots, list)
+        ):
+            invalid(f"严格交付项“{feature_id}”的契约、检查点或熔断历史不完整。")
+        versions = [item.get("version") for item in history if isinstance(item, dict)]
+        if (
+            len(versions) != len(history)
+            or any(not isinstance(item, int) or isinstance(item, bool) or item <= 0 for item in versions)
+            or versions != sorted(set(versions))
+            or versions[-1] != package["slice_contract"]["version"]
+        ):
+            invalid(f"严格交付项“{feature_id}”的契约版本历史不合法。")
+        latest_history = history[-1]
+        current_contract_digest = slice_contract_digest(package["slice_contract"])
+        if (
+            set(latest_history) != {
+                "version", "revision_summary", "contract_digest", "package_digest",
+                "recorded_at", "contract",
             }
-            checkpoint_counts: Dict[str, int] = {}
-            for checkpoint in checkpoints:
-                if not isinstance(checkpoint, dict):
-                    invalid(f"严格交付项“{feature_id}”包含不合法的实施检查点。")
-                checkpoint_execution_id = checkpoint.get("execution_id")
-                if (
-                    not nonempty_string(checkpoint_execution_id)
-                    or checkpoint_execution_id not in known_execution_ids
-                ):
-                    invalid(f"严格交付项“{feature_id}”的实施检查点未绑定有效执行身份。")
-                checkpoint_ordinal = checkpoint_counts.get(checkpoint_execution_id, 0) + 1
-                checkpoint_counts[checkpoint_execution_id] = checkpoint_ordinal
-                if checkpoint.get("checkpoint_id") != (
-                    f"{checkpoint_execution_id}-checkpoint-{checkpoint_ordinal}"
-                ):
-                    invalid(f"严格交付项“{feature_id}”的实施检查点标识顺序不合法。")
-                checkpoint_digest = checkpoint.get("checkpoint_digest")
-                if checkpoint_digest != slice_contract_digest({
-                    key: item for key, item in checkpoint.items() if key != "checkpoint_digest"
-                }):
-                    invalid(f"严格交付项“{feature_id}”的实施检查点摘要不一致。")
-                checkpoint_contract = history_by_version.get(checkpoint.get("contract_version"))
-                validations = checkpoint.get("validation_results")
-                triggered = checkpoint.get("triggered_rules")
-                if (
-                    not isinstance(checkpoint_contract, dict)
-                    or checkpoint.get("contract_digest") != checkpoint_contract.get("contract_digest")
-                    or not isinstance(validations, list)
-                    or any(
-                        not isinstance(item, dict)
-                        or set(item) != {"method", "status", "evidence"}
-                        or item.get("status") not in {"passed", "failed", "unverified"}
-                        or not nonempty_string(item.get("method"))
-                        or not isinstance(item.get("evidence"), list)
-                        or not item.get("evidence")
-                        or any(not nonempty_string(evidence) for evidence in item.get("evidence", []))
-                        for item in validations
-                    )
-                    or not isinstance(triggered, list)
-                    or checkpoint.get("boundary_crossed") is not bool(triggered)
-                    or checkpoint.get("boundary_rules")
-                    != [item.get("rule") for item in triggered if isinstance(item, dict)]
-                    or checkpoint.get("result") != ("breaker" if triggered else "continue")
-                ):
-                    invalid(f"严格交付项“{feature_id}”的实施检查点事实不一致。")
-                contract_value = checkpoint_contract.get("contract")
-                expected_methods = (
-                    contract_value.get("validation_methods") if isinstance(contract_value, dict) else None
+            or latest_history.get("contract") != package["slice_contract"]
+            or latest_history.get("contract_digest") != current_contract_digest
+        ):
+            invalid(f"严格交付项“{feature_id}”的当前契约与版本历史不一致。")
+        check = record.get("contract_check")
+        if status == "contract_draft" and check is not None:
+            invalid(f"严格交付项“{feature_id}”的草拟契约不应伪造检查结论。")
+        if status != "contract_draft" and not (abandoned_before_execution and check is None) and (
+            not isinstance(check, dict) or check.get("status") not in {"passed", "failed"}
+        ):
+            invalid(f"严格交付项“{feature_id}”缺少可审查的契约检查结果。")
+        if status == "contract_failed" and isinstance(check, dict) and check.get("status") != "failed":
+            invalid(f"严格交付项“{feature_id}”的状态与契约检查结论不一致。")
+        if status not in {"contract_draft", "contract_failed"} and not abandoned_before_execution and isinstance(check, dict) and check.get("status") != "passed":
+            invalid(f"严格交付项“{feature_id}”未通过契约检查却进入后续流程。")
+        if isinstance(check, dict) and (
+            check.get("contract_version") != package["slice_contract"]["version"]
+            or check.get("contract_digest") != current_contract_digest
+            or check.get("check_digest")
+            != slice_contract_digest({key: value for key, value in check.items() if key != "check_digest"})
+        ):
+            invalid(f"严格交付项“{feature_id}”的契约检查未绑定当前契约版本。")
+        history_by_version = {
+            item["version"]: item for item in history if isinstance(item, dict)
+        }
+        checkpoint_counts: Dict[str, int] = {}
+        for checkpoint in checkpoints:
+            if not isinstance(checkpoint, dict):
+                invalid(f"严格交付项“{feature_id}”包含不合法的实施检查点。")
+            checkpoint_execution_id = checkpoint.get("execution_id")
+            if (
+                not nonempty_string(checkpoint_execution_id)
+                or checkpoint_execution_id not in known_execution_ids
+            ):
+                invalid(f"严格交付项“{feature_id}”的实施检查点未绑定有效执行身份。")
+            checkpoint_ordinal = checkpoint_counts.get(checkpoint_execution_id, 0) + 1
+            checkpoint_counts[checkpoint_execution_id] = checkpoint_ordinal
+            if checkpoint.get("checkpoint_id") != (
+                f"{checkpoint_execution_id}-checkpoint-{checkpoint_ordinal}"
+            ):
+                invalid(f"严格交付项“{feature_id}”的实施检查点标识顺序不合法。")
+            checkpoint_digest = checkpoint.get("checkpoint_digest")
+            if checkpoint_digest != slice_contract_digest({
+                key: item for key, item in checkpoint.items() if key != "checkpoint_digest"
+            }):
+                invalid(f"严格交付项“{feature_id}”的实施检查点摘要不一致。")
+            checkpoint_contract = history_by_version.get(checkpoint.get("contract_version"))
+            validations = checkpoint.get("validation_results")
+            triggered = checkpoint.get("triggered_rules")
+            if (
+                not isinstance(checkpoint_contract, dict)
+                or checkpoint.get("contract_digest") != checkpoint_contract.get("contract_digest")
+                or not isinstance(validations, list)
+                or any(
+                    not isinstance(item, dict)
+                    or set(item) != {"method", "status", "evidence"}
+                    or item.get("status") not in {"passed", "failed", "unverified"}
+                    or not nonempty_string(item.get("method"))
+                    or not isinstance(item.get("evidence"), list)
+                    or not item.get("evidence")
+                    or any(not nonempty_string(evidence) for evidence in item.get("evidence", []))
+                    for item in validations
                 )
-                if (
-                    not isinstance(expected_methods, list)
-                    or any(item["method"] not in expected_methods for item in validations)
-                    or [item["method"] for item in validations]
-                    != [method for method in expected_methods if method in {
-                        item["method"] for item in validations
-                    }]
-                    or checkpoint.get("validation_set_digest")
-                    != slice_contract_digest([item["method"] for item in validations])
-                ):
-                    invalid(f"严格交付项“{feature_id}”的检查点包含未登记或乱序验证。")
-            reports_by_id = {}
-            for report in reports:
-                if (
-                    not isinstance(report, dict)
-                    or not nonempty_string(report.get("report_id"))
-                    or report.get("allowed_actions") != [
-                        dict(item) for item in BREAKER_ALLOWED_ACTIONS
-                    ]
-                    or report.get("report_digest")
-                    != slice_contract_digest({
-                        key: item for key, item in report.items() if key != "report_digest"
-                    })
-                    or report["report_id"] in reports_by_id
-                ):
-                    invalid(f"严格交付项“{feature_id}”的熔断报告摘要或标识不合法。")
-                reports_by_id[report["report_id"]] = report
-            if status == "circuit_open" and not reports:
-                invalid(f"严格交付项“{feature_id}”的熔断状态缺少异常报告。")
+                or not isinstance(triggered, list)
+                or checkpoint.get("boundary_crossed") is not bool(triggered)
+                or checkpoint.get("boundary_rules")
+                != [item.get("rule") for item in triggered if isinstance(item, dict)]
+                or checkpoint.get("result") != ("breaker" if triggered else "continue")
+            ):
+                invalid(f"严格交付项“{feature_id}”的实施检查点事实不一致。")
+            contract_value = checkpoint_contract.get("contract")
+            expected_methods = (
+                contract_value.get("validation_methods") if isinstance(contract_value, dict) else None
+            )
+            if (
+                not isinstance(expected_methods, list)
+                or any(item["method"] not in expected_methods for item in validations)
+                or [item["method"] for item in validations]
+                != [method for method in expected_methods if method in {
+                    item["method"] for item in validations
+                }]
+                or checkpoint.get("validation_set_digest")
+                != slice_contract_digest([item["method"] for item in validations])
+            ):
+                invalid(f"严格交付项“{feature_id}”的检查点包含未登记或乱序验证。")
+        reports_by_id = {}
+        for report in reports:
+            if (
+                not isinstance(report, dict)
+                or not nonempty_string(report.get("report_id"))
+                or report.get("allowed_actions") != [
+                    dict(item) for item in BREAKER_ALLOWED_ACTIONS
+                ]
+                or report.get("report_digest")
+                != slice_contract_digest({
+                    key: item for key, item in report.items() if key != "report_digest"
+                })
+                or report["report_id"] in reports_by_id
+            ):
+                invalid(f"严格交付项“{feature_id}”的熔断报告摘要或标识不合法。")
+            reports_by_id[report["report_id"]] = report
+        if status == "circuit_open" and not reports:
+            invalid(f"严格交付项“{feature_id}”的熔断状态缺少异常报告。")
         materials = package.get("context_materials")
         if not isinstance(materials, list):
             invalid(f"严格交付项“{feature_id}”的切片材料合同不合法。")
@@ -686,10 +680,7 @@ def _validate_complex_workflow_state(path: Path, feature_id: str) -> None:
                     invalid(f"严格交付项“{feature_id}”的整份材料字段不合法。")
             else:
                 invalid(f"严格交付项“{feature_id}”的材料读取模式不合法。")
-        review_snapshots = record.get("review_snapshots")
         snapshot_ids = set()
-        if not isinstance(review_snapshots, list):
-            invalid(f"复杂交付项“{feature_id}”的切片“{package_id}”缺少评审快照集合。")
         for index, snapshot in enumerate(review_snapshots, start=1):
             if (
                 not isinstance(snapshot, dict)

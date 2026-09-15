@@ -49,23 +49,6 @@ class FeatureArchiveTerminologyTests(unittest.TestCase):
         self.assertEqual(0, result.returncode, result.stderr)
         return root / feature_id
 
-    def _init_complex(
-        self,
-        root: Path,
-        feature_id: str = "reliable-delivery",
-        title: str = "可靠交付",
-    ) -> Path:
-        result = self._run(
-            "init",
-            root,
-            "--feature-id",
-            feature_id,
-            "--title",
-            title,
-        )
-        self.assertEqual(0, result.returncode, result.stderr)
-        return root / feature_id
-
     @staticmethod
     def _replace_front_matter(
         path: Path,

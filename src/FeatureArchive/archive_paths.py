@@ -16,8 +16,6 @@ WORKFLOW_ARTIFACT_DIRECTORIES: Mapping[str, Path] = {
     "plan_file": Path("04-plan"),
     "package_file": Path("05-implementation"),
     "checkpoint_file": Path("05-implementation"),
-    "decision_file": Path("05-implementation"),
-    "recovery_file": Path("05-implementation"),
     "candidate_file": Path("05-implementation"),
     "issues_file": Path("05-implementation"),
     "verification_file": Path("06-validation"),

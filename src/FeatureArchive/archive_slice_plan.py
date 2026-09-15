@@ -9,7 +9,6 @@ from typing import Dict, Mapping, MutableMapping, Sequence
 
 
 PLAN_SCHEMA_VERSION = 1
-RELATION_TYPES = ("prerequisite", "replacement")
 
 
 class SlicePlanError(Exception):

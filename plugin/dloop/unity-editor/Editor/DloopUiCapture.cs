@@ -37,8 +37,8 @@ namespace Dloop.Editor
         private sealed class CaptureManifest
         {
             public int schema_version = CaptureSchemaVersion;
-            public PrefabCapture[] prefabs = Array.Empty<PrefabCapture>();
-            public CaptureError[] errors = Array.Empty<CaptureError>();
+            public PrefabCapture[] prefabs;
+            public CaptureError[] errors;
         }
 
         [Serializable]
@@ -388,8 +388,7 @@ namespace Dloop.Editor
             {
                 return false;
             }
-            if (graphic != null
-                && (!graphic.enabled || graphic.color.a <= 0.001f))
+            if (!graphic.enabled || graphic.color.a <= 0.001f)
             {
                 return false;
             }

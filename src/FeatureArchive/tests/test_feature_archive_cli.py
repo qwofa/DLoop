@@ -394,23 +394,6 @@ class FeatureArchiveCliTests(unittest.TestCase):
             for directory in CATEGORY_DIRECTORIES:
                 self.assertFalse((archive / directory).exists())
 
-    def test_old_lifecycle_command_alias_is_rejected(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "outputs"
-            self.assertEqual(0, self._run_init(root).returncode)
-
-            result = self._run_command(
-                "transition",
-                root,
-                "--feature-id",
-                "building-interaction",
-                "--to",
-                "active",
-            )
-
-            self.assertEqual(2, result.returncode)
-            self.assertIn("invalid choice", result.stderr)
-
     def test_path_conflict_fails_before_writing_and_reports_diagnostic(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "outputs"

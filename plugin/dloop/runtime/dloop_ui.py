@@ -3,15 +3,12 @@
 
 from __future__ import annotations
 
-import argparse
 import base64
 import hashlib
-import html
 import json
 import os
 import re
 import subprocess
-import sys
 import tempfile
 from collections import defaultdict
 from pathlib import Path
@@ -22,7 +19,7 @@ SCHEMA_VERSION = 4
 BRIEF_INPUT_VERSION = 1
 REVIEW_INPUT_VERSION = 1
 CAPTURE_SCHEMA_VERSION = 1
-STAGES = ("requirements", "investigation", "design", "plan", "validation")
+STAGES = ("requirements", "investigation", "plan")
 COUNT_FIELDS = (
     "requirements",
     "matched_prefabs",
@@ -485,7 +482,7 @@ def _upsert_skip(
     searched_paths: Iterable[str] = (),
     prefab_id: str = "",
     candidates: Iterable[str] = (),
-) -> dict[str, Any]:
+) -> None:
     identity_key = _skip_identity(requirement_id, reason, target_hint)
     value = next(
         (
@@ -516,7 +513,6 @@ def _upsert_skip(
             "prefab_id": prefab_id,
         }
     )
-    return value
 
 
 def prepare_capture_request(
@@ -743,8 +739,6 @@ def import_capture(
             continue
         prefab_id = str(raw_prefab.get("prefab_id", "")).strip()
         prefab = prefabs.get(prefab_id)
-        if not prefab_id and annotation.get("target", {}).get("unavailable_reason"):
-            prefab = {"requirement_ids": annotation.get("requirement_ids", [])}
         if prefab is None:
             problems.append(
                 issue(
@@ -1564,7 +1558,6 @@ def apply_review_snapshot(
         if isinstance(item, dict) and item.get("reason") != "target-not-visible"
     ]
     seen_identity_keys: set[str] = set()
-    outcome_kinds: dict[tuple[str, str], set[str]] = defaultdict(set)
 
     for index, raw_outcome in enumerate(raw_outcomes, start=1):
         if not isinstance(raw_outcome, dict):
@@ -1626,9 +1619,6 @@ def apply_review_snapshot(
                 "DLOOP_UI_INPUT_INVALID",
                 f"标注需求不属于指定 Prefab：{prefab_path}",
             )
-        for requirement_id in requirement_ids:
-            scope = (requirement_id, str(prefab.get("id", "")))
-            outcome_kinds[scope].add(str(result))
         if result == "target-not-visible":
             detail = _required_text(outcome.get("detail"), "目标不可见说明")
             for requirement_id in requirement_ids:
@@ -1642,11 +1632,6 @@ def apply_review_snapshot(
                     str(prefab.get("id", "")),
                 )
             continue
-        if result not in ANNOTATION_DISPOSITIONS:
-            raise DloopUiError(
-                "DLOOP_UI_INPUT_INVALID",
-                f"标注 {identity_key} 的 result 必须是 change、reuse 或 target-not-visible。",
-            )
         inference_level = outcome.get("inference_level")
         confidence = outcome.get("confidence")
         if inference_level not in INFERENCE_LEVELS or confidence not in CONFIDENCE_LEVELS:
@@ -2027,7 +2012,7 @@ def validate_model(
                 )
             )
 
-    capture_required = stage in {"investigation", "design", "plan", "validation"}
+    capture_required = stage in {"investigation", "plan"}
     for prefab_id, prefab in prefabs.items():
         if stage == "requirements":
             continue
@@ -2172,7 +2157,7 @@ def validate_model(
     requirement_annotations: dict[str, list[str]] = defaultdict(list)
     annotated_scopes: set[tuple[str, str]] = set()
     for annotation_id, annotation in annotations.items():
-        if stage not in {"design", "plan", "validation"}:
+        if stage != "plan":
             continue
         prefab_id = str(annotation.get("prefab_id", ""))
         prefab = prefabs.get(prefab_id)
@@ -2375,7 +2360,7 @@ def validate_model(
             )
         )
 
-    if stage in {"design", "plan", "validation"}:
+    if stage == "plan":
         successful_scopes = {
             (str(requirement_id), prefab_id)
             for prefab_id, prefab in prefabs.items()
@@ -2453,8 +2438,7 @@ def annotation_media_relative_path(prefab_id: str) -> Path:
     return Path("04-plan") / "ui-annotations" / f"{prefab_id}-annotated.svg"
 
 
-def render_views(model: dict[str, Any], report: dict[str, Any], feature_path: Path | None = None,
-                 project_root: Path | None = None) -> dict[str, str]:
+def render_views(model: dict[str, Any], report: dict[str, Any], feature_path: Path | None = None) -> dict[str, str]:
     pages = _presentation_pages(model, feature_path or Path.cwd())
     lines = ["# UI 交互说明", "", "[打开统一交互查看页](../06-validation/ui-delivery.html)", "",
              "交付核对材料" if model.get("delivery_review") else "内部草稿：交互随实施补全，不要求前置人工批准。",
@@ -2532,11 +2516,6 @@ def validate_annotation_media(
             )
 
     return problems
-
-
-def _wrap_label(value: str, width: int = 26) -> list[str]:
-    text = value.strip()
-    return [text[index : index + width] for index in range(0, len(text), width)] or [""]
 
 
 def render_annotation_media(model: dict[str, Any], feature_path: Path) -> dict[str, str]:
@@ -2701,7 +2680,7 @@ def _presentation_pages(model: dict[str, Any], feature_path: Path) -> list[dict[
                         elements[key]["roles"].append(element["role"])
             item["elements"] = list(elements.values())
             if len(item["operations"]) > 1:
-                for field in ("conditions", "action", "feedback", "expected", "detail", "instruction"):
+                for field in ("conditions", "action", "feedback", "expected", "instruction"):
                     item[field] = "\n".join(op["title"] + "：" + op[field] for op in item["operations"])
                 item["location_note"] = "\n".join(op["title"] + "：" + op["location_note"] for op in item["operations"] if op["location_note"])
                 item["sources"] = list(dict.fromkeys(source for op in item["operations"] for source in op["sources"]))
@@ -2711,35 +2690,10 @@ def _presentation_pages(model: dict[str, Any], feature_path: Path) -> list[dict[
 
 def render_delivery_html(model: dict[str, Any], feature_path: Path) -> str:
     template = Path(__file__).with_name("templates") / "ui-delivery.html"
-    data = {"title": model["feature"]["title"], "pages": _presentation_pages(model, feature_path),
-            "review": model.get("delivery_review"), "skips": model["skips"]}
+    data = {"title": model["feature"]["title"], "pages": _presentation_pages(model, feature_path)}
     payload = json.dumps(data, ensure_ascii=False).replace("<", "\\u003c").replace("&", "\\u0026")
     return template.read_text(encoding="utf-8").replace("{{DELIVERY_DATA}}", payload)
 
 
 def _has_errors(problems: Iterable[dict[str, str]]) -> bool:
     return any(item.get("severity") == "error" for item in problems)
-
-
-def build_parser() -> argparse.ArgumentParser:
-    return argparse.ArgumentParser(
-        description=(
-            "DloopUI 内部运行时；业务调用请使用 feature_archive.py "
-            "ui-investigate 或 ui-publish。"
-        )
-    )
-
-
-def main(argv: list[str] | None = None) -> int:
-    if hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(encoding="utf-8")
-    parser = build_parser()
-    parser.parse_args(argv)
-    if argv is None and len(sys.argv) > 1:
-        return 0
-    parser.print_help()
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
