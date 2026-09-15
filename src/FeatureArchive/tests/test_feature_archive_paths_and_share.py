@@ -323,7 +323,7 @@ class InstalledPathContractTests(unittest.TestCase):
         )
 
         self.assertEqual("dloop-share-snapshot", manifest["kind"])
-        self.assertEqual("3.7.4", manifest["workflow_version"])
+        self.assertEqual("3.7.5", manifest["workflow_version"])
         self.assertRegex(exported["snapshot_id"], r"^\d{8}T\d{12}Z-[0-9a-f]{8}$")
         self.assertTrue(manifest["read_only"])
         self.assertFalse(manifest["executable"])
@@ -434,6 +434,8 @@ class InstalledPathContractTests(unittest.TestCase):
 
 
 class ShareConsistencyTests(FeatureArchiveCliTestCase):
+    real_snapshots = False
+
     def test_lifecycle_commit_waits_for_the_share_publication_lock(self) -> None:
         self.init_complex("share-publication-lock")
         commit_started = threading.Event()
@@ -556,6 +558,8 @@ class ShareConsistencyTests(FeatureArchiveCliTestCase):
 
 
 class RoleWriteTargetTests(FeatureArchiveCliTestCase):
+    real_snapshots = False
+
     def test_role_projection_returns_the_canonical_stage_overview_target(self) -> None:
         archive = self.init_complex("write-targets")
 

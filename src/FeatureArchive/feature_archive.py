@@ -109,7 +109,7 @@ from archive_paths import (
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="feature_archive",
-        description="初始化和维护 DLoop 3.0 功能交付档案。",
+        description="初始化和维护 DLoop 功能交付档案。",
         allow_abbrev=False,
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -145,7 +145,7 @@ def _build_parser() -> argparse.ArgumentParser:
             snapshot_parser.add_argument("--execute", action="store_true")
     svn_parser = subparsers.add_parser("sync-svn-changelist", help="将当前交付产物整理到同一本地 SVN 提交组。")
     svn_parser.add_argument("--feature-id", required=True)
-    init_parser = subparsers.add_parser("init", help="初始化 DLoop 3.0 严格功能交付档案。")
+    init_parser = subparsers.add_parser("init", help="初始化 DLoop 严格功能交付档案。")
     init_parser.add_argument(
         "--feature-id",
         required=True,
@@ -186,7 +186,7 @@ def _build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="已存在的本地 UTF-8 需求材料；网页先保存正文摘录后传文件路径，可重复传入。",
     )
-    validate_parser = subparsers.add_parser(
+    subparsers.add_parser(
         "validate",
         help="校验全部功能档案的结构和依赖图。",
     )
@@ -260,7 +260,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     stage_action_parser = subparsers.add_parser(
         "stage-action",
-        help="记录用户明确作出的需求、UI 交互、条件性架构或最终验收决定。",
+        help="记录用户明确作出的需求、条件性架构或最终验收决定。",
     )
     stage_action_parser.add_argument("--feature-id", required=True)
     stage_action_parser.add_argument("--stage", required=True, choices=APPROVAL_STAGES)
@@ -386,7 +386,7 @@ def _build_parser() -> argparse.ArgumentParser:
         required=True,
         help="需要审计的功能标识。",
     )
-    rebuild_parser = subparsers.add_parser(
+    subparsers.add_parser(
         "rebuild-indexes",
         help="校验后重建机器依赖索引和人工全局索引。",
     )
@@ -577,8 +577,6 @@ def _operation_target(arguments: argparse.Namespace) -> Mapping[str, object]:
         "issues_file",
         "verification_file",
         "checkpoint_file",
-        "decision_file",
-        "recovery_file",
         "integration_confirmation",
     )
     return {

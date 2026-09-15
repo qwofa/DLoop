@@ -16,8 +16,6 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $RequiredSvnIgnore = ".scratch"
-$ManagedSkillRelativeDirectories = @()
-$ManagedUnityPackageRelativeDirectories = @()
 $ManagedToolRelativeDirectory = "Tools\FeatureArchive"
 
 function Get-NormalizedVersion {
@@ -81,10 +79,6 @@ function Get-ReleaseVersionSupport {
                 "$($expectedBehaviors[$name])。"
             )
         }
-    }
-    return [PSCustomObject]@{
-        Mode = [string]$modeProperty.Value
-        Behaviors = $behaviors
     }
 }
 
@@ -218,7 +212,6 @@ function Get-PluginPayloadMappings {
         $identifiers[$identifier] = $true
         $destinations[$destination] = $true
         $mappings += [PSCustomObject]@{
-            Id = $identifier
             Kind = $kind
             SourceRoot = $sourceRoot
             DestinationRoot = $destination
@@ -300,7 +293,7 @@ function Find-SvnExecutable {
     if (Test-Path -LiteralPath $fallback -PathType Leaf) {
         return $fallback
     }
-    throw "未找到 SVN 客户端；当前发行版只支持 Windows SVN 项目。"
+    throw "未找到 SVN 客户端。"
 }
 
 function Test-PathWithin {
@@ -451,9 +444,7 @@ function Get-ValidatedLockPayload {
         }
         $seen[$relativePath] = $true
         $result += [PSCustomObject]@{
-            RelativePath = $relativePath
             Destination = $destination
-            Hash = $normalizedHash
         }
     }
     if ($result.Count -eq 0) {
@@ -493,13 +484,6 @@ function Invoke-Native {
 function Assert-WindowsSvnProject {
     param([Parameter(Mandatory = $true)][string]$TargetRoot)
 
-    if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
-        throw "当前发行版只支持 Windows SVN 项目。"
-    }
-    if (-not (Test-Path -LiteralPath $TargetRoot -PathType Container)) {
-        throw "目标项目不存在或不是目录：$TargetRoot"
-    }
-
     $svn = Find-SvnExecutable
     $info = Invoke-Native `
         -FilePath $svn `
@@ -521,11 +505,6 @@ function Assert-WindowsSvnProject {
     $ignoreLines = @($ignore.Stdout -split "\r?\n" | Where-Object { $_ -ne "" })
     if ($ignoreLines -notcontains $RequiredSvnIgnore) {
         throw "目标项目必须预先通过 svn:ignore 排除 .scratch；安装器不会修改该规则。"
-    }
-    return [PSCustomObject]@{
-        Svn = $svn
-        WorkingCopyRoot = $workingCopyRoot
-        Ignore = $ignore.Stdout
     }
 }
 
@@ -559,7 +538,7 @@ function Assert-WindowsVcsProject {
             return
         }
         if (Test-Path -LiteralPath (Join-Path $directory.FullName ".svn") -PathType Container) {
-            $null = Assert-WindowsSvnProject -TargetRoot $TargetRoot
+            Assert-WindowsSvnProject -TargetRoot $TargetRoot
             return
         }
         $directory = $directory.Parent
@@ -819,8 +798,7 @@ function Remove-SupportedManagedState {
         [Parameter(Mandatory = $true)][string]$LockPath,
         [Parameter(Mandatory = $true)]$State,
         [Parameter(Mandatory = $true)][hashtable]$Snapshots,
-        [Parameter(Mandatory = $true)][hashtable]$DirectorySnapshots,
-        [Parameter(Mandatory = $true)][string]$FailurePrefix
+        [Parameter(Mandatory = $true)][hashtable]$DirectorySnapshots
     )
 
     Save-FileSnapshot -Snapshots $Snapshots -Path $LockPath
@@ -849,13 +827,13 @@ function Remove-SupportedManagedState {
         Remove-Item -LiteralPath $file -Force
     }
     Remove-EmptyManagedDirectories -DirectorySnapshots $DirectorySnapshots
-    Test-FailureInjection -Step "after-$FailurePrefix-runtime-cache"
+    Test-FailureInjection -Step "after-uninstall-runtime-cache"
 
     foreach ($item in $State.Payload) {
         Remove-Item -LiteralPath $item.Destination -Force
     }
     Remove-EmptyManagedDirectories -DirectorySnapshots $DirectorySnapshots
-    Test-FailureInjection -Step "after-$FailurePrefix-payload"
+    Test-FailureInjection -Step "after-uninstall-payload"
 
     Remove-Item -LiteralPath $LockPath -Force
     Remove-EmptyManagedDirectories -DirectorySnapshots $DirectorySnapshots
@@ -918,7 +896,7 @@ $releaseVersion = Get-NormalizedVersion -Value ([string]$release.workflowVersion
 $null = ConvertTo-SemanticVersion `
     -Value $releaseVersion `
     -Description "当前发行版"
-$null = Get-ReleaseVersionSupport -Release $release
+Get-ReleaseVersionSupport -Release $release
 if ($repositoryVersion -ne $releaseVersion) {
     throw "VERSION 与 release.json 不一致：$repositoryVersion != $releaseVersion"
 }
@@ -982,7 +960,6 @@ if ($null -eq $existingLock) {
     }
 }
 
-$installedVersion = $null
 if ($null -ne $existingLock) {
     $versionProperty = $existingLock.PSObject.Properties["workflowVersion"]
     if ($null -eq $versionProperty -or -not ($versionProperty.Value -is [string])) {
@@ -1012,8 +989,7 @@ if ($Uninstall) {
             -LockPath $lockPath `
             -State $installedState `
             -Snapshots $snapshots `
-            -DirectorySnapshots $directorySnapshots `
-            -FailurePrefix "uninstall"
+            -DirectorySnapshots $directorySnapshots
     }
     catch {
         $failure = $_
@@ -1026,8 +1002,6 @@ if ($Uninstall) {
     exit 0
 }
 
-$existingLockHashes = Get-LockHashMap -Lock $existingLock
-
 if ($Verify) {
     Assert-InstalledState `
         -TargetRoot $targetRoot `
@@ -1038,6 +1012,8 @@ if ($Verify) {
     Write-Output "项目版本管理忽略规则：已预先排除 .scratch，安装器未修改。"
     exit 0
 }
+
+$existingLockHashes = Get-LockHashMap -Lock $existingLock
 
 $conflicts = @()
 foreach ($item in $payload) {

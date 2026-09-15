@@ -10,6 +10,8 @@ from _feature_archive_support import FeatureArchiveCliTestCase
 
 
 class FeatureArchiveDeliveryFreezeTests(FeatureArchiveCliTestCase):
+    real_snapshots = False
+
     def setUp(self):
         super().setUp()
         self.feature = self.init_complex()

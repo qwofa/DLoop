@@ -15,6 +15,8 @@ from archive_failure_attribution import friction_log_path
 
 
 class FeatureArchiveFrictionNoteTests(FeatureArchiveCliTestCase):
+    real_snapshots = False
+
     def _note(self, *arguments, expected=0):
         return self.run_cli("friction-note", "--feature-id", "reliable-delivery", *arguments, expected=expected)
 

@@ -1,4 +1,4 @@
-"""DLoop 3.0 严格交付合同常量。"""
+"""DLoop 严格交付合同常量。"""
 
 WORKFLOW_VERSION = "3.0.0"
 CONTEXT_CONTRACT_VERSION = 2

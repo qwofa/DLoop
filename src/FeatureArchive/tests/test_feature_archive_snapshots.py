@@ -17,7 +17,7 @@ import archive_snapshots as snapshots
 import feature_archive
 from archive_initialization import initialize_archive
 from archive_paths import canonical_archive_root
-from archive_workspace import ArchiveWorkspaceError, active_modification_lease, acquire_modification_lease, release_modification_lease
+from archive_workspace import ArchiveWorkspaceError, active_modification_lease, acquire_modification_lease
 from _feature_archive_support import FeatureArchiveCliTestCase, write_candidate
 from test_feature_archive_git import GitProjectTestCase
 

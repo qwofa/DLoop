@@ -56,8 +56,6 @@ def commit_workflow_and_lease_atomically(
         workspace_after["modification_lease"] = None
     else:
         updated_lease = workspace_after["modification_lease"]
-        if not isinstance(updated_lease, dict):
-            raise ArchiveWorkspaceError("MODIFICATION_LEASE_CONFLICT", "当前修改租约不合法。")
         updated_lease.update(lease_updates)
     try:
         _write_state(workflow_path, workflow_state_after)

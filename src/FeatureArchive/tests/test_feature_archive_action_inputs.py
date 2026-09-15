@@ -14,6 +14,8 @@ except ModuleNotFoundError:
 
 
 class FeatureArchiveActionInputTests(FeatureArchiveCliTestCase):
+    real_snapshots = False
+
     def test_ui_requirements_recommends_internal_preparation(self) -> None:
         self.run_cli(
             "init",
@@ -99,7 +101,7 @@ class FeatureArchiveActionInputTests(FeatureArchiveCliTestCase):
         self.assertFalse(view["requires_human"]["required"])
 
     def test_task_package_template_is_exact_and_never_overwrites_edits(self) -> None:
-        archive = self.init_complex()
+        self.init_complex()
 
         prepared = self.run_cli(
             "prepare-action-input",

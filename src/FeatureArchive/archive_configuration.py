@@ -1,4 +1,4 @@
-"""已登记工作流配置的初始化、校验、检查点和同步入口。"""
+"""已登记工作流配置的初始化、校验、检查点和 UI 业务入口。"""
 
 from __future__ import annotations
 
@@ -12,10 +12,7 @@ from archive_workspace import serialized_workflow_state
 DLOOP_UI_CONFIGURATION = "dloop-ui-v1"
 _CONFIGURATIONS: Mapping[str, Mapping[str, object]] = {
     DLOOP_UI_CONFIGURATION: {
-        "sync_stages": ("requirements", "investigation", "design", "plan"),
-        "stage_checks": {
-            "final": "plan",
-        },
+        "checkpoints": ("final",),
     },
 }
 
@@ -41,22 +38,6 @@ def _configuration_definition(configuration_id: str) -> Mapping[str, object]:
             f"未知 DLoop 配置：{configuration_id}",
         )
     return definition
-
-
-def configuration_sync_stages(configuration_id: str) -> tuple[str, ...]:
-    stages = _configuration_definition(configuration_id)["sync_stages"]
-    assert isinstance(stages, tuple)
-    return tuple(str(item) for item in stages)
-
-
-def _configuration_check_stage(
-    configuration_id: str,
-    checkpoint: str,
-) -> str | None:
-    stage_checks = _configuration_definition(configuration_id)["stage_checks"]
-    assert isinstance(stage_checks, Mapping)
-    stage = stage_checks.get(checkpoint)
-    return str(stage) if isinstance(stage, str) else None
 
 
 def _provider(configuration_id: str):
@@ -226,7 +207,7 @@ def validate_configuration(value: object, feature_path: Path) -> None:
         configuration_id,
         "validate",
         feature_path=Path(feature_path),
-        configuration=deepcopy(dict(value)),
+        configuration=dict(value),
     )
 
 
@@ -239,15 +220,13 @@ def configuration_evaluation(
     if value is None:
         return None
     configuration_id = _configuration_id(value)
-    stage = _configuration_check_stage(configuration_id, checkpoint)
-    if stage is None:
+    if checkpoint not in _configuration_definition(configuration_id)["checkpoints"]:
         return None
     result = _invoke(
         configuration_id,
         "evaluate",
         feature_path=Path(feature_path),
-        configuration=deepcopy(dict(value)),
-        stage=stage,
+        configuration=dict(value),
     )
     if result.get("status") not in {"PASS", "BLOCKED"}:
         raise ArchiveConfigurationError(
@@ -310,84 +289,6 @@ def require_configuration_task_materials(
         )
 
 
-def synchronize_configuration(
-    root: Path,
-    feature_id: str,
-    stage: str,
-) -> Mapping[str, object]:
-    from archive_approvals import _load_state, _require_complex_feature
-    from archive_changes import ArchiveChangeError, _replace_files_atomically
-    from archive_validation import validate_feature_archive
-
-    graph = validate_feature_archive(root, feature_id)
-    feature = _require_complex_feature(graph, feature_id)
-    state = _load_state(feature.path, feature_id)
-    value = state.get("configuration")
-    configuration_id = _configuration_id(value)
-    if stage not in configuration_sync_stages(configuration_id):
-        raise ArchiveConfigurationError(
-            "INVALID_CONFIGURATION_STAGE",
-            f"可选配置“{configuration_id}”不支持同步阶段：{stage}",
-        )
-    result = _invoke(
-        configuration_id,
-        "synchronize",
-        feature_path=feature.path,
-        configuration=deepcopy(dict(value)),
-        stage=stage,
-    )
-    operation_status = result.get("status")
-    if operation_status not in {"PASS", "BLOCKED"}:
-        raise ArchiveConfigurationError(
-            "INVALID_CONFIGURATION_RESULT",
-            "可选配置同步结果缺少有效状态。",
-        )
-    updated_configuration = result.get("configuration")
-    if _configuration_id(updated_configuration) != configuration_id:
-        raise ArchiveConfigurationError(
-            "INVALID_CONFIGURATION_RESULT",
-            "可选配置同步结果与当前配置不一致。",
-        )
-    response = result.get("result")
-    if not isinstance(response, Mapping):
-        raise ArchiveConfigurationError(
-            "INVALID_CONFIGURATION_RESULT",
-            "可选配置同步结果缺少公开摘要。",
-        )
-    public_result = deepcopy(dict(response))
-    if "configuration_status" in public_result:
-        raise ArchiveConfigurationError(
-            "INVALID_CONFIGURATION_RESULT",
-            "可选配置公开摘要不能覆盖通用同步状态。",
-        )
-    relative_files = _relative_files(result.get("files"))
-    relative_removals = _relative_removals(result.get("remove_files"))
-    overlap = set(relative_files).intersection(relative_removals)
-    if overlap:
-        raise ArchiveConfigurationError(
-            "INVALID_CONFIGURATION_RESULT",
-            "可选配置不能同时写入和删除同一文件。",
-        )
-    state["configuration"] = deepcopy(dict(updated_configuration))
-    contents = {
-        feature.path / relative: content
-        for relative, content in relative_files.items()
-    }
-    contents[feature.path / "workflow-state.json"] = (
-        json.dumps(state, ensure_ascii=False, indent=2) + "\n"
-    )
-    try:
-        _replace_files_atomically(
-            graph.root,
-            contents,
-            deletions=(feature.path / relative for relative in relative_removals),
-        )
-    except ArchiveChangeError as exception:
-        raise ArchiveConfigurationError(exception.code, exception.message) from exception
-    public_result["configuration_status"] = operation_status
-    return public_result
-
-
 def _run_ui_operation(
     root: Path,
     feature_id: str,
@@ -413,14 +314,14 @@ def _run_ui_operation(
         )
     arguments: dict[str, object] = {
         "feature_path": feature.path,
-        "configuration": deepcopy(dict(value)),
+        "configuration": dict(value),
         "input_path": Path(input_path),
         "project_root": Path(project_root),
     }
     if operation == "publish":
         from archive_approvals import accepted_candidate_summary
         arguments["candidate_summary"] = accepted_candidate_summary(state["execution"])
-        arguments["execution"] = deepcopy(state["execution"])
+        arguments["execution"] = state["execution"]
     if unity_executable is not None:
         arguments["unity_executable"] = Path(unity_executable)
     if capture_manifest is not None:

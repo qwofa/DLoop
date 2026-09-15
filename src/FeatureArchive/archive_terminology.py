@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import re
 import unicodedata
-from typing import Dict, Iterable, List, Mapping, Sequence, Tuple
+from typing import Dict, List, Mapping, Sequence, Tuple
 from urllib.parse import unquote, urlsplit
 
 

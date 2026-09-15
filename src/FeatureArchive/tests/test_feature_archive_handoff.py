@@ -12,6 +12,8 @@ from _feature_archive_support import FeatureArchiveCliTestCase, write_candidate,
 
 
 class FeatureArchiveHandoffTests(FeatureArchiveCliTestCase):
+    real_snapshots = False
+
     def setUp(self) -> None:
         super().setUp()
         self.init_complex()

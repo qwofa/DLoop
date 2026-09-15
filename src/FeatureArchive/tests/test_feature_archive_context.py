@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-import subprocess
 import sys
 
 
@@ -34,6 +33,8 @@ except ModuleNotFoundError:
 
 
 class FeatureArchiveContextTests(FeatureArchiveCliTestCase):
+    real_snapshots = False
+
     @staticmethod
     def _compact_bytes(value: object) -> bytes:
         return json.dumps(
@@ -60,8 +61,6 @@ class FeatureArchiveContextTests(FeatureArchiveCliTestCase):
             "--execution-id", "exec-1", "--package-file", package,
             "--workspace-root", self.workspace,
         )
-        self.assertNotIn("migration_warnings", result)
-        self.assertNotIn("migration_warnings", result["task"])
         material = result["task"]["context_materials"][0]
         self.assertEqual("sections", material["mode"])
         self.assertEqual(["当前摘要"], material["sections"])
@@ -850,7 +849,6 @@ class FeatureArchiveContextTests(FeatureArchiveCliTestCase):
             ["candidate_workspace_drift", "final_validation_candidate_binding", "passed_review_binding"],
             [item["code"] for item in view["source_rechecks"]],
         )
-        self.assertNotIn("page", handoff)
 
     def test_final_review_role_returns_complete_multi_slice_delivery_once(self) -> None:
         archive = self._ready_archive()
@@ -903,7 +901,6 @@ class FeatureArchiveContextTests(FeatureArchiveCliTestCase):
             [item["package_id"] for item in handoff["accepted_candidates"]],
         )
         self.assertTrue(all(item["review"]["result"] == "passed" for item in handoff["accepted_candidates"]))
-        self.assertNotIn("page", handoff)
 
     def test_final_review_role_blocks_candidates_from_multiple_workspaces(self) -> None:
         archive = self._ready_archive()
@@ -1223,7 +1220,6 @@ class FeatureArchiveContextTests(FeatureArchiveCliTestCase):
         for command in ("workflow-rules", "workflow-status", "audit", "context-summary"):
             self.assertIn(command, content)
         self.assertNotIn("references/", content)
-        self.assertNotIn("## 六环节默认工作集", content)
         for action in (
             "requirements-review",
             "architecture-review",

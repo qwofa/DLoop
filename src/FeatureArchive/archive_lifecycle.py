@@ -317,7 +317,6 @@ def transition_lifecycle(
         try:
             execution_blockers = final_execution_blockers(
                 graph.root,
-                feature_id,
                 workflow_state,
             )
         except ArchiveWorkspaceError as exception:

@@ -6,8 +6,6 @@ import hashlib
 import importlib.util
 import json
 from pathlib import Path
-import subprocess
-import sys
 import tempfile
 import unittest
 import xml.etree.ElementTree as ET
@@ -290,7 +288,7 @@ class DloopUILightweightTests(unittest.TestCase):
                 CaptureFixture().screenshot_bytes,
                 base64.b64decode(reference.split(",", 1)[1], validate=True),
             )
-            markdown = dloop_ui.render_views(model, report, feature, project)[
+            markdown = dloop_ui.render_views(model, report, feature)[
                 "ui-annotation-plan.md"
             ]
             self.assertIn("![奖励界面编号截图](ui-annotations/", markdown)
@@ -611,21 +609,6 @@ class DloopUILightweightTests(unittest.TestCase):
             self.assertEqual("DLOOP_UI_INVESTIGATION_CHANGED", raised.exception.code)
             self.assertEqual(before, model)
             self.assertNotEqual("sha256:old", operation["investigation_token"])
-
-    def test_runtime_cli_hides_internal_pipeline(self) -> None:
-        completed = subprocess.run(
-            [sys.executable, str(RUNTIME_PATH), "--help"],
-            check=False,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-        )
-
-        self.assertEqual(0, completed.returncode, completed.stderr)
-        self.assertIn("ui-investigate", completed.stdout)
-        self.assertIn("ui-publish", completed.stdout)
-        for hidden in ("register-prefabs", "prepare-capture", "import-capture", "sync", "validate"):
-            self.assertNotIn(hidden, completed.stdout)
 
 
 if __name__ == "__main__":

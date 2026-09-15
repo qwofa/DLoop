@@ -45,7 +45,13 @@ jobs:
         if: matrix.suite == 'core'
         run: python -m unittest discover -s .github/tests -v
       - name: Run regression suite
-        run: python .github/scripts/run_tests.py ${{ matrix.suite }}
+        run: |
+          python .github/scripts/run_tests.py ${{ matrix.suite }} --timings-json "$env:RUNNER_TEMP/dloop-${{ matrix.suite }}-timings.json"
+      - name: Show per-test timings
+        if: always()
+        run: |
+          $timings = "$env:RUNNER_TEMP/dloop-${{ matrix.suite }}-timings.json"
+          if (Test-Path -LiteralPath $timings) { Get-Content -LiteralPath $timings }
 
   credentials:
     if: github.event_name != 'push' || github.ref_name == github.event.repository.default_branch

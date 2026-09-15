@@ -1,9 +1,9 @@
-"""DLoop 3.0 面向协调者的最小业务入口。"""
+"""DLoop 面向协调者的最小业务入口。"""
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Mapping, Sequence
+from typing import Mapping
 
 from archive_approvals import (
     _load_state,
@@ -35,7 +35,7 @@ from archive_workspace import (
 from archive_context import (
     ContextRequest,
     context_summary as build_context_summary,
-    delivery_view as build_delivery_view,
+    _delivery_view as build_delivery_view,
 )
 
 
@@ -62,19 +62,18 @@ def workflow_status(
     feature = _require_complex_feature(graph, feature_id, require_writable=False)
     state = _load_state(feature.path, feature_id)
     from archive_snapshots import snapshot_status
-    final_blockers = (
-        [] if feature.lifecycle in {"frozen", "pending_cleanup"}
-        else list(final_execution_blockers(root, feature_id, state))
-    )
     return {
         "status": "ready",
         "feature_id": feature_id,
-        "delivery_view": build_delivery_view(root, feature_id),
+        "delivery_view": build_delivery_view(graph, feature_id, state),
         "snapshots": snapshot_status(root, feature_id),
         **({"details": {
             "workflow_state": state,
             "modification_lease": lease,
-            "final_blockers": final_blockers,
+            "final_blockers": (
+                [] if feature.lifecycle in {"frozen", "pending_cleanup"}
+                else list(final_execution_blockers(root, state))
+            ),
         }} if include_details else {}),
     }
 
