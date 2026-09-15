@@ -10,7 +10,7 @@
 irm https://raw.githubusercontent.com/qwofa/DLoop/main/install.py -ErrorAction Stop | python -
 ```
 
-当前发行版为 v3.7.3，状态为 `frozen`，下载源码由 `v3.7.3` 标签固定。直接使用本版源码安装时，请预先为项目配置 `.scratch` 忽略规则，再在源码目录执行 `powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Target "D:\projects\my-project" -Version v3.7.3`；验证可追加 `-Verify`。模板随共享工具一起安装。
+当前发行版为 v3.7.4，状态为 `frozen`，下载源码由 `v3.7.4` 标签固定。直接使用本版源码安装时，请预先为项目配置 `.scratch` 忽略规则，再在源码目录执行 `powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Target "D:\projects\my-project" -Version v3.7.4`；验证可追加 `-Verify`。模板随共享工具一起安装。
 
 ## 本地或离线安装
 
@@ -20,13 +20,13 @@ irm https://raw.githubusercontent.com/qwofa/DLoop/main/install.py -ErrorAction S
 python install.py --target "D:\projects\my-project"
 ```
 
-此方式需要下载 v3.7.3 标签源码。已有本版源码 ZIP 时可完全使用本地文件：
+此方式需要下载 v3.7.4 标签源码。已有本版源码 ZIP 时可完全使用本地文件：
 
 ```powershell
-python install.py --target "D:\projects\my-project" --archive "D:\downloads\DLoop-3.7.3.zip"
+python install.py --target "D:\projects\my-project" --archive "D:\downloads\DLoop-3.7.4.zip"
 ```
 
-ZIP 使用 GitHub 标签源码包布局。可下载 [v3.7.3 标签源码包](https://github.com/qwofa/DLoop/archive/refs/tags/v3.7.3.zip)，或通过 `git archive --format=zip --prefix=DLoop-3.7.3/ --output=DLoop-3.7.3.zip v3.7.3` 生成；该命令不包含未提交改动。不要把任意旧版本 ZIP 用于当前入口。
+ZIP 使用 GitHub 标签源码包布局。可下载 [v3.7.4 标签源码包](https://github.com/qwofa/DLoop/archive/refs/tags/v3.7.4.zip)，或通过 `git archive --format=zip --prefix=DLoop-3.7.4/ --output=DLoop-3.7.4.zip v3.7.4` 生成；该命令不包含未提交改动。不要把任意旧版本 ZIP 用于当前入口。
 
 安装完成会显示 `DLoop installed and verified.`，接着在目标项目的 Codex 中使用 `$dloop` 或 `$dloop-ui`。
 
@@ -40,7 +40,7 @@ ZIP 使用 GitHub 标签源码包布局。可下载 [v3.7.3 标签源码包](htt
 
 Git 忽略规则可能成为一项本地改动；入口不暂存或提交它。安装不会替你配置 Codex 或 Unity MCP。
 
-入口采用 v3.7.3 安装器：支持全新安装和同版本重装；其他版本已安装时拒绝覆盖。重复安装保留已有忽略内容，不重复添加规则。
+入口采用 v3.7.4 安装器：支持全新安装和同版本重装；其他版本已安装时拒绝覆盖。重复安装保留已有忽略内容，不重复添加规则。
 
 ## 常见问题
 
@@ -65,13 +65,13 @@ Git 忽略规则可能成为一项本地改动；入口不暂存或提交它。�
 取得并解压对应版本的 DLoop 源码，在该源码目录运行：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Target "D:\projects\my-project" -Version v3.7.3 -Verify
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Target "D:\projects\my-project" -Version v3.7.4 -Verify
 ```
 
 卸载：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Target "D:\projects\my-project" -Version v3.7.3 -Uninstall
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Target "D:\projects\my-project" -Version v3.7.4 -Uninstall
 ```
 
 卸载移除本版管理的 Skill、工具和截图包，保留交付档案与项目忽略规则。受管文件被修改或无法确认归属时会停止并说明原因。

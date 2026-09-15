@@ -288,7 +288,7 @@ class FeatureArchiveWorkflowTests(unittest.TestCase):
         version = (PROJECT_ROOT / "Tools" / "FeatureArchive" / "VERSION").read_text(
             encoding="utf-8"
         ).strip()
-        self.assertEqual("3.7.3", version)
+        self.assertEqual("3.7.4", version)
         self.assertEqual(version, lock["workflowVersion"])
         self.assertEqual("v" + version, lock["sourceTag"])
         self.assertEqual(3, lock["archiveSchemaVersion"])

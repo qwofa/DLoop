@@ -323,7 +323,7 @@ class InstalledPathContractTests(unittest.TestCase):
         )
 
         self.assertEqual("dloop-share-snapshot", manifest["kind"])
-        self.assertEqual("3.7.3", manifest["workflow_version"])
+        self.assertEqual("3.7.4", manifest["workflow_version"])
         self.assertRegex(exported["snapshot_id"], r"^\d{8}T\d{12}Z-[0-9a-f]{8}$")
         self.assertTrue(manifest["read_only"])
         self.assertFalse(manifest["executable"])
