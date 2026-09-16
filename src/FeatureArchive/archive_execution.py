@@ -231,7 +231,7 @@ def _read_package(path: Path) -> Mapping[str, object]:
             "任务包不能重复填写由切片契约生成的字段："
             + "、".join(duplicated_fields),
         )
-    allowed_fields = TASK_PACKAGE_FIELDS | ({"delivery_requirements"} if "delivery_requirements" in value else set())
+    allowed_fields = TASK_PACKAGE_FIELDS | (set(value) & {"delivery_requirements", "generated_write_scope"})
     if set(value) != allowed_fields:
         missing = "、".join(sorted(TASK_PACKAGE_FIELDS - set(value)))
         unknown = "、".join(sorted(set(value) - allowed_fields))
@@ -253,6 +253,19 @@ def _read_package(path: Path) -> Mapping[str, object]:
     write_scope = tuple(_safe_scope(item) for item in _string_list(value, "write_scope", allow_empty=True))
     if not write_scope:
         raise ArchiveExecutionError("INVALID_TASK_PACKAGE", "修改切片必须声明写入范围。")
+    generated = tuple(_safe_scope(item) for item in _string_list(
+        {"generated_write_scope": value.get("generated_write_scope", [])},
+        "generated_write_scope", allow_empty=True,
+    ))
+    uncovered = [path for path in generated if not any(
+        path == scope or path.startswith(scope.rstrip("/") + "/") for scope in write_scope
+    )]
+    if uncovered:
+        raise ArchiveExecutionError(
+            "GENERATED_WRITE_SCOPE_INCOMPLETE",
+            "生成器预检查预计写入的文件未全部授权：" + "、".join(uncovered)
+            + "。在开工前补齐任务写入范围，再检查契约；预制体绑定信息和新增元文件也属于实际写入。",
+        )
     context_materials = _context_materials(value)
     try:
         contract, contract_check = normalize_task_contract_fields(value)
@@ -275,6 +288,8 @@ def _read_package(path: Path) -> Mapping[str, object]:
         package["delivery_requirements"] = normalize_requirements(
             value["delivery_requirements"], contract["acceptance_scenarios"], complete=True,
         )
+    if generated:
+        package["generated_write_scope"] = list(dict.fromkeys(generated))
     return package
 
 
@@ -316,6 +331,10 @@ def task_package_input_guidance(feature_id: str) -> Mapping[str, object]:
             "description": "项目相对的具体文件或目录；目录包含子项，不支持通配符。生成文件及元文件也需覆盖。",
             "excluded": "DLoop 自有档案作为上下文引用，不作为产品写入范围。",
         },
+        "generated_write_scope": {
+            "type": "string-list",
+            "description": "使用生成器时，先运行项目现有只读预检查，将所有预计写入的项目相对路径填入此列表：目标预制体、绑定脚本、缺失时创建的逻辑及元文件。没有生成操作时留空。工具检查其全部被 write_scope 覆盖，不自动扩大授权。",
+        },
         "context_materials": {
             "type": "object-list",
             "description": "引用相关批准场景和原始来源，核对操作去向、显示位置、触发及不处理条件；同一行为的多个位置逐一承接。交接补入未引用的需求和设计入口，保留已有章节选择。",
@@ -343,6 +362,7 @@ def task_package_input_template(package_id: str) -> Mapping[str, object]:
     return {
         "package_id": package_id,
         "write_scope": ["待填写：授权写入范围"],
+        "generated_write_scope": [],
         "context_contract_version": CONTEXT_CONTRACT_VERSION,
         "context_materials": [],
         "slice_contract": {
@@ -387,7 +407,10 @@ def task_package_input_template(package_id: str) -> Mapping[str, object]:
 def _require_ready_execution_inputs(graph, feature_id: str) -> None:
     approvals = approval_status(graph.root, feature_id)
     if approvals["requirements"]["status"] not in {"approve", "ready"}:
-        raise ArchiveExecutionError("REQUIREMENTS_APPROVAL_REQUIRED", "需求共识尚未确认或已经失效。")
+        blocker = approvals["requirements"].get("blocker", {
+            "code": "REQUIREMENTS_APPROVAL_REQUIRED", "message": "需求共识尚未确认或已经失效。",
+        })
+        raise ArchiveExecutionError(blocker["code"], blocker["message"])
     if approvals["architecture"]["status"] in {"reject", "stale"}:
         raise ArchiveExecutionError(
             "ARCHITECTURE_APPROVAL_BLOCKED",

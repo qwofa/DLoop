@@ -498,6 +498,22 @@ def retry_slice(
     )
     if slice_status not in {"review_failed", "failed", "interrupted", "circuit_open"} and not candidate_drifted:
         raise ArchiveCandidateError("SLICE_NOT_RETRYABLE", "当前切片不需要返修。")
+    if lease is not None:
+        outside_changes = outside_scope_guard_changes(
+            lease["baseline_guard_snapshot"], current_workspace_guard_snapshot(lease),
+            tuple(lease["write_scopes"]),
+        )
+        if outside_changes:
+            version = record["package"]["slice_contract"]["version"]
+            raise ArchiveCandidateError(
+                "RETRY_SCOPE_UNRESOLVED",
+                f"原范围外变化尚未处理，当前生效契约为第 {version} 版："
+                + "、".join(outside_changes)
+                + "。重试沿用原授权范围和基线，更换执行身份或修改任务文件不会使新范围生效。"
+                "先保留现场；恢复这些范围外变化后可原范围重试。确需修订范围时，"
+                "使用 snapshot-list 选择起点，先预览 snapshot-restore 的影响，再按快照恢复流程重新登记契约；"
+                "新增范围的既有修改须保留完整差异供评审，不能直接当作干净基线。",
+            )
     reviewed = reviewed_candidate(record)
     review = latest_review(record)
     if slice_status == "review_failed" and (

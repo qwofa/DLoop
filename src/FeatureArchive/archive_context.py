@@ -17,6 +17,7 @@ from archive_approvals import (
     final_review_bundle,
     last_accepted_candidate,
     matching_accepted_workspace_snapshot,
+    requirements_blocker,
     ui_interaction_review,
 )
 from archive_candidates import (
@@ -2098,7 +2099,7 @@ def context_summary(
     blockers = []
     requirements = delivery["trusted_machine_facts"]["approval_statuses"]["requirements"]
     if action != "requirements" and requirements not in {"approve", "ready"}:
-        blockers.append({"code": "REQUIREMENTS_APPROVAL_REQUIRED", "message": "需求共识尚未批准或已失效。"})
+        blockers.append(requirements_blocker(graph, feature_id, state))
     if action not in allowed:
         blockers.append({"code": "ACTION_NOT_AVAILABLE", "message": f"当前交付状态不允许动作“{action}”。"})
     blocking_stale = stale

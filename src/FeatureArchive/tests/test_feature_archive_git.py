@@ -77,7 +77,7 @@ class GitWorkspaceTests(GitProjectTestCase):
 
     def test_managed_documents_and_ignored_caches_do_not_stale_product_guard(self):
         baseline = workspace_guard_snapshot(self.project)
-        archive = self.project / ".scratch/dloop-v3/v3.8.0/outputs/delivery"
+        archive = self.project / ".scratch/dloop-v3/v3.8.1/outputs/delivery"
         archive.mkdir(parents=True)
         document = archive / "feature.json"
         document.write_text("{}", encoding="utf-8")
@@ -87,6 +87,18 @@ class GitWorkspaceTests(GitProjectTestCase):
         cache.mkdir()
         (cache / "test.pyc").write_bytes(b"cache")
         self.assertEqual(baseline["digest"], workspace_guard_snapshot(self.project)["digest"])
+
+    def test_ui_managed_outputs_do_not_hide_product_scope_changes(self):
+        baseline = workspace_guard_snapshot(self.project)
+        version = canonical_archive_root(self.project).parent
+        for relative in ("outputs/delivery/ui-model.json", "captures/delivery/capture-request.json", "captures/delivery/raw.png"):
+            path = version / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"generated artifact")
+            self.git("add", "-f", str(path))
+        self.assertEqual(baseline["digest"], workspace_guard_snapshot(self.project)["digest"])
+        (self.project / "outside.txt").write_text("product change", encoding="utf-8")
+        self.assertEqual(("outside.txt",), outside_scope_guard_changes(baseline, workspace_guard_snapshot(self.project), ["main.txt"]))
 
     def test_head_and_branch_changes_invalidate_confirmation_including_detached_head(self):
         baseline = workspace_guard_snapshot(self.project)

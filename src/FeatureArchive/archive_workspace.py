@@ -17,7 +17,6 @@ from typing import Callable, Dict, Mapping, Sequence, Tuple, TypeVar, cast
 import xml.etree.ElementTree as ElementTree
 
 from archive_profiles import WORKFLOW_STATE_SCHEMA_VERSION
-from archive_paths import ARCHIVE_ROOT_RELATIVE
 from archive_slice_plan import pending_plan_slices
 WORKSPACE_STATE_NAME = ".feature-archive-workspace-state.json"
 WORKSPACE_LOCK_NAME = ".feature-archive-workspace-state.lock"
@@ -256,9 +255,7 @@ def _relative_workspace_path(workspace_root: Path, path: Path) -> str:
 def _is_guard_excluded(relative: str) -> bool:
     parts = PurePosixPath(relative).parts
     managed = parts[:2] in ((".scratch", "dloop-v3"), (".scratch", "dloop-history"))
-    archive_parts = ARCHIVE_ROOT_RELATIVE.parts
-    stable_ui_model = len(parts) == len(archive_parts) + 2 and parts[:len(archive_parts)] == archive_parts and parts[-1] == "ui-model.json"
-    return (managed and not stable_ui_model) or _is_untracked_runtime_path(relative)
+    return managed or _is_untracked_runtime_path(relative)
 
 
 def _dirty_path_entries(
@@ -588,17 +585,13 @@ def assert_safe_write_scopes(scopes: Sequence[str], feature_id: str) -> None:
             unsafe.append(scope)
             continue
         if any(parts[:len(managed_root)] == managed_root for managed_root in managed_roots):
-            stable_ui_model = (
-                parts == (*ARCHIVE_ROOT_RELATIVE.parts, feature_id.casefold(), "ui-model.json")
-            )
-            if not stable_ui_model:
-                unsafe.append(scope)
+            unsafe.append(scope)
     if unsafe:
         raise ArchiveWorkspaceError(
             "DLOOP_MANAGED_SCOPE_FORBIDDEN",
             "产品写入范围不能包含 DLoop 自有状态或其父目录："
             + "、".join(unsafe)
-            + "。仅稳定的 ui-model.json 可以作为产品配置证据进入范围。",
+            + "。UI 模型和采集产物由工作流管理，通过材料与候选绑定校验，不登记为产品修改。",
         )
 
 
