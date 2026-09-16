@@ -75,6 +75,9 @@ DELIVERY_STAGE_WRITE_BOUNDARIES = {
     "activation": "requirements",
     "design": "design",
     "plan": "plan",
+    "ui-inputs": "investigation",
+    "ui-inputs-blocked": "investigation",
+    "ui-baseline-review": "plan",
     "ui-interaction-review": "validation",
     "contract-check": "implementation",
     "contract-revision": "implementation",
@@ -130,6 +133,11 @@ ACTION_CONTRACT_SPECS: Mapping[str, Mapping[str, object]] = {
     "ui-investigate": {
         "accepted_arguments": (),
         "required_inputs": ("input",),
+    },
+    "ui-baseline": {
+        "accepted_arguments": ("semantic_change",),
+        "required_inputs": ("input",),
+        "input_kind": "ui-baseline",
     },
     "ui-publish": {
         "accepted_arguments": (),
@@ -828,7 +836,7 @@ def _next_action_contract(
         summary = accepted_candidate_summary(execution)
         if summary["items"]:
             required_inputs.append("integration_confirmation")
-    if command == "stage-action" and action.get("stage") == "final" and action.get("reviewed_digest"):
+    if command == "stage-action" and action.get("stage") in {"ui-baseline", "final"} and action.get("reviewed_digest"):
         required_inputs.append("user_confirmation")
     if command == "transition-lifecycle" and action.get("to") == "frozen":
         validation_statuses = graph.features[feature_id].validation_statuses
@@ -853,6 +861,8 @@ def _next_action_contract(
         },
     }
     input_kind = spec.get("input_kind")
+    if command == "ui-baseline":
+        contract["input_preparation"] = action_input_preparation(feature_id, "ui-baseline")
     if command == "ui-publish" and action.get("delivery_materials"):
         contract["input_preparation"] = action_input_preparation(feature_id, "ui-delivery")
     if isinstance(input_kind, str) and isinstance(action.get("execution_id"), str):
@@ -936,6 +946,12 @@ def _stage_projection(
             blockers,
         )
 
+    baseline = approvals.get("ui-baseline", {"status": "not_applicable"})
+    review = baseline.get("review", {})
+    if review.get("status") == "blocked":
+        return ("ui-inputs-blocked", {"command": "ui-baseline"},
+                {"required": True, "decision": "集中补齐必要材料；整个需求停止实施，仍可调查和保存资料。"}, review["blockers"])
+
     design = _feature_document(graph, feature_id, "design.overview")
     plan = _feature_document(graph, feature_id, "plan.overview")
     design_issue = _document_readiness_issue(
@@ -987,6 +1003,12 @@ def _stage_projection(
             requires_human,
             blockers,
         )
+    if baseline.get("status") not in {"approve", "not_applicable"}:
+        if review.get("status") != "ready":
+            return "ui-inputs", {"command": "ui-baseline"}, requires_human, review.get("blockers", [])
+        return ("ui-baseline-review", {"command": "stage-action", "stage": "ui-baseline", **review},
+                {"required": True, "decision": "展示当前开工清单，等待用户明确确认。"},
+                [{"code": "UI_BASELINE_APPROVAL_REQUIRED", "message": "当前开工清单尚未得到用户确认。"}])
     if feature.lifecycle not in {"validating", "frozen", "pending_cleanup"} and (
         feature.lifecycle == "active" or slices
     ):
@@ -1745,6 +1767,11 @@ def _implementation_role_view(
         },
     }
     if "ui-delivery" in delivery["trusted_machine_facts"]["approval_statuses"]:
+        from archive_ui_baseline import BASELINE_PATH
+        result["preconditions"].append("当前开工清单已得到用户确认")
+        result["required_materials"].append({"source": "ui-baseline", "path": str(feature.path / BASELINE_PATH),
+                                            "purpose": "使用用户已确认的预制体、协议、配置及需求依据", "mode": "full"})
+        result["decision_rules"].append("发现必需材料缺失、歧义或需要更换业务依据时，停止整个需求的实施，交还协调者更新开工清单并重新确认；不得自行用占位、延期或拆分绕过。")
         from archive_candidates import candidate_delivery_package
         result["delivery_requirements"] = candidate_delivery_package(record).get("delivery_requirements", [])
         result["expected_outputs"].append(
@@ -1878,7 +1905,7 @@ def _review_role_view(
     }
     if "ui-delivery" in context.delivery["trusted_machine_facts"]["approval_statuses"]:
         result["decision_rules"].append(
-            "从完整原始需求查实际实现，再从本次实际实现反查交互说明；逐个检查相关后端状态、入口条件、操作、反馈和结果。原范围内有依据的补充不要求前置人工批准，但须同步设计、交互数据及验证；遗漏说明、无依据扩展或未验证冒充完成时退回具体问题。"
+            "从完整原始需求查实际实现，再从本次实际实现反查交互说明；逐个检查相关后端状态、入口条件、操作、反馈和结果。原范围内且不更换已确认开工依据的补充不重复请求批准，但须同步设计、交互数据及验证；遗漏说明、无依据扩展或未验证冒充完成时退回具体问题。"
         )
     if isinstance(repair_handoff, dict):
         result["repair_handoff"] = repair_handoff
@@ -2099,7 +2126,9 @@ def context_summary(
         requirements_status=requirements,
         stale_documents=stale,
     )
-    if contract.requires_clear_architecture and approval_statuses["architecture"] in {
+    if request.role == "implementation" and approval_statuses.get("ui-baseline", "not_applicable") not in {"approve", "not_applicable"}:
+        role_blockers = ({"code": "UI_BASELINE_APPROVAL_REQUIRED", "message": "开工依据未确认或已变化，停止实施并交还协调者。"},)
+    elif contract.requires_clear_architecture and approval_statuses["architecture"] in {
         "reject", "stale",
     }:
         role_blockers = ({

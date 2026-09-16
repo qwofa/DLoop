@@ -552,6 +552,18 @@ def _approval_record_status(
     record: object,
     state: Mapping[str, object],
 ) -> str:
+    if stage == "ui-baseline":
+        if not is_ui_delivery(state):
+            return "not_applicable"
+        from archive_ui_baseline import baseline_review
+        review = baseline_review(graph, feature_id, state)
+        if review["status"] != "ready":
+            return "stale" if isinstance(record, dict) else "pending"
+        if not isinstance(record, dict):
+            return "pending"
+        if record.get("reviewed_digest") != review["reviewed_digest"]:
+            return "stale"
+        return record["decision"]
     if is_ui_delivery(state) and stage in {"requirements", "architecture"}:
         try:
             _stage_snapshot(graph, feature_id, stage)
@@ -655,17 +667,27 @@ def approve_stage(
     state = _load_state(feature.path, feature_id)
     if is_ui_delivery(state) and stage in {"requirements", "architecture"}:
         raise ArchiveApprovalError("UI_INTERNAL_STAGE", "DloopUI 需求与设计是内部材料，请更新文档，不登记人工批准。")
-    if stage not in STAGE_DOCUMENT_ROLES:
+    if stage not in STAGE_DOCUMENT_ROLES and stage != "ui-baseline":
         raise ArchiveApprovalError("INVALID_APPROVAL_STAGE", f"未知确认阶段：{stage}")
     interaction = None
-    if is_ui_delivery(state) and stage == "final":
+    baseline = None
+    if stage == "ui-baseline":
+        from archive_ui_baseline import baseline_review
+        baseline = baseline_review(graph, feature_id, state)
+        if baseline["status"] != "ready":
+            raise ArchiveApprovalError("UI_BASELINE_INCOMPLETE", "必要材料尚未齐备，不能记录开工确认。")
+        if not isinstance(user_confirmation, str) or not user_confirmation.strip():
+            raise ArchiveApprovalError("USER_CONFIRMATION_REQUIRED", "开工确认必须引用用户对当前清单的实际回复及定位。")
+        if reviewed_digest != baseline["reviewed_digest"]:
+            raise ArchiveApprovalError("UI_BASELINE_STALE", "开工清单已经变化，请展示当前清单并重新确认。")
+    elif is_ui_delivery(state) and stage == "final":
         interaction = ui_interaction_review(graph, feature_id, state)
         if not isinstance(user_confirmation, str) or not user_confirmation.strip():
             raise ArchiveApprovalError("USER_CONFIRMATION_REQUIRED", "最终验收必须引用用户对当前展示的回复，不能用 AI 评审代替。")
         if reviewed_digest != interaction["reviewed_digest"]:
             raise ArchiveApprovalError("UI_DELIVERY_OUTDATED", "最终验收与展示版本不一致，请展示当前交付页。")
     elif reviewed_digest is not None or user_confirmation is not None:
-        raise ArchiveApprovalError("INVALID_UI_DELIVERY_APPROVAL", "展示确认依据只适用于 DloopUI 最终验收。")
+        raise ArchiveApprovalError("INVALID_UI_DELIVERY_APPROVAL", "展示确认依据只适用于 DloopUI 开工确认或最终验收。")
     approvals = state["approvals"]
     requirements_record = approvals.get("requirements")
     requirements_status = _approval_record_status(
@@ -690,6 +712,8 @@ def approve_stage(
                 "ARCHITECTURE_APPROVAL_BLOCKED",
                 "架构决定已拒绝或失效，不能进行最终验收。",
             )
+        if is_ui_delivery(state) and _approval_record_status(graph, feature_id, "ui-baseline", approvals.get("ui-baseline"), state) != "approve":
+            raise ArchiveApprovalError("UI_BASELINE_APPROVAL_REQUIRED", "当前开工依据尚未确认，不能完成最终验收。")
         execution = state["execution"]
         require_accepted_implementation(execution)
 
@@ -701,9 +725,9 @@ def approve_stage(
                 "FINAL_EXECUTION_BLOCKED",
                 "最终验收前仍有执行问题：" + "；".join(item["message"] for item in blockers),
             )
-    snapshot = _stage_snapshot(graph, feature_id, stage)
+    snapshot = {"baseline_digest": baseline["reviewed_digest"]} if baseline is not None else _stage_snapshot(graph, feature_id, stage)
     record = {"decision": decision, "snapshot": snapshot, "decided_at": _utc_now()}
-    if is_ui_delivery(state) and stage == "final":
+    if is_ui_delivery(state) and stage in {"ui-baseline", "final"}:
         record.update({"reviewed_digest": reviewed_digest, "user_confirmation": user_confirmation.strip()})
     if stage == "final" and decision == "approve":
         binding = _final_candidate_binding(
@@ -737,6 +761,8 @@ def approval_status_from_state(
 
     result: Dict[str, object] = {}
     for stage in APPROVAL_STAGES:
+        if stage == "ui-baseline" and not is_ui_delivery(state):
+            continue
         record = state["approvals"].get(stage)
         result[stage] = {
             "status": _approval_record_status(graph, feature_id, stage, record, state),
@@ -746,6 +772,10 @@ def approval_status_from_state(
     requirements_status = result["requirements"]["status"]
     architecture_status = result["architecture"]["status"]
     if is_ui_delivery(state):
+        from archive_ui_baseline import baseline_review
+        result["ui-baseline"]["review"] = baseline_review(graph, feature_id, state)
+        if result["final"]["status"] != "pending" and result["ui-baseline"]["status"] != "approve":
+            result["final"]["status"] = "stale"
         try:
             interaction = ui_interaction_review(graph, feature_id, state)
             result["ui-delivery"] = {"status": "ready", "review": interaction}
