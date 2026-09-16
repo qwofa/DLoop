@@ -471,7 +471,7 @@ function Invoke-Native {
         $process = Start-Process `
             -FilePath $FilePath `
             -ArgumentList ($quotedArguments -join ' ') `
-            -WorkingDirectory $WorkingDirectory `
+            -WorkingDirectory ([System.Management.Automation.WildcardPattern]::Escape($WorkingDirectory)) `
             -Wait `
             -PassThru `
             -NoNewWindow `
