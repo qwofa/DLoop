@@ -92,7 +92,7 @@ class FeatureArchiveWorkflowTests(unittest.TestCase):
     ) -> None:
         skill = SKILL_PATH.read_text(encoding="utf-8")
 
-        self.assertIn(".scratch/dloop-v3/v3.8.0/outputs/", skill)
+        self.assertIn(".scratch/dloop-v3/v3.8.1/outputs/", skill)
         if IS_SOURCE_REPOSITORY:
             initialization = (
                 PROJECT_ROOT
@@ -212,7 +212,7 @@ class FeatureArchiveWorkflowTests(unittest.TestCase):
         version = (PROJECT_ROOT / "Tools" / "FeatureArchive" / "VERSION").read_text(
             encoding="utf-8"
         ).strip()
-        self.assertEqual("3.8.0", version)
+        self.assertEqual("3.8.1", version)
         self.assertEqual(version, lock["workflowVersion"])
         self.assertEqual("v" + version, lock["sourceTag"])
         self.assertEqual(3, lock["archiveSchemaVersion"])

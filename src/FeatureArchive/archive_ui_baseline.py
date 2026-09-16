@@ -121,7 +121,7 @@ def _blockers(value, facts, project_root):
                 if not path.is_absolute():
                     path = project_root / path
                 if not reference or not path.is_file():
-                    add(key, category, f"{fact['name']}：{label}引用必须是已存在的材料文件：{reference}")
+                    add(key, category, f"{fact['name']}：{label}引用必须是已存在的材料文件：{reference}。每条材料只引用一个文件，多个文件分别填写。")
                 if category == "prefabs":
                     matched = {str(Path(p).resolve()) for p in fact["prefabs"]}
                     if str(path.resolve()) not in matched or path.suffix.lower() != ".prefab":

@@ -92,7 +92,7 @@ def prepare_action_input(
         target = feature.path / "04-plan/ui-baseline-input.json"
         business_inputs = ["按每项业务核对预制体、协议、配置和需求描述；缺项集中列出已查位置、影响和所需补充"]
         guidance = {"statuses": ["verified", "missing", "ambiguous", "not_applicable"],
-                    "reference": "已核实项填写真实材料文件路径；用途中注明节点、接口、字段或文档章节。缺项填写已搜索位置。",
+                    "reference": "每条已核实项只填一个真实文件路径；多个文件拆成多条材料，不用分号拼接。用途中注明节点、接口、字段或文档章节。缺项填写已搜索位置。",
                     "purpose": "用途和业务含义；缺项填写影响及需用户补充的信息。不涉及仅用于协议、配置，必须说明理由。",
                     "semantic_change": "提交默认按业务变更处理；仅修正用途措辞且含义不变时传 --semantic-change false。需求、材料引用或状态变化不能按非语义修订提交。",
                     "scope": "所有需求必须齐备；禁止计划新增、占位、延期绕过。先展示确认材料，再登记用户实际回复。"}
@@ -101,9 +101,17 @@ def prepare_action_input(
         state = _load_state(feature.path, feature_id)
         if package_id is not None or execution_id is not None or (state.get("configuration") or {}).get("id") != "dloop-ui-v1":
             raise ArchiveActionInputError("INVALID_ACTION_INPUT_TARGET", "UI 交付输入只指定 DloopUI 交付项。")
-        from archive_approvals import require_accepted_implementation
+        from archive_approvals import ArchiveApprovalError, require_accepted_implementation
         from archive_slice_contract import reviewed_candidate
-        require_accepted_implementation(state["execution"])
+        try:
+            require_accepted_implementation(state["execution"])
+        except ArchiveApprovalError as exception:
+            raise ArchiveActionInputError(
+                exception.code,
+                "正式交付须先有独立评审通过的候选。需要展示当前进度时，复用已有标注评审输入调用 ui-publish，"
+                "省略 delivery_review 即发布内部草稿；沿用已有截图和交互，不另写 HTML。"
+                "草稿不产生验收批准，也不解除实施阻断。",
+            ) from exception
         template = {"input_version": 1, "delivery_review": {
             "requirements_check": "待填写：从完整需求核对实际实现的结论",
             "implementation_check": "待填写：从实际实现反查交互说明的结论",

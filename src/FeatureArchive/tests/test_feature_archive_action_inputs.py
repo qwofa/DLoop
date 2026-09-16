@@ -116,6 +116,7 @@ class FeatureArchiveActionInputTests(FeatureArchiveCliTestCase):
             {
                 "package_id",
                 "write_scope",
+                "generated_write_scope",
                 "context_contract_version",
                 "context_materials",
                 "slice_contract",
@@ -124,6 +125,8 @@ class FeatureArchiveActionInputTests(FeatureArchiveCliTestCase):
             set(template),
         )
         self.assertEqual("pending", template["slice_contract"]["approval_status"])
+        self.assertEqual([], template["generated_write_scope"])
+        self.assertIn("预检查", prepared["input_guidance"]["generated_write_scope"]["description"])
         target.write_text("{\"agent_edit\": true}\n", encoding="utf-8")
 
         repeated = self.run_cli(

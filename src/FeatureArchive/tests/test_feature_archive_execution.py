@@ -123,7 +123,7 @@ class FeatureArchiveExecutionTests(FeatureArchiveCliTestCase):
     def test_dloop_owned_state_is_rejected_before_a_lease_is_created(self) -> None:
         package = self.write_package(
             "slice-1",
-            scope=[".scratch/dloop-v3/v3.8.0/outputs/reliable-delivery/workflow-state.json"],
+            scope=[".scratch/dloop-v3/v3.8.1/outputs/reliable-delivery/workflow-state.json"],
         )
 
         result = self.run_cli(
@@ -135,28 +135,53 @@ class FeatureArchiveExecutionTests(FeatureArchiveCliTestCase):
         self.assertEqual("DLOOP_MANAGED_SCOPE_FORBIDDEN", result["code"])
         self.assertFalse(self.root.joinpath(".feature-archive-workspace-state.json").exists())
 
-    def test_stable_ui_model_can_be_in_the_product_scope(self) -> None:
-        model = self.workspace / ".scratch/dloop-v3/v3.8.0/outputs/reliable-delivery/ui-model.json"
+    def test_ui_model_is_managed_evidence_not_a_product_scope(self) -> None:
+        model = self.workspace / ".scratch/dloop-v3/v3.8.1/outputs/reliable-delivery/ui-model.json"
         model.parent.mkdir(parents=True)
         model.write_text("{}\n", encoding="utf-8")
         package = self.write_package(
             "slice-ui",
-            scope=[".scratch/dloop-v3/v3.8.0/outputs/reliable-delivery/ui-model.json"],
+            scope=[".scratch/dloop-v3/v3.8.1/outputs/reliable-delivery/ui-model.json"],
         )
 
         result = self.run_cli(
             "start-slice", "--feature-id", "reliable-delivery",
             "--execution-id", "exec-ui", "--package-file", package,
             "--workspace-root", self.workspace,
+            expected=1,
         )
 
-        self.assertEqual("active", result["status"])
+        self.assertEqual("DLOOP_MANAGED_SCOPE_FORBIDDEN", result["code"])
+
+    def test_generator_preflight_reports_missing_prefab_and_meta_before_start(self) -> None:
+        package = self.write_package("slice-1", scope=["UI/Bind"])
+        value = json.loads(package.read_bytes())
+        value["generated_write_scope"] = ["UI/Bind/Panel.cs", "UI/Panel.prefab", "UI/Panel.prefab.meta"]
+        package.write_text(json.dumps(value), encoding="utf-8")
+        for command in ("check-slice-contract", "start-slice"):
+            arguments = [command, "--feature-id", "reliable-delivery", "--package-file", package]
+            if command == "start-slice":
+                arguments += ["--execution-id", "exec-1", "--workspace-root", self.workspace]
+            blocked = self.run_cli(*arguments, expected=1)
+            self.assertEqual("GENERATED_WRITE_SCOPE_INCOMPLETE", blocked["code"])
+            self.assertIn("UI/Panel.prefab.meta", blocked["message"])
+            self.assertFalse(self.root.joinpath(".feature-archive-workspace-state.json").exists())
+        value["write_scope"] += ["UI/Panel.prefab", "UI/Panel.prefab.meta"]
+        package.write_text(json.dumps(value), encoding="utf-8")
+        started = self.run_cli("start-slice", "--feature-id", "reliable-delivery",
+                               "--package-file", package, "--execution-id", "exec-1", "--workspace-root", self.workspace)
+        self.assertEqual(value["generated_write_scope"], started["task"]["generated_write_scope"])
+        for relative in value["generated_write_scope"]:
+            target = self.workspace / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text("generated", encoding="utf-8")
+        self.assertFalse(self.record_checkpoint("exec-1")["checkpoint"]["boundary_crossed"])
 
     def test_nested_ui_model_name_does_not_bypass_managed_scope(self) -> None:
         package = self.write_package(
             "slice-ui",
             scope=[
-                ".scratch/dloop-v3/v3.8.0/outputs/reliable-delivery/"
+                ".scratch/dloop-v3/v3.8.1/outputs/reliable-delivery/"
                 "05-implementation/ui-model.json"
             ],
         )
@@ -173,7 +198,7 @@ class FeatureArchiveExecutionTests(FeatureArchiveCliTestCase):
     def test_other_feature_ui_model_is_not_a_product_scope(self) -> None:
         package = self.write_package(
             "slice-ui",
-            scope=[".scratch/dloop-v3/v3.8.0/outputs/other-feature/ui-model.json"],
+            scope=[".scratch/dloop-v3/v3.8.1/outputs/other-feature/ui-model.json"],
         )
 
         result = self.run_cli(

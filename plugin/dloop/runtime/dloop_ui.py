@@ -1411,7 +1411,7 @@ def investigate(
         if capture_adapter is None and capture_model["prefabs"]:
             # 只生成可重做的请求材料，不把尚未截图的模型写成正式调研结果。
             capture_output = (
-                project_root / ".scratch" / "outputs" / "dloop-ui-capture" / feature_path.name
+                feature_path.parent.parent / "captures" / feature_path.name
             )
             request_path = capture_output / "capture-request.json"
             capture_problems = prepare_capture_request(
