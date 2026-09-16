@@ -20,7 +20,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Target "D:\pr
 irm https://raw.githubusercontent.com/qwofa/DLoop/main/install.py -ErrorAction Stop | python -
 ```
 
-一行入口安装公开主线指定的发行版；本版入口固定下载含路径修正的安装包标签 `installer-v3.8.1-r1`，工作流载荷仍为冻结版 v3.8.1。原 `v3.8.1` 标签保持不变；离线安装请使用上述安装包标签或当前主线源码，避免重新取得未修正的安装器。模板随共享工具一起安装。
+一行入口安装公开主线指定的发行版；本版入口固定下载含路径及 SVN 编码修正的安装包标签 `installer-v3.8.1-r2`，工作流载荷仍为冻结版 v3.8.1。原 `v3.8.1` 标签保持不变；离线安装请使用上述安装包标签或当前主线源码，避免重新取得未修正的安装器。模板随共享工具一起安装。
 
 ## 本地或离线安装
 

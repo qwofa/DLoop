@@ -457,7 +457,8 @@ function Get-ValidatedLockPayload {
 function Invoke-Native {
     param(
         [Parameter(Mandatory = $true)][string]$FilePath,
-        [Parameter(Mandatory = $true)][string[]]$Arguments
+        [Parameter(Mandatory = $true)][string[]]$Arguments,
+        [string]$WorkingDirectory = (Get-Location).ProviderPath
     )
 
     $stdoutPath = [System.IO.Path]::GetTempFileName()
@@ -470,6 +471,7 @@ function Invoke-Native {
         $process = Start-Process `
             -FilePath $FilePath `
             -ArgumentList ($quotedArguments -join ' ') `
+            -WorkingDirectory ([System.Management.Automation.WildcardPattern]::Escape($WorkingDirectory)) `
             -Wait `
             -PassThru `
             -NoNewWindow `
@@ -492,18 +494,23 @@ function Assert-WindowsSvnProject {
     $svn = Find-SvnExecutable
     $info = Invoke-Native `
         -FilePath $svn `
-        -Arguments @("info", "--show-item", "wc-root", "--", $TargetRoot)
+        -WorkingDirectory $TargetRoot `
+        -Arguments @("info", "--xml", "--", ".")
     if ($info.ExitCode -ne 0 -or [string]::IsNullOrWhiteSpace($info.Stdout)) {
         throw "SVN 工作副本检查失败（退出码 $($info.ExitCode)）。目标目录：$TargetRoot。原始错误：$($info.Stderr)"
     }
-    $workingCopyRoot = [System.IO.Path]::GetFullPath($info.Stdout.Trim())
+    $infoDocument = [xml]$info.Stdout
+    $workingCopyRoot = [System.IO.Path]::GetFullPath(
+        $infoDocument.info.entry.'wc-info'.'wcroot-abspath'
+    )
     if (-not (Test-PathWithin -Candidate $TargetRoot -Root $workingCopyRoot)) {
         throw "目标目录不在 SVN 工作副本内。"
     }
 
     $ignore = Invoke-Native `
         -FilePath $svn `
-        -Arguments @("propget", "svn:ignore", "--strict", "--", $TargetRoot)
+        -WorkingDirectory $TargetRoot `
+        -Arguments @("propget", "svn:ignore", "--strict", "--", ".")
     if ($ignore.ExitCode -ne 0) {
         throw "目标项目必须预先通过 svn:ignore 排除 .scratch；安装器不会修改该规则。"
     }

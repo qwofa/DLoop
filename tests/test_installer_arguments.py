@@ -23,11 +23,14 @@ class InstallerArgumentTests(unittest.TestCase):
         ]
         with tempfile.TemporaryDirectory() as directory:
             base = Path(directory)
+            working_directory = base / "项目 - copy [1] & user's"
+            working_directory.mkdir()
             request = base / "request.json"
             request.write_text(json.dumps({
                 "installer": str(ROOT / "install.ps1"),
                 "python": sys.executable,
-                "arguments": ["-c", "import json, sys; print(json.dumps(sys.argv[1:]))", *arguments],
+                "cwd": str(working_directory),
+                "arguments": ["-c", "import json, os, sys; print(json.dumps([os.getcwd(), sys.argv[1:]]))", *arguments],
             }), encoding="utf-8")
             script = base / "probe.ps1"
             script.write_text('''param([string]$RequestPath)
@@ -44,7 +47,7 @@ $definition = $ast.Find({ param($node)
     $node.Name -eq "Invoke-Native"
 }, $true)
 Invoke-Expression $definition.Extent.Text
-$result = Invoke-Native -FilePath $request.python -Arguments $request.arguments
+$result = Invoke-Native -FilePath $request.python -Arguments $request.arguments -WorkingDirectory $request.cwd
 if ($result.ExitCode -ne 0) { throw $result.Stderr }
 $result.Stdout
 ''', encoding="utf-8-sig")
@@ -56,7 +59,7 @@ $result.Stdout
                         capture_output=True, encoding="utf-8", errors="replace",
                     )
                     self.assertEqual(0, result.returncode, result.stderr)
-                    self.assertEqual(arguments, json.loads(result.stdout))
+                    self.assertEqual([str(working_directory), arguments], json.loads(result.stdout))
 
 
 if __name__ == "__main__":

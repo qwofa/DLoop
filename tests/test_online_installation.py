@@ -165,6 +165,54 @@ class OnlineInstallationTests(unittest.TestCase):
                 server.server_close()
                 thread.join()
 
+    @unittest.skipUnless(test_installation.SVN and test_installation.SVNADMIN, "SVN tools")
+    def test_svn_installs_with_system_client_and_console_codepages(self):
+        client_directory = os.environ.get("DLOOP_LEGACY_SVN_DIR", str(Path(test_installation.SVN).parent))
+        svn = str(Path(client_directory) / "svn.exe")
+        self.assertTrue(Path(svn).is_file())
+        for codepage, failure in ((936, False), (65001, False), (936, True), (65001, True)):
+            with self.subTest(codepage=codepage, failure=failure), tempfile.TemporaryDirectory() as temporary:
+                base = Path(temporary)
+                helper = test_installation.InstallationTests()
+                target, _ = helper._svn_project(base, ignored=False)
+                # Rename through Unicode filesystem APIs, without changing the client's manifest.
+                renamed = base / "项目 - 副本 - 副本"
+                (base / "working-copy").rename(renamed)
+                target = renamed / "branches" / "Dev"
+                marker = target / "existing.txt"
+                marker.write_bytes(b"keep original project")
+                subprocess.run([svn, "propset", "svn:ignore", "Library\n", "."],
+                               cwd=target, check=True, capture_output=True)
+                original = subprocess.run([svn, "propget", "--strict", "svn:ignore", "."],
+                                          cwd=target, check=True, capture_output=True).stdout
+                environment = dict(os.environ, PYTHONIOENCODING="utf-8")
+                environment["PATH"] = client_directory + os.pathsep + environment["PATH"]
+                downloads = base / "下载缓存"
+                downloads.mkdir()
+                environment["TEMP"] = environment["TMP"] = str(downloads)
+                environment.pop("FEATURE_ARCHIVE_INSTALL_FAIL_STEP", None)
+                if failure:
+                    environment["FEATURE_ARCHIVE_INSTALL_FAIL_STEP"] = "after-lock"
+                python = sys.executable.replace("'", "''")
+                entry = str(ROOT / "install.py").replace("'", "''")
+                archive = str(self.archive).replace("'", "''")
+                result = subprocess.run(
+                    [test_installation.POWERSHELL, "-NoProfile", "-Command",
+                     f"[Console]::OutputEncoding = [Text.Encoding]::GetEncoding({codepage}); "
+                     f"& '{python}' '{entry}' --archive '{archive}'; exit $LASTEXITCODE"],
+                    cwd=target, capture_output=True, env=environment,
+                    creationflags=subprocess.CREATE_NO_WINDOW,
+                )
+                output = (result.stdout + result.stderr).decode("utf-8")
+                self.assertEqual(failure, result.returncode != 0, output)
+                self.assertNotIn("\ufffd", output)
+                self.assertIn("测试故障注入：after-lock" if failure else "DLoop installed and verified.", output)
+                value = subprocess.run([svn, "propget", "--strict", "svn:ignore", "."],
+                                       cwd=target, check=True, capture_output=True).stdout
+                self.assertEqual(original if failure else original + b".scratch\r\n", value)
+                self.assertEqual(not failure, (target / test_installation.LOCK).is_file())
+                self.assertEqual(b"keep original project", marker.read_bytes())
+
     def test_download_failure_changes_no_project_files(self):
         with tempfile.TemporaryDirectory() as temporary:
             target = self.git_project(temporary)
