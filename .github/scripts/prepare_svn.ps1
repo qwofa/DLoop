@@ -4,6 +4,8 @@ if (-not $env:RUNNER_TEMP -or -not $env:GITHUB_PATH) {
     throw 'This setup is for a GitHub-hosted Windows runner only.'
 }
 $svnSource = Split-Path (Get-Command svn.exe -ErrorAction Stop).Source
+# Keep the original client available for installer console-encoding regression tests.
+"DLOOP_LEGACY_SVN_DIR=$svnSource" | Add-Content -LiteralPath $env:GITHUB_ENV -Encoding utf8
 $svnTarget = Join-Path $env:RUNNER_TEMP 'svn-utf8'
 New-Item -ItemType Directory -Path $svnTarget -Force | Out-Null
 Copy-Item -Path (Join-Path $svnSource '*') -Destination $svnTarget -Recurse
