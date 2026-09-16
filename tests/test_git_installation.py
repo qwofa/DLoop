@@ -24,7 +24,7 @@ class GitInstallationTests(unittest.TestCase):
         return result.stdout
 
     def project(self, base, *, ignored=True):
-        target = base / "中文 Git project"
+        target = base / "中文 Git project - copy (draft) [1] & user's"
         target.mkdir()
         self.git(target, "init", "-q")
         if ignored:
