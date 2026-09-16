@@ -113,7 +113,6 @@ class OnlineInstallationTests(unittest.TestCase):
                 pass
 
         with tempfile.TemporaryDirectory() as temporary:
-            target = self.git_project(temporary)
             serving = Path(temporary) / "http"
             serving.mkdir()
             (serving / "release.zip").write_bytes(self.archive.read_bytes())
@@ -130,14 +129,34 @@ class OnlineInstallationTests(unittest.TestCase):
             thread.start()
             try:
                 python = sys.executable.replace("'", "''")
-                result = subprocess.run(
-                    [test_installation.POWERSHELL, "-NoProfile", "-Command",
-                     f"irm '{address}/install.py' -ErrorAction Stop | & '{python}' -; exit $LASTEXITCODE"],
-                    cwd=target, capture_output=True,
-                )
-                self.assertEqual(0, result.returncode, result.stderr.decode(errors="replace"))
-                self.assertIn(b"DLoop installed and verified.", result.stdout)
-                self.assertTrue((target / test_installation.LOCK).is_file())
+                for codepage, failure in ((936, False), (65001, False), (936, True), (65001, True)):
+                    with self.subTest(codepage=codepage, failure=failure):
+                        case = Path(temporary) / f"console {codepage} '{failure}"
+                        case.mkdir()
+                        target = self.git_project(case)
+                        environment = dict(os.environ, PYTHONIOENCODING="utf-8")
+                        environment.pop("FEATURE_ARCHIVE_INSTALL_FAIL_STEP", None)
+                        if failure:
+                            environment["FEATURE_ARCHIVE_INSTALL_FAIL_STEP"] = "after-lock"
+                        result = subprocess.run(
+                            [test_installation.POWERSHELL, "-NoProfile", "-Command",
+                             f"[Console]::OutputEncoding = [Text.Encoding]::GetEncoding({codepage}); "
+                             f"irm '{address}/install.py' -ErrorAction Stop | & '{python}' -; exit $LASTEXITCODE"],
+                            cwd=target, capture_output=True, env=environment,
+                            creationflags=subprocess.CREATE_NO_WINDOW,
+                        )
+                        stdout = result.stdout.decode("utf-8")
+                        stderr = result.stderr.decode("utf-8")
+                        self.assertEqual(failure, result.returncode != 0, stderr)
+                        if failure:
+                            self.assertIn("测试故障注入：after-lock", stderr)
+                            self.assertFalse((target / ".gitignore").exists())
+                        else:
+                            self.assertIn(f"安装完成：功能交付流 {test_installation.VERSION}", stdout)
+                            self.assertIn("项目版本管理忽略规则已验证且未被安装器修改。", stdout)
+                            self.assertIn("DLoop installed and verified.", stdout)
+                        self.assertNotIn("\ufffd", stdout + stderr)
+                        self.assertEqual(not failure, (target / test_installation.LOCK).is_file())
             finally:
                 server.shutdown()
                 server.server_close()
