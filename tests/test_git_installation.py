@@ -52,12 +52,18 @@ class GitInstallationTests(unittest.TestCase):
                 index_path = Path(self.git(target, "rev-parse", "--path-format=absolute", "--git-path", "index").strip())
                 index_before = index_path.read_bytes()
                 ignore_before = (repository / ".gitignore").read_bytes()
-                archive = target / ".scratch/dloop-v3/outputs/retained.txt"
+                archive = target / ".scratch/dloop-v3/v3.7.6/outputs/retained.txt"
                 archive.parent.mkdir(parents=True)
                 archive.write_bytes(b"keep archive")
-                history = target / ".scratch/dloop-v3/snapshots/retained.git/objects/retained"
+                history = target / ".scratch/dloop-v3/v3.7.6/snapshots/retained.git/objects/retained"
                 history.parent.mkdir(parents=True)
                 history.write_bytes(b"persistent snapshot")
+                result = self._run(target, "-Version", f"v{VERSION}")
+                self.assertEqual(0, result.returncode, result.stderr)
+                retired = list((target / ".scratch/dloop-history").glob("*/runtime"))
+                self.assertEqual(1, len(retired))
+                archive = retired[0] / f"v{VERSION}/outputs/retained.txt"
+                history = retired[0] / f"v{VERSION}/snapshots/retained.git/objects/retained"
                 for args in ((), ("-Verify",), (), ("-Uninstall",)):
                     result = self._run(target, "-Version", f"v{VERSION}", *args)
                     self.assertEqual(0, result.returncode, result.stderr)

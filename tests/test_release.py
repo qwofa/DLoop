@@ -44,7 +44,7 @@ class ReleaseMetadataTests(unittest.TestCase):
             plugin_root.joinpath(".codex-plugin", "plugin.json").read_text(encoding="utf-8")
         )
 
-        self.assertEqual("3.7.5", version)
+        self.assertEqual("3.7.6", version)
         self.assertEqual("dloop", manifest["name"])
         self.assertEqual(version, manifest["version"])
         self.assertEqual("./skills/", manifest["skills"])
@@ -78,7 +78,7 @@ class ReleaseMetadataTests(unittest.TestCase):
         )
 
         self.assertEqual(
-            "current-version-only",
+            "archive-on-upgrade",
             release["versionSupport"]["mode"],
         )
         self.assertEqual(
@@ -87,7 +87,8 @@ class ReleaseMetadataTests(unittest.TestCase):
                 "sameVersion": (
                     "verify-ownership-and-reinstall-idempotently"
                 ),
-                "otherVersion": "reject-before-read-or-write",
+                "olderVersion": "archive-retire-and-install",
+                "newerVersion": "reject-before-read-or-write",
             },
             release["versionSupport"]["behaviors"],
         )
@@ -137,9 +138,9 @@ class ReleaseMetadataTests(unittest.TestCase):
         installation = (REPOSITORY_ROOT / "docs" / "installation.md").read_text(encoding="utf-8")
         changelog = (REPOSITORY_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
 
-        self.assertEqual("3.7.5", version)
-        self.assertIn("v3.7.5", readme)
-        self.assertIn("-Version v3.7.5", installation)
+        self.assertEqual("3.7.6", version)
+        self.assertIn("v3.7.6", readme)
+        self.assertIn("-Version v3.7.6", installation)
         self.assertIn("-Uninstall", installation)
         self.assertIn("install.py", readme)
         self.assertIn("$dloop", readme)
@@ -152,21 +153,21 @@ class ReleaseMetadataTests(unittest.TestCase):
         release = json.loads(
             (REPOSITORY_ROOT / "release.json").read_text(encoding="utf-8")
         )
-        release_notes = (REPOSITORY_ROOT / "docs" / "v3.7.5-redundancy-cleanup.md").read_text(encoding="utf-8")
+        release_notes = (REPOSITORY_ROOT / "docs" / "v3.7.6-version-handoff.md").read_text(encoding="utf-8")
 
         self.assertEqual(
             {
-                "workflowVersion": "3.7.5",
+                "workflowVersion": "3.7.6",
                 "archiveSchemaVersion": 3,
                 "terminologySchemaVersion": 2,
-                "sourceTag": "v3.7.5",
+                "sourceTag": "v3.7.6",
                 "releaseStatus": "frozen",
                 "versionSupport": release["versionSupport"],
             },
             release,
         )
         self.assertIn("frozen", release_notes)
-        self.assertIn("`v3.7.5` 标签固定", release_notes)
+        self.assertIn("基于冻结版 v3.7.5", release_notes)
         self.assertIn("## 验证范围", release_notes)
 
     def test_skill_describes_the_current_runtime_contract(self) -> None:

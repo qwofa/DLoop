@@ -17,6 +17,7 @@ from typing import Callable, Dict, Mapping, Sequence, Tuple, TypeVar, cast
 import xml.etree.ElementTree as ElementTree
 
 from archive_profiles import WORKFLOW_STATE_SCHEMA_VERSION
+from archive_paths import ARCHIVE_ROOT_RELATIVE
 from archive_slice_plan import pending_plan_slices
 WORKSPACE_STATE_NAME = ".feature-archive-workspace-state.json"
 WORKSPACE_LOCK_NAME = ".feature-archive-workspace-state.lock"
@@ -254,8 +255,9 @@ def _relative_workspace_path(workspace_root: Path, path: Path) -> str:
 
 def _is_guard_excluded(relative: str) -> bool:
     parts = PurePosixPath(relative).parts
-    managed = parts[:2] == (".scratch", "dloop-v3")
-    stable_ui_model = len(parts) == 5 and parts[2] == "outputs" and parts[-1] == "ui-model.json"
+    managed = parts[:2] in ((".scratch", "dloop-v3"), (".scratch", "dloop-history"))
+    archive_parts = ARCHIVE_ROOT_RELATIVE.parts
+    stable_ui_model = len(parts) == len(archive_parts) + 2 and parts[:len(archive_parts)] == archive_parts and parts[-1] == "ui-model.json"
     return (managed and not stable_ui_model) or _is_untracked_runtime_path(relative)
 
 
@@ -571,7 +573,7 @@ def _is_untracked_runtime_path(relative_path: str) -> bool:
 def assert_safe_write_scopes(scopes: Sequence[str], feature_id: str) -> None:
     """拒绝把 DLoop 自有状态或其父目录声明为产品写入范围。"""
 
-    managed_root = (".scratch", "dloop-v3")
+    managed_roots = ((".scratch", "dloop-v3"), (".scratch", "dloop-history"))
     unsafe = []
     for scope in sorted(set(scopes)):
         normalized = PurePosixPath(str(scope).replace("\\", "/"))
@@ -582,15 +584,12 @@ def assert_safe_write_scopes(scopes: Sequence[str], feature_id: str) -> None:
         if parts[-1] in {WORKSPACE_STATE_NAME.casefold(), WORKSPACE_LOCK_NAME.casefold()}:
             unsafe.append(scope)
             continue
-        if len(parts) <= len(managed_root) and managed_root[:len(parts)] == parts:
+        if any(len(parts) <= len(managed_root) and managed_root[:len(parts)] == parts for managed_root in managed_roots):
             unsafe.append(scope)
             continue
-        if parts[:len(managed_root)] == managed_root:
+        if any(parts[:len(managed_root)] == managed_root for managed_root in managed_roots):
             stable_ui_model = (
-                len(parts) == 5
-                and parts[2] == "outputs"
-                and parts[3] == feature_id.casefold()
-                and parts[-1] == "ui-model.json"
+                parts == (*ARCHIVE_ROOT_RELATIVE.parts, feature_id.casefold(), "ui-model.json")
             )
             if not stable_ui_model:
                 unsafe.append(scope)

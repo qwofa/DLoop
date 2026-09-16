@@ -52,9 +52,9 @@ function Get-ReleaseVersionSupport {
     if (
         $null -eq $modeProperty -or
         -not ($modeProperty.Value -is [string]) -or
-        [string]$modeProperty.Value -ne "current-version-only"
+        [string]$modeProperty.Value -ne "archive-on-upgrade"
     ) {
-        throw "release.json 的版本支持模式必须为 current-version-only。"
+        throw "release.json 的版本支持模式必须为 archive-on-upgrade。"
     }
 
     $behaviorsProperty = $support.PSObject.Properties["behaviors"]
@@ -65,7 +65,8 @@ function Get-ReleaseVersionSupport {
     $expectedBehaviors = [ordered]@{
         absent = "install-current"
         sameVersion = "verify-ownership-and-reinstall-idempotently"
-        otherVersion = "reject-before-read-or-write"
+        olderVersion = "archive-retire-and-install"
+        newerVersion = "reject-before-read-or-write"
     }
     foreach ($name in $expectedBehaviors.Keys) {
         $property = $behaviors.PSObject.Properties[$name]
@@ -935,6 +936,8 @@ if (Test-Path -LiteralPath $lockPath) {
     Assert-NoReparsePoint -Path $lockPath -Boundary $targetRoot
 }
 $existingLock = Read-JsonFile -Path $lockPath -Description "安装锁"
+$isUpgrade = $false
+$installedVersion = "uninstalled"
 if ($null -eq $existingLock) {
     if ($Uninstall) {
         $residuals = @(Get-UnownedManagedResiduals `
@@ -969,7 +972,8 @@ if ($null -ne $existingLock) {
     $null = ConvertTo-SemanticVersion `
         -Value $installedVersion `
         -Description "安装锁中的工作流版本"
-    if ($installedVersion -ne $releaseVersion) {
+    $isUpgrade = ([System.Version]$installedVersion -lt [System.Version]$releaseVersion) -and -not ($Verify -or $Uninstall)
+    if ($installedVersion -ne $releaseVersion -and -not $isUpgrade) {
         throw (
             "目标项目安装版本 $installedVersion 与当前发行版 $releaseVersion 不一致；" +
             "当前安装器不会读取其载荷结构，也不会修改目标项目。"
@@ -1013,6 +1017,10 @@ if ($Verify) {
     exit 0
 }
 
+$upgradeState = $null
+if ($isUpgrade) {
+    $upgradeState = Get-SupportedManagedState -Lock $existingLock -TargetRoot $targetRoot
+}
 $existingLockHashes = Get-LockHashMap -Lock $existingLock
 
 $conflicts = @()
@@ -1032,7 +1040,7 @@ foreach ($item in $payload) {
         $conflicts += $item.RelativePath
     }
 }
-if ($null -ne $existingLock) {
+if ($null -ne $existingLock -and -not $isUpgrade) {
     if ($existingLockHashes.Count -ne $payload.Count) {
         throw "同版本安装锁与当前发行载荷不一致，拒绝修改。"
     }
@@ -1050,6 +1058,40 @@ if ($conflicts.Count -gt 0) {
         "检测到无法安全处理的本地漂移或归属冲突，拒绝覆盖：`n- " +
         ($conflicts -join "`n- ")
     )
+}
+
+$runtimeRoot = Resolve-ManagedRelativePath -TargetRoot $targetRoot -RelativePath ".scratch/dloop-v3"
+$historyRoot = Resolve-ManagedRelativePath -TargetRoot $targetRoot -RelativePath ".scratch/dloop-history"
+$retireRuntime = ($isUpgrade -or $null -eq $existingLock) -and (Test-Path -LiteralPath $runtimeRoot)
+$historyDirectory = $null
+$archivedRuntime = $null
+if ($retireRuntime) {
+    Assert-NoReparsePoint -Path $runtimeRoot -Boundary $targetRoot
+    Assert-NoReparsePoint -Path $historyRoot -Boundary $targetRoot
+    if (-not (Test-Path -LiteralPath $runtimeRoot -PathType Container)) {
+        throw "工作流活动位置不是目录：$runtimeRoot"
+    }
+    $historyDirectory = Join-Path $historyRoot (
+        $installedVersion + "-" + [DateTime]::UtcNow.ToString("yyyyMMddTHHmmssfffZ") + "-" + [Guid]::NewGuid().ToString("N")
+    )
+    $archivedRuntime = Join-Path $historyDirectory "runtime"
+    if (-not (Test-PathWithin -Candidate $archivedRuntime -Root $targetRoot)) {
+        throw "历史档案位置超出目标项目。"
+    }
+    # An unfinished job may be retired, but an executing command must first exit.
+    $runtimeDirectories = @($runtimeRoot) + @(Get-ChildItem -LiteralPath $runtimeRoot -Directory | ForEach-Object { $_.FullName })
+    foreach ($runtimeDirectory in $runtimeDirectories) {
+        $workspaceLock = Join-Path $runtimeDirectory "outputs/.feature-archive-workspace-state.lock"
+        if (Test-Path -LiteralPath $workspaceLock -PathType Leaf) {
+            try {
+                $stream = [System.IO.File]::Open($workspaceLock, 'Open', 'ReadWrite', 'None')
+                $stream.Dispose()
+            }
+            catch {
+                throw "旧工作区仍被命令访问或无法独占打开。请先停止旧版命令和 Agent 再升级；作业无需完成。原因：$($_.Exception.Message)"
+            }
+        }
+    }
 }
 
 $newLock = New-LockDocument `
@@ -1073,6 +1115,33 @@ try {
         }
     }
 
+    if ($retireRuntime) {
+        Save-DirectoryHierarchySnapshot -Snapshots $directorySnapshots -Path $historyDirectory -Boundary $targetRoot
+        New-Item -ItemType Directory -Path $historyDirectory -Force | Out-Null
+        Move-Item -LiteralPath $runtimeRoot -Destination $archivedRuntime
+        $retirementPath = Join-Path $historyDirectory "retirement.json"
+        Save-FileSnapshot -Snapshots $snapshots -Path $retirementPath
+        Write-JsonDocument -Path $retirementPath -Document ([ordered]@{
+            status = "retired"
+            sourceVersion = $installedVersion
+            replacementVersion = $releaseVersion
+            retiredAt = [DateTime]::UtcNow.ToString("o")
+            scope = "all-jobs-and-workspace-ownership"
+            runtime = "runtime"
+            codeChanges = "preserved-without-acceptance"
+        })
+        $noticePath = Join-Path $historyDirectory "README.md"
+        Save-FileSnapshot -Snapshots $snapshots -Path $noticePath
+        [System.IO.File]::WriteAllText($noticePath, (
+            "# 历史工作流档案（已失效）`n`n" +
+            "本批全部作业已因版本交替退出活动流程，包括未结束作业。原状态仅用于追溯，不再授予实施、批准、恢复或工作区占用资格。`n`n" +
+            "正文、附件、快照及旧占用记录保留在 runtime；项目代码改动保持原样，未自动验收、回滚或提交。新作业使用项目当前活动目录。`n"
+        ), [System.Text.UTF8Encoding]::new($false))
+        Test-FailureInjection -Step "after-retirement"
+    }
+    if ($isUpgrade) {
+        Remove-SupportedManagedState -TargetRoot $targetRoot -LockPath $lockPath -State $upgradeState -Snapshots $snapshots -DirectorySnapshots $directorySnapshots
+    }
     foreach ($item in $payload) {
         $stagedPath = Join-Path $stagingRoot $item.RelativePath
         $destination = Join-Path $targetRoot $item.RelativePath
@@ -1104,6 +1173,9 @@ try {
 }
 catch {
     $failure = $_
+    if ($null -ne $archivedRuntime -and (Test-Path -LiteralPath $archivedRuntime)) {
+        Move-Item -LiteralPath $archivedRuntime -Destination $runtimeRoot
+    }
     Restore-FileSnapshots -Snapshots $snapshots
     Restore-DirectorySnapshots -Snapshots $directorySnapshots
     throw $failure
@@ -1114,5 +1186,9 @@ finally {
     }
 }
 
+if ($retireRuntime) {
+    Write-Output "旧作业已全部归档失效，工作区占用已释放：$historyDirectory"
+    Write-Output "项目代码改动已保留；新版作业从空的活动档案目录开始。"
+}
 Write-Output "安装完成：功能交付流 $releaseVersion，共 $($payload.Count) 个受管文件。"
 Write-Output "项目版本管理忽略规则已验证且未被安装器修改。"

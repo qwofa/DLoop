@@ -368,7 +368,8 @@ def _evidence_status(root: Path, reference: str) -> Mapping[str, str]:
         return {"reference": reference, "status": "not-checked"}
     path = Path(reference[5:])
     if not path.is_absolute():
-        path = root.parent.parent.parent / path
+        from archive_paths import project_root_from_archive_root
+        path = project_root_from_archive_root(root) / path
     try:
         status = "available" if path.is_file() else "missing"
     except OSError:
