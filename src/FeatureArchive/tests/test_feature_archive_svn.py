@@ -21,6 +21,18 @@ from _feature_archive_support import FeatureArchiveCliTestCase
 
 @unittest.skipUnless(_svn_executable("svn") and _svn_executable("svnadmin"), "需要 SVN 客户端")
 class SvnChangelistTests(unittest.TestCase):
+    def test_ui_managed_outputs_do_not_hide_product_scope_changes(self):
+        self.svn("propdel", "svn:ignore", str(self.project))
+        baseline = workspace_guard_snapshot(self.project)
+        for relative in ("outputs/delivery/ui-model.json", "captures/delivery/capture-request.json", "captures/delivery/raw.png"):
+            path = self.root.parent / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"generated artifact")
+        self.assertEqual(baseline["digest"], workspace_guard_snapshot(self.project)["digest"])
+        (self.project / "Assets/main.cs").write_text("product change", encoding="utf-8")
+        from archive_workspace import outside_scope_guard_changes
+        self.assertEqual(("Assets/main.cs",), outside_scope_guard_changes(baseline, workspace_guard_snapshot(self.project), ["unrelated.txt"]))
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -78,7 +90,7 @@ class SvnChangelistTests(unittest.TestCase):
         self.assertIn(evidence.relative_to(self.project).as_posix(), result["files"])
         self.assertTrue(any("/shares/" in name for name in result["files"]))
         self.assertTrue(any(name.endswith("workflow-state.json") for name in result["files"]))
-        self.assertIn(".scratch/dloop-v3/v3.8.0/friction.jsonl", result["files"])
+        self.assertIn(".scratch/dloop-v3/v3.8.1/friction.jsonl", result["files"])
         self.assertFalse(any("__pycache__" in name or name.endswith(".lock") for name in result["files"]))
         status = _status(self.project)
         self.assertEqual("用户原组", status["unrelated.txt"]["changelist"])
@@ -159,7 +171,7 @@ class SvnChangelistTests(unittest.TestCase):
         grouped = self.installed_cli("sync-svn-changelist", "--feature-id", "delivery")
         self.assertEqual("grouped", grouped["status"])
         self.assertFalse(grouped["committed"])
-        self.assertIn(".scratch/dloop-v3/v3.8.0/outputs/delivery/feature.json", grouped["files"])
+        self.assertIn(".scratch/dloop-v3/v3.8.1/outputs/delivery/feature.json", grouped["files"])
         self.assertEqual(guard, workspace_guard_snapshot(self.project)["digest"])
         summary = self.installed_cli("workflow-status", "--feature-id", "delivery")["delivery_view"]["delivery_summary"]
         self.assertEqual("frozen", summary["archive_lifecycle"])

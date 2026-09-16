@@ -527,6 +527,24 @@ class FeatureArchiveSliceContractTests(FeatureArchiveCliTestCase):
         self.assertEqual("exec-2", record["execution_id"])
         self.assertTrue(record["breaker_reports"])
 
+    def test_retry_does_not_consume_identity_until_outside_changes_are_resolved(self) -> None:
+        self.start(self.write_package("slice-1"))
+        outside = self.workspace / "outside.txt"
+        outside.write_text("outside", encoding="utf-8")
+        self.assertEqual("circuit_open", self.checkpoint("scope", validation_status="passed")["status"])
+        state = self.root / "reliable-delivery/workflow-state.json"
+        lease = self.root / ".feature-archive-workspace-state.json"
+        before = (state.read_bytes(), lease.read_bytes())
+        args = ("resolve-slice", "--feature-id", "reliable-delivery", "--action", "retry",
+                "--package-id", "slice-1", "--execution-id", "exec-2")
+        blocked = self.run_cli(*args, expected=1)
+        self.assertEqual("RETRY_SCOPE_UNRESOLVED", blocked["code"])
+        self.assertIn("outside.txt", blocked["message"])
+        self.assertIn("第 1 版", blocked["message"])
+        self.assertEqual(before, (state.read_bytes(), lease.read_bytes()))
+        outside.unlink()
+        self.assertEqual("active", self.run_cli(*args)["status"])
+
     def test_circuit_open_requires_manual_restore_before_termination(self) -> None:
         package = self.write_package("slice-1")
         self.hard_break(package)
