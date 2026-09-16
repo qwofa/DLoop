@@ -1,6 +1,6 @@
 """Download and install the current DLoop version into the current project.
 
-This distribution entry point installs v3.7.5 without changing its payload.
+This distribution entry point installs v3.7.6 without changing its payload.
 It can run from stdin; --archive also supports a previously downloaded ZIP.
 """
 
@@ -14,7 +14,7 @@ import urllib.request
 import zipfile
 
 
-VERSION = "3.7.5"
+VERSION = "3.7.6"
 ARCHIVE_URL = f"https://codeload.github.com/qwofa/DLoop/zip/refs/tags/v{VERSION}"
 
 
@@ -89,7 +89,7 @@ def prepare_ignore(target, vcs, scratch):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", type=Path, default=Path.cwd())
-    parser.add_argument("--archive", type=Path, help="Use a downloaded v3.7.5 source ZIP")
+    parser.add_argument("--archive", type=Path, help="Use a downloaded v3.7.6 source ZIP")
     args = parser.parse_args()
     if sys.platform != "win32":
         raise RuntimeError("DLoop currently requires Windows.")
@@ -121,7 +121,7 @@ def main():
         restore_ignore = prepare_ignore(target, vcs, scratch)
         try:
             print(f"Installing DLoop {VERSION} into {target}...", flush=True)
-            run(*command)
+            print(run(*command).decode("utf-8", errors="replace").strip())
         except BaseException:
             restore_ignore()
             raise
