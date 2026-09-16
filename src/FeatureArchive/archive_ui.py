@@ -283,12 +283,9 @@ def _evaluate(
     code = "DLOOP_UI_PLAN_BLOCKED"
     message = (
         "ui-model.json 自上次规划同步后已变化，需要重新同步 UI 标注计划。"
-        if not model_current
-        else (
-            "UI 截图或需求证据已变化或缺失，需要修正后重新同步。"
-            if sealed_status and not current_status
-            else "交互交付说明或双向核对尚未完成，不能进入最终验收。"
-        )
+        if not model_current else
+        "；".join(dict.fromkeys(item["message"] for item in current_report["errors"]))
+        or "交互交付说明或双向核对尚未完成，不能进入最终验收。"
     )
     return {
         "status": "BLOCKED" if blocked else "PASS",

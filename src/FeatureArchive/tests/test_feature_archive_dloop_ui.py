@@ -661,6 +661,62 @@ class FeatureArchiveDloopUiTests(FeatureArchiveCliTestCase):
     def ui_approval_view(self, archive):
         return self.run_cli("workflow-status", "--feature-id", archive.name)["delivery_view"]
 
+    def test_internal_requirement_problem_points_to_document_not_human_approval(self):
+        archive, _, _, _, _ = self.complete_plan()
+        _, baseline = self.submit_baseline(archive)
+        rejected = self.run_cli(
+            "stage-action", "--feature-id", archive.name, "--stage", "ui-baseline", "--decision", "approve",
+            "--reviewed-digest", baseline["reviewed_digest"], "--user-confirmation", "用户确认当前开工清单", expected=1,
+        )
+        self.assertEqual("UI_REQUIREMENTS_NOT_READY", rejected["code"])
+        self.assertIn("requirements.overview", rejected["message"])
+        self.assertIn("draft", rejected["message"])
+        context = self.run_cli("context-summary", "--feature-id", archive.name,
+                               "--action", "investigation", "--role", "coordinator")
+        self.assertIn("UI_REQUIREMENTS_NOT_READY", [item["code"] for item in context["blockers"]])
+        self.set_status(archive / "01-requirements/README.md", "confirmed")
+        _, baseline = self.submit_baseline(archive)
+        approved = self.run_cli(
+            "stage-action", "--feature-id", archive.name, "--stage", "ui-baseline", "--decision", "approve",
+            "--reviewed-digest", baseline["reviewed_digest"], "--user-confirmation", "用户确认当前开工清单",
+        )
+        self.assertEqual("approve", self.ui_approval_view(archive)["conclusions"]["approvals"]["ui-baseline"]["status"])
+
+    def test_internal_draft_reuses_publication_without_granting_final_acceptance(self):
+        archive, _, _, investigation, published = self.complete_plan()
+        page = archive / "06-validation/ui-delivery.html"
+        before = page.read_bytes()
+        rejected = self.run_cli("prepare-action-input", "--feature-id", archive.name,
+                                "--input-kind", "ui-delivery", expected=1)
+        self.assertEqual("ACCEPTED_IMPLEMENTATION_REQUIRED", rejected["code"])
+        self.assertIn("内部草稿", rejected["message"])
+        self.assertIn("ui-publish", rejected["message"])
+        review = self.write_review(investigation, [self.change_outcome(investigation)])
+        repeated = self.run_cli("ui-publish", "--feature-id", archive.name, "--input", review)
+        self.assertFalse(repeated["delivery_ready"])
+        self.assertEqual(before, page.read_bytes())
+        state = json.loads((archive / "workflow-state.json").read_bytes())
+        self.assertIsNone(state["approvals"]["final"])
+        evaluated = configuration_evaluation(archive, state, "final")
+        self.assertEqual("BLOCKED", evaluated["status"])
+        self.assertNotIn("UI 截图或需求证据已变化或缺失", evaluated["message"])
+
+    def test_capture_request_during_implementation_stays_in_managed_version_directory(self):
+        archive, _, package = self.prepare_ui_execution()
+        self.run_cli("start-slice", "--feature-id", archive.name, "--execution-id", "ui-impl",
+                     "--package-file", package, "--workspace-root", self.workspace)
+        pending = self.run_cli("ui-investigate", "--feature-id", archive.name,
+                               "--input", self.project_root / "ui-brief.json")
+        request = Path(pending["capture_request"])
+        self.assertEqual((archive.parent.parent / "captures" / archive.name).resolve(), request.parent.resolve())
+        manifest = CaptureFixture().capture(request, self.project_root, request.parent)
+        captured = self.run_cli("ui-investigate", "--feature-id", archive.name,
+                                "--input", self.project_root / "ui-brief.json", "--capture-manifest", manifest)
+        review = self.write_review(captured, [self.change_outcome(captured)])
+        self.run_cli("ui-publish", "--feature-id", archive.name, "--input", review)
+        checkpoint = self.record_checkpoint("ui-impl", feature_id=archive.name)
+        self.assertFalse(checkpoint["checkpoint"]["boundary_crossed"])
+
     def test_ui_baseline_waiting_keeps_material_write_targets_without_allowing_implementation(self):
         archive, _, package = self.prepare_ui_execution(approve_baseline=False)
         for stage, writable in (

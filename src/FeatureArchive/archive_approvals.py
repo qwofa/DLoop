@@ -545,6 +545,19 @@ def _stage_snapshot(graph: ArchiveGraph, feature_id: str, stage: str) -> Mapping
     return _document_snapshot(graph, f"{feature_id}.{role}")
 
 
+def requirements_blocker(graph, feature_id: str, state) -> Mapping[str, str]:
+    if is_ui_delivery(state):
+        try:
+            _stage_snapshot(graph, feature_id, "requirements")
+        except ArchiveApprovalError as exception:
+            return {
+                "code": "UI_REQUIREMENTS_NOT_READY",
+                "message": "内部需求材料未就绪：" + exception.message
+                + " 请更新对应文档并登记正文或刷新依赖；DloopUI 不登记需求人工批准，材料齐备后确认开工清单。",
+            }
+    return {"code": "REQUIREMENTS_APPROVAL_REQUIRED", "message": "需求共识尚未批准或已失效。"}
+
+
 def _approval_record_status(
     graph: ArchiveGraph,
     feature_id: str,
@@ -698,7 +711,8 @@ def approve_stage(
         state,
     )
     if stage != "requirements" and requirements_status not in {"approve", "ready"}:
-        raise ArchiveApprovalError("REQUIREMENTS_APPROVAL_REQUIRED", "需求共识尚未确认。")
+        blocker = requirements_blocker(graph, feature_id, state)
+        raise ArchiveApprovalError(blocker["code"], blocker["message"])
     if stage == "final" and decision == "approve":
         architecture_status = _approval_record_status(
             graph,
@@ -773,6 +787,8 @@ def approval_status_from_state(
     architecture_status = result["architecture"]["status"]
     if is_ui_delivery(state):
         from archive_ui_baseline import baseline_review
+        if requirements_status != "ready":
+            result["requirements"]["blocker"] = requirements_blocker(graph, feature_id, state)
         result["ui-baseline"]["review"] = baseline_review(graph, feature_id, state)
         if result["final"]["status"] != "pending" and result["ui-baseline"]["status"] != "approve":
             result["final"]["status"] = "stale"

@@ -1,8 +1,8 @@
-# DLoop v3.8.0 中间态保存与恢复
+# DLoop v3.8.1 中间态保存与恢复
 
 ## 自动保存与编辑边界
 
-所有作业都使用独立本地 Git 快照库，SVN 项目也必须有 Git 客户端。库位于 `.scratch/dloop-v3/v3.8.0/snapshots/<feature-id>.git`，不改变源项目 Git 分支和暂存区，不提交 SVN 服务器。快照是持久数据，不作为缓存清理。
+所有作业都使用独立本地 Git 快照库，SVN 项目也必须有 Git 客户端。库位于 `.scratch/dloop-v3/v3.8.1/snapshots/<feature-id>.git`，不改变源项目 Git 分支和暂存区，不提交 SVN 服务器。快照是持久数据，不作为缓存清理。
 
 工具自动保存作业起点、切片与返修开始、每个合法检查点（包括失败或熔断）、固定候选、评审、批准、确认材料、UI 发布及交付冻结结果。工具显示保存失败或 `recovery_required` 时，先运行 `snapshot-recover --feature-id <id>`；未成功前不得编辑、交接或启动新实施。
 

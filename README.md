@@ -21,7 +21,7 @@ DLoop 基于 **Codex + Unity MCP**，把长任务从需求梳理、项目调查�
 
 ## 当前版本
 
-当前版本为 **v3.8.0**，状态为 `frozen`，由 `v3.8.0` 标签固定。基于冻结版 v3.7.6，新增 DloopUI 必要材料核对和开工确认，详见[本版说明](docs/v3.8.0-ui-readiness.md)。本地安装见[源码安装](docs/installation.md#源码安装)。
+当前发行版为 **v3.8.1**，状态为 `frozen`，由 `v3.8.1` 标签固定。基于冻结版 v3.8.0，修正生成范围预检、采集产物保护、重试检查与阻断指引，复用内部草稿展示。详见[本版说明](docs/v3.8.1-friction-fixes.md)。
 
 ## 安装
 
@@ -33,7 +33,7 @@ DLoop 基于 **Codex + Unity MCP**，把长任务从需求梳理、项目调查�
 irm https://raw.githubusercontent.com/qwofa/DLoop/main/install.py -ErrorAction Stop | python -
 ```
 
-上面的一行安装入口固定下载 `v3.8.0` 标签对应的源码包。入口会准备项目、安装 DLoop 与 DLoopUI，并校验安装结果。看到 `DLoop installed and verified.` 即表示项目内载荷已安装并校验成功。本地及离线方式见[安装说明](docs/installation.md)。
+上面的一行入口安装公开主线指定的发行版；本版入口固定下载含路径修正的安装包标签 `installer-v3.8.1-r1`，工作流载荷仍为冻结版 v3.8.1。入口会准备项目、安装 DLoop 与 DLoopUI，并校验结果。看到 `DLoop installed and verified.` 表示项目内载荷安装并校验成功。本地及离线方式见[安装说明](docs/installation.md)。
 
 随后在 Codex 中打开这个项目，选择下面任一入口开始。Codex 和 Unity MCP 是已有环境依赖，本命令安装的是 DLoop。
 

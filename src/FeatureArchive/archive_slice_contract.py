@@ -427,7 +427,14 @@ def upsert_contract_record(
         slices[package_id] = record
         return record, check, False
     if not isinstance(existing, dict) or existing.get("status") not in {"contract_draft", "contract_failed", "ready"}:
-        raise SliceContractError("SLICE_ALREADY_EXISTS", f"切片“{package_id}”已经进入实施或历史终态，不能静默改写契约。")
+        current = existing or {}
+        version = current.get("package", {}).get("slice_contract", {}).get("version")
+        raise SliceContractError(
+            "SLICE_ALREADY_EXISTS",
+            f"切片“{package_id}”已经进入实施或历史终态，不能静默改写契约。"
+            f"当前状态：{current.get('status')}；执行身份：{current.get('execution_id')}；生效契约：第 {version} 版。"
+            "用 workflow-status 查看下一动作；活动执行继续使用原身份，熔断先处理原阻断，修改任务文件不会自动更新生效范围。",
+        )
     old_package = existing.get("package")
     if not isinstance(old_package, dict) or not isinstance(old_package.get("slice_contract"), dict):
         raise SliceContractError("INVALID_EXECUTION_STATE", "已有切片缺少契约。")

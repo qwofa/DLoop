@@ -500,6 +500,8 @@ def _validate_complex_workflow_state(path: Path, feature_id: str) -> None:
         contract_package_fields = required_package_fields | {"slice_contract", "contract_check"}
         if isinstance(package, dict) and "delivery_requirements" in package:
             contract_package_fields.add("delivery_requirements")
+        if isinstance(package, dict) and "generated_write_scope" in package:
+            contract_package_fields.add("generated_write_scope")
         if (
             not isinstance(package, dict)
             or set(package) != contract_package_fields
