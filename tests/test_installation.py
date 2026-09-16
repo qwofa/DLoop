@@ -27,7 +27,7 @@ SVNADMIN = shutil.which("svnadmin") or (
 )
 VERSION = (REPOSITORY_ROOT / "VERSION").read_text(encoding="utf-8").strip()
 CORE_CLI = Path("Tools") / "FeatureArchive" / "feature_archive.py"
-FRICTION_INBOX = Path(".scratch") / "dloop-v3" / "friction-inbox"
+FRICTION_INBOX = Path(".scratch") / "dloop-v3" / "v3.7.6" / "friction-inbox"
 LOCK = Path(".agents") / "feature-archive-workflow.lock.json"
 UNITY_PACKAGE = Path("Packages") / "com.dloop.ui-capture"
 REQUIRED_CONFIGURATION_PAYLOADS = (
@@ -153,6 +153,7 @@ class InstallationTests(unittest.TestCase):
             target / "Tools",
             target / UNITY_PACKAGE,
             target / ".scratch" / "dloop-v3",
+            target / ".scratch" / "dloop-history",
         ]
         snapshot: dict[str, bytes | None] = {}
         for root in roots:
@@ -348,10 +349,10 @@ class InstallationTests(unittest.TestCase):
             target, ignore_before = self._svn_project(Path(directory))
             installed = self._run(target, "-Version", f"v{VERSION}")
             self.assertEqual(0, installed.returncode, installed.stderr)
-            archive = target / ".scratch" / "dloop-v3" / "outputs" / "kept.json"
+            archive = target / ".scratch" / "dloop-v3" / "v3.7.6" / "outputs" / "kept.json"
             archive.parent.mkdir(parents=True)
             archive.write_text('{"kept": true}\n', encoding="utf-8")
-            history = target / ".scratch/dloop-v3/snapshots/kept.git/objects/retained"
+            history = target / ".scratch/dloop-v3/v3.7.6/snapshots/kept.git/objects/retained"
             history.parent.mkdir(parents=True)
             history.write_bytes(b"persistent snapshot")
 
@@ -434,7 +435,7 @@ class InstallationTests(unittest.TestCase):
             self.assertTrue(
                 (target / ".agents" / "skills" / "dloop" / "references" / "friction-records.md").is_file()
             )
-            friction = target / ".scratch" / "dloop-v3" / "friction.jsonl"
+            friction = target / ".scratch" / "dloop-v3" / "v3.7.6" / "friction.jsonl"
             preserved_friction = friction.read_bytes()
 
             self.assertEqual(
@@ -501,7 +502,7 @@ class InstallationTests(unittest.TestCase):
                 self.assertFalse(cache_file.exists())
 
     def test_other_versions_are_rejected_before_structure_read_or_changes(self) -> None:
-        for installed_version in ("2.0.0", "3.3.3", "3.8.0"):
+        for installed_version in ("3.8.0",):
             for arguments in ((), ("-Verify",), ("-Uninstall",)):
                 with self.subTest(version=installed_version, arguments=arguments):
                     with tempfile.TemporaryDirectory() as directory:
