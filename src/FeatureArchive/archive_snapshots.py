@@ -37,6 +37,7 @@ OPERATIONS = {
     "transition_lifecycle": "lifecycle",
     "investigate_ui": "ui-investigated",
     "publish_ui": "ui-published",
+    "submit_ui_baseline": "ui-baseline-submitted",
     "sync_svn_changelist": "svn-grouped",
 }
 _LOCAL = threading.local()
@@ -210,7 +211,7 @@ def _capture(root: Path, feature_id: str, previous: dict, workspace: Path | None
     for path, oid in initial.items():
         entries["initial/" + path] = oid
     value = {
-        "version": "3.7.6", "feature_id": feature_id,
+        "version": "3.8.0", "feature_id": feature_id,
         "workspace": str(workspace) if workspace else None,
         "scopes": scopes, "initial": initial, "source": source,
         "initial_source": previous.get("initial_source") or source,
@@ -300,7 +301,7 @@ def _target(repository: Path, snapshot_id: str | None, stage: str | None = None)
         if (snapshot_id and value["id"] == snapshot_id) or (
             stage and value.get("stage") == stage and value["reason"] == "stage-start"
         ):
-            if value.get("version") != "3.7.6":
+            if value.get("version") != "3.8.0":
                 raise _error("SNAPSHOT_VERSION_MISMATCH", "只能恢复当前版本创建的保存点。")
             return commit, value
     raise _error("SNAPSHOT_NOT_FOUND", "找不到指定保存点或该阶段的开始保存点；请先查看保存点列表。")
@@ -454,10 +455,10 @@ def _multiple_operations(root: Path, features: list, reason: str, bound: dict | 
     repositories = []
     completed = False
     stage = (bound or {}).get("stage")
-    stage = {"architecture": "design", "final": "validation"}.get(stage, stage)
+    stage = {"architecture": "design", "ui-baseline": "plan", "final": "validation"}.get(stage, stage)
     if reason in {"slice-start", "checkpoint", "candidate-submitted", "candidate-reviewed", "repair-start", "slice-released"}:
         stage = "implementation"
-    elif reason in {"plan-approved", "ui-published"}:
+    elif reason in {"plan-approved", "ui-published", "ui-baseline-submitted"}:
         stage = "plan"
     elif reason == "ui-investigated":
         stage = "investigation"

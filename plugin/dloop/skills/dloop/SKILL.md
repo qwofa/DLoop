@@ -1,9 +1,9 @@
 ---
 name: dloop
-description: 使用 DLoop v3.7.6 管理至少包含一个实施切片的大型功能交付流；普通调用不生成 Unity UI 专属产物。
+description: 使用 DLoop v3.8.0 管理至少包含一个实施切片的大型功能交付流；普通调用不生成 Unity UI 专属产物。
 ---
 
-# DLoop v3.7.6 功能交付流入口
+# DLoop v3.8.0 功能交付流入口
 
 本技能只在用户显式调用 `$dloop`，且目标需要跨轮规划、至少一个实现切片、独立候选评审和最终集成验收时管理大型功能交付。不满足入口条件的事项直接按普通任务处理，不初始化交付档案；进行中确认不需要实现切片时停止 DLoop，不得用空候选集合完成验收。`$dloop-ui` 是独立的显式入口；界面相关自然语言不会让普通 DLoop 选择 UI 配置或生成 UI 证据。
 
@@ -21,7 +21,7 @@ description: 使用 DLoop v3.7.6 管理至少包含一个实施切片的大型�
 4. 按 `delivery_view` 推进；事实不唯一由协调者决定，机器阻断原样返回，不拼接视图或手改状态。暂停、保存或回退先按 `snapshot` 规则处理；返修用 `slice-release`。
 5. 创建下游上下文前调用 `prepare-handoff --feature-id <id> --action <action> --role <role>`，附上该角色所需临时输入。只有 `handoff_ready: true` 才交付工具生成的 `task_message` 与 `context_command` 并启动下游；正式事实不复制进任务消息。缺项由原上游上下文在授权范围内补齐，输入未变化时不重试；涉及业务决定或批准变化时交还协调者。下游自行执行返回的读取命令，独立核对完整性与业务正确性。
 
-交付档案固定在 `.scratch/dloop-v3/v3.7.6/outputs/<feature-id>/`，阶段依次是需求、调查、设计、计划、实施、验证。只通过 `python Tools/FeatureArchive/feature_archive.py <command>` 调用确定性能力；命令不接收路径根，写入使用当次返回的 `archive_location` 和 `write_targets`。
+交付档案固定在 `.scratch/dloop-v3/v3.8.0/outputs/<feature-id>/`，阶段依次是需求、调查、设计、计划、实施、验证。只通过 `python Tools/FeatureArchive/feature_archive.py <command>` 调用确定性能力；命令不接收路径根，写入使用当次返回的 `archive_location` 和 `write_targets`。
 
 ## 动作路由
 
@@ -51,7 +51,7 @@ python Tools/FeatureArchive/feature_archive.py workflow-rules `
 
 ## 关键不变量
 
-- DloopUI 不要求例行前置批准，保留内部需求与设计。实施中补齐原范围内有依据的交互；缺业务事实、冲突或超范围时只问具体问题。最终用内置 HTML 模板展示并等待真实用户验收。
+- DloopUI 保留内部需求与设计；四类必要材料齐备后，展示开工清单并取得用户确认。缺项、歧义或确认失效时停止整个需求的实施。实施中补齐范围内交互；最终展示并等待用户验收。
 - 当前动作只读取能改变判断或产出的最小工作集。实施从角色视图、授权项目事实和本轮验证证据开始；评审从固定候选和批准材料出发核对相关项目事实，不接收实施对话。
 - `context-summary --feature-id <id> --action <action> --role <role>` 与 `workflow-status` 共享事实源。角色视图、字段合同、状态迁移、写入范围、修改租约、新鲜度、候选固定、评审身份、最终绑定和清理资格均以工具结果为准。
 - 单线实施，使用项目的 Git 或 SVN 工作区；实施与候选评审身份独立。候选评审和最终验收只读，自审、候选漂移、缺材料或批准过期时停止并交还主协调者。

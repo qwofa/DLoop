@@ -32,6 +32,7 @@ from archive_approvals import (
     APPROVAL_STAGES,
     ArchiveApprovalError,
 )
+from archive_ui_baseline import submit_ui_baseline
 from archive_execution import ArchiveExecutionError
 from archive_svn import sync_svn_changelist
 from archive_candidates import ArchiveCandidateError
@@ -168,6 +169,11 @@ def _build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="当前 Unity 编辑器按本次请求生成的截图清单；仍执行完整证据校验。",
     )
+    baseline_parser = subparsers.add_parser("ui-baseline", help="核对四类开工材料，保存缺项或生成用户确认清单。")
+    baseline_parser.add_argument("--feature-id", required=True)
+    baseline_parser.add_argument("--input", required=True, type=Path)
+    baseline_parser.add_argument("--semantic-change", choices=("true", "false"), default="true",
+                                 help="默认按业务变更提交；仅修正材料用途措辞且业务含义不变时明确传 false。")
     ui_publish_parser = subparsers.add_parser(
         "ui-publish",
         help="提交真实截图上的修改、复用或不可见判断，并发布标注计划。",
@@ -260,7 +266,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     stage_action_parser = subparsers.add_parser(
         "stage-action",
-        help="记录用户明确作出的需求、条件性架构或最终验收决定。",
+        help="记录用户明确作出的需求、条件性架构、DloopUI 开工或最终验收决定。",
     )
     stage_action_parser.add_argument("--feature-id", required=True)
     stage_action_parser.add_argument("--stage", required=True, choices=APPROVAL_STAGES)
@@ -547,6 +553,10 @@ EXPECTED_GUARD_CODES = {
     "DLOOP_UI_REQUIREMENTS_REQUIRED",
     "REQUIREMENTS_APPROVAL_REQUIRED",
     "UI_FINAL_APPROVAL_REQUIRED",
+    "UI_BASELINE_REQUIRED",
+    "UI_BASELINE_INCOMPLETE",
+    "UI_BASELINE_STALE",
+    "UI_BASELINE_APPROVAL_REQUIRED",
     "UI_DELIVERY_OUTDATED",
     "UI_INTERNAL_STAGE",
     "USER_CONFIRMATION_REQUIRED",
@@ -846,6 +856,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 arguments.unity_executable,
                 arguments.capture_manifest,
             )
+        elif arguments.command == "ui-baseline":
+            result = submit_ui_baseline(arguments.root, arguments.feature_id, arguments.input,
+                                        arguments.semantic_change == "true")
         elif arguments.command == "ui-publish":
             result = publish_ui(
                 arguments.root,

@@ -430,6 +430,9 @@ class FeatureArchiveDloopUiTests(FeatureArchiveCliTestCase):
         self.assertIn("用户完成领取奖励后能看到最新结果", plan)
         self.assertIn("requirements.md / 需求文档/领取奖励", plan)
         self.assertNotIn(str(self.project_root), plan)
+        _, baseline = self.submit_baseline(archive)
+        self.assertEqual("blocked", baseline["status"])
+        self.assertIn("prefabs", [item["category"] for item in baseline["blockers"]])
 
     def test_existing_prefab_uses_two_business_commands_and_publishes_one_plan(self) -> None:
         archive, _, _, investigation, published = self.complete_plan()
@@ -619,7 +622,7 @@ class FeatureArchiveDloopUiTests(FeatureArchiveCliTestCase):
         for artifact in published["artifacts"]:
             self.assertTrue((share / artifact).is_file())
 
-    def prepare_ui_execution(self):
+    def prepare_ui_execution(self, approve_baseline=True):
         archive, _, _, investigation, _ = self.complete_plan()
         self.set_status(archive / "01-requirements/terminology.md", "confirmed")
         self.set_status(archive / "01-requirements/README.md", "confirmed")
@@ -633,10 +636,237 @@ class FeatureArchiveDloopUiTests(FeatureArchiveCliTestCase):
             "source": f"{archive.name}.design.overview", "purpose": "读取 UI 内部设计", "mode": "full",
         })
         package.write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
+        if approve_baseline:
+            self.submit_baseline(archive, approve=True)
         return archive, investigation, package
+
+    def submit_baseline(self, archive, *, approve=False, value=None, semantic_change=True):
+        prepared = self.run_cli("prepare-action-input", "--feature-id", archive.name, "--input-kind", "ui-baseline")
+        if value is None:
+            value = prepared["template"]
+            for category in ("protocols", "configurations"):
+                source = self.project_root / (category + ".md")
+                source.write_text("业务输入定义：领取请求返回最新剩余次数；领取次数上限来自配置。", encoding="utf-8")
+                for item in value["items"]:
+                    item[category] = [{"status": "verified", "reference": str(source), "purpose": "领取操作使用定义中的次数字段与限制"}]
+        path = Path(prepared["target"])
+        path.write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
+        result = self.run_cli("ui-baseline", "--feature-id", archive.name, "--input", path,
+                              *(() if semantic_change else ("--semantic-change", "false")))
+        if approve:
+            self.run_cli("stage-action", "--feature-id", archive.name, "--stage", "ui-baseline", "--decision", "approve",
+                         "--reviewed-digest", result["reviewed_digest"], "--user-confirmation", "用户本轮回复：同意按展示的材料开工")
+        return value, result
 
     def ui_approval_view(self, archive):
         return self.run_cli("workflow-status", "--feature-id", archive.name)["delivery_view"]
+
+    def test_ui_baseline_waiting_keeps_material_write_targets_without_allowing_implementation(self):
+        archive, _, package = self.prepare_ui_execution(approve_baseline=False)
+        for stage, writable in (
+            ("ui-inputs", {"investigation"}),
+            ("ui-inputs-blocked", {"investigation"}),
+            ("ui-baseline-review", {"investigation", "design", "plan"}),
+        ):
+            with self.subTest(stage=stage):
+                if stage != "ui-inputs":
+                    value, _ = self.submit_baseline(archive)
+                    if stage == "ui-inputs-blocked":
+                        value["items"][0]["protocols"] = [{"status": "missing", "reference": "已检查协议目录",
+                                                            "purpose": "尚未明确领取返回字段，需继续调查"}]
+                        self.submit_baseline(archive, value=value)
+                for action, directory in (
+                    ("investigation", "02-investigation"), ("design", "03-design"),
+                    ("plan", "04-plan"), ("implementation", "05-implementation"),
+                    ("validation", "06-validation"),
+                ):
+                    with self.subTest(action=action):
+                        context = self.run_cli("context-summary", "--feature-id", archive.name,
+                                               "--action", action, "--role", "coordinator")
+                        self.assertEqual(stage, context["delivery_view"]["current_stage"])
+                        self.assertEqual([], context["blockers"])
+                        targets = context["role_view"]["write_targets"]
+                        self.assertEqual(
+                            [(archive / directory / "README.md").resolve()] if action in writable else [],
+                            [Path(target["path"]) for target in targets],
+                        )
+                rejected = self.run_cli("start-slice", "--feature-id", archive.name, "--execution-id", "ui-impl",
+                                        "--package-file", package, "--workspace-root", self.workspace, expected=1)
+                self.assertEqual("UI_BASELINE_APPROVAL_REQUIRED", rejected["code"])
+                handoff = self.run_cli("prepare-handoff", "--feature-id", archive.name, "--action", "implementation",
+                                       "--role", "implementation", "--execution-id", "ui-impl")
+                self.assertFalse(handoff["handoff_ready"])
+                self.assertIn("UI_BASELINE_APPROVAL_REQUIRED", json.dumps(handoff))
+
+    def test_ui_baseline_wording_revision_preserves_approval_and_handoff(self):
+        archive, _, package = self.prepare_ui_execution()
+        value = json.loads((archive / "04-plan/ui-baseline-input.json").read_bytes())
+        before = json.loads((archive / "workflow-state.json").read_bytes())["approvals"]["ui-baseline"]
+        for punctuation in ("。", "（原意不变）"):
+            value["items"][0]["protocols"][0]["purpose"] += punctuation
+            _, result = self.submit_baseline(archive, value=value, semantic_change=False)
+            self.assertTrue(result["approval_preserved"])
+            self.assertEqual(before["reviewed_digest"], result["reviewed_digest"])
+            self.assertEqual("workflow-status", result["next_action"]["command"])
+            self.assertIn(value["items"][0]["protocols"][0]["purpose"],
+                          Path(result["materials"][0]).read_text(encoding="utf-8"))
+            self.assertEqual(before, json.loads((archive / "workflow-state.json").read_bytes())["approvals"]["ui-baseline"])
+        # 原样重交不会把之前的纯文案修订重新当作业务变化。
+        self.assertTrue(self.submit_baseline(archive, value=value)[1]["approval_preserved"])
+        self.run_cli("start-slice", "--feature-id", archive.name, "--execution-id", "ui-impl",
+                     "--package-file", package, "--workspace-root", self.workspace)
+        handoff = self.run_cli("prepare-handoff", "--feature-id", archive.name, "--action", "implementation",
+                               "--role", "implementation", "--execution-id", "ui-impl")
+        self.assertTrue(handoff["handoff_ready"])
+
+    def test_ui_baseline_wording_revision_does_not_grant_or_revive_approval(self):
+        archive, _, package = self.prepare_ui_execution(approve_baseline=False)
+        value, result = self.submit_baseline(archive)
+        for decision, expected in ((None, "pending"), ("reject", "reject"), ("approve", "stale")):
+            with self.subTest(status=expected):
+                if decision:
+                    self.run_cli("stage-action", "--feature-id", archive.name, "--stage", "ui-baseline",
+                                 "--decision", decision, "--reviewed-digest", result["reviewed_digest"],
+                                 "--user-confirmation", "用户本轮实际回复：" + decision)
+                if expected == "stale":
+                    value["items"][0]["protocols"][0]["purpose"] = "改为订阅推送并按新字段刷新"
+                    self.submit_baseline(archive, value=value)
+                value["items"][0]["protocols"][0]["purpose"] += "。"
+                _, result = self.submit_baseline(archive, value=value, semantic_change=False)
+                self.assertFalse(result["approval_preserved"])
+                self.assertEqual(expected, self.ui_approval_view(archive)["conclusions"]["approvals"]["ui-baseline"]["status"])
+                rejected = self.run_cli("start-slice", "--feature-id", archive.name, "--execution-id", "ui-impl",
+                                        "--package-file", package, "--workspace-root", self.workspace, expected=1)
+                self.assertEqual("UI_BASELINE_APPROVAL_REQUIRED", rejected["code"])
+
+    def test_ui_baseline_wording_revision_rejects_changed_materials(self):
+        archive, _, _ = self.prepare_ui_execution()
+        original = json.loads((archive / "04-plan/ui-baseline-input.json").read_bytes())
+        before = (archive / "04-plan/ui-implementation-baseline.json").read_bytes()
+        replacement = self.project_root / "replacement-protocol.md"
+        replacement.write_text("另一份业务协议", encoding="utf-8")
+        for field, changed in (("reference", str(replacement)), ("status", "missing")):
+            with self.subTest(field=field):
+                value = json.loads(json.dumps(original))
+                value["items"][0]["protocols"][0][field] = changed
+                path = archive / "04-plan/ui-baseline-input.json"
+                path.write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
+                result = self.run_cli("ui-baseline", "--feature-id", archive.name, "--input", path,
+                                      "--semantic-change", "false", expected=1)
+                self.assertEqual("INVALID_UI_BASELINE", result["code"])
+                self.assertEqual(before, (archive / "04-plan/ui-implementation-baseline.json").read_bytes())
+
+    def test_ui_baseline_each_missing_category_blocks_whole_delivery(self):
+        archive, _, package = self.prepare_ui_execution(approve_baseline=False)
+        complete, _ = self.submit_baseline(archive)
+        for category in ("prefabs", "protocols", "configurations", "requirement_sources"):
+            with self.subTest(category=category):
+                value = json.loads(json.dumps(complete))
+                value["items"][0][category] = [{"status": "missing", "reference": "已检查项目相关目录",
+                                                "purpose": "无法确定领取行为，请补充对应材料"}]
+                _, result = self.submit_baseline(archive, value=value)
+                self.assertEqual("blocked", result["status"])
+                self.assertIn(category, [item["category"] for item in result["blockers"]])
+                view = self.ui_approval_view(archive)
+                self.assertEqual("ui-inputs-blocked", view["current_stage"])
+                self.assertTrue(view["requires_human"]["required"])
+                before = (archive / "workflow-state.json").read_bytes()
+                rejected = self.run_cli("start-slice", "--feature-id", archive.name, "--execution-id", "ui-impl",
+                                        "--package-file", package, "--workspace-root", self.workspace, expected=1)
+                self.assertEqual("UI_BASELINE_APPROVAL_REQUIRED", rejected["code"])
+                self.assertNotIn("friction_id", rejected)
+                self.assertEqual(before, (archive / "workflow-state.json").read_bytes())
+                rejected = self.run_cli("stage-action", "--feature-id", archive.name, "--stage", "ui-baseline",
+                                        "--decision", "approve", "--reviewed-digest", result["reviewed_digest"],
+                                        "--user-confirmation", "用户要求继续", expected=1)
+                self.assertEqual("UI_BASELINE_INCOMPLETE", rejected["code"])
+
+    def test_ui_baseline_complete_waits_for_current_user_reply(self):
+        archive, _, package = self.prepare_ui_execution(approve_baseline=False)
+        value, result = self.submit_baseline(archive)
+        self.assertEqual("ready", result["status"])
+        view = self.ui_approval_view(archive)
+        self.assertEqual("ui-baseline-review", view["current_stage"])
+        self.assertIn("user_confirmation", view["next_action_contract"]["required_inputs"])
+        start = ("start-slice", "--feature-id", archive.name, "--execution-id", "ui-impl",
+                 "--package-file", package, "--workspace-root", self.workspace)
+        self.assertEqual("UI_BASELINE_APPROVAL_REQUIRED", self.run_cli(*start, expected=1)["code"])
+        approve = ("stage-action", "--feature-id", archive.name, "--stage", "ui-baseline", "--decision", "approve")
+        self.assertEqual("USER_CONFIRMATION_REQUIRED", self.run_cli(*approve, "--reviewed-digest", result["reviewed_digest"], expected=1)["code"])
+        value["items"][0]["protocols"][0]["purpose"] = "使用领取回包里的最新次数，并说明失败不刷新"
+        _, current = self.submit_baseline(archive, value=value)
+        self.assertEqual("UI_BASELINE_STALE", self.run_cli(*approve, "--reviewed-digest", result["reviewed_digest"],
+                         "--user-confirmation", "用户前轮回复：同意", expected=1)["code"])
+        self.run_cli("stage-action", "--feature-id", archive.name, "--stage", "ui-baseline", "--decision", "reject",
+                     "--reviewed-digest", current["reviewed_digest"], "--user-confirmation", "用户回复：暂不开工")
+        self.assertEqual("UI_BASELINE_APPROVAL_REQUIRED", self.run_cli(*start, expected=1)["code"])
+        self.run_cli(*approve, "--reviewed-digest", current["reviewed_digest"], "--user-confirmation", "用户新回复：同意当前方案")
+        self.run_cli(*start)
+        self.assertFalse(self.ui_approval_view(archive)["requires_human"]["required"])
+        handoff = self.run_cli("prepare-handoff", "--feature-id", archive.name, "--action", "implementation",
+                               "--role", "implementation", "--execution-id", "ui-impl", "--include-role-view")
+        self.assertTrue(handoff["handoff_ready"])
+        self.assertIn("ui-implementation-baseline.json", json.dumps(handoff))
+        self.assertIn("protocols.md", Path(result["materials"][0]).read_text(encoding="utf-8"))
+
+    def test_ui_baseline_change_blocks_resume_handoff_and_retry(self):
+        archive, _, package = self.prepare_ui_execution()
+        start = ("start-slice", "--feature-id", archive.name, "--execution-id", "ui-impl",
+                 "--package-file", package, "--workspace-root", self.workspace)
+        self.run_cli(*start)
+        value, _ = self.submit_baseline(archive)
+        value["items"][0]["protocols"][0]["purpose"] = "改为订阅推送并按新字段刷新"
+        self.submit_baseline(archive, value=value)
+        self.assertEqual("UI_BASELINE_APPROVAL_REQUIRED", self.run_cli(*start, expected=1)["code"])
+        context = self.run_cli("context-summary", "--feature-id", archive.name, "--action", "implementation",
+                               "--role", "implementation", "--execution-id", "ui-impl")
+        self.assertIn("UI_BASELINE_APPROVAL_REQUIRED", json.dumps(context))
+        handoff = self.run_cli("prepare-handoff", "--feature-id", archive.name, "--action", "implementation",
+                               "--role", "implementation", "--execution-id", "ui-impl")
+        self.assertFalse(handoff["handoff_ready"])
+        self.run_cli("submit-slice", "--feature-id", archive.name, "--execution-id", "ui-impl", "--status", "interrupted")
+        rejected = self.run_cli("resolve-slice", "--feature-id", archive.name, "--package-id", "ui-slice",
+                                "--action", "retry", "--execution-id", "ui-retry", expected=1)
+        self.assertEqual("UI_BASELINE_APPROVAL_REQUIRED", rejected["code"])
+        self.submit_baseline(archive, value=value, approve=True)
+        self.run_cli("resolve-slice", "--feature-id", archive.name, "--package-id", "ui-slice",
+                     "--action", "retry", "--execution-id", "ui-retry")
+
+    def test_ui_baseline_not_applicable_requires_reason_and_cannot_hide_prefab(self):
+        archive, _, _ = self.prepare_ui_execution(approve_baseline=False)
+        value, _ = self.submit_baseline(archive)
+        value["items"][0]["protocols"] = [{"status": "not_applicable", "reference": "", "purpose": ""}]
+        self.assertEqual("blocked", self.submit_baseline(archive, value=value)[1]["status"])
+        value["items"][0]["protocols"][0]["purpose"] = "此场景只使用本地状态，不调用后端接口"
+        self.assertEqual("ready", self.submit_baseline(archive, value=value)[1]["status"])
+        value["items"][0]["prefabs"] = [{"status": "not_applicable", "reference": "", "purpose": "稍后新建"}]
+        self.assertEqual("blocked", self.submit_baseline(archive, value=value)[1]["status"])
+
+    def test_ui_baseline_ambiguity_nonexistent_reference_and_omitted_requirement_block(self):
+        archive, _, _ = self.prepare_ui_execution(approve_baseline=False)
+        complete, _ = self.submit_baseline(archive)
+        for status, reference in (("ambiguous", "协议候选一、协议候选二"), ("verified", "missing-protocol.md")):
+            value = json.loads(json.dumps(complete))
+            value["items"][0]["protocols"][0].update(status=status, reference=reference)
+            self.assertEqual("blocked", self.submit_baseline(archive, value=value)[1]["status"])
+        self.assertEqual("blocked", self.submit_baseline(archive, value={"input_version": 1, "items": []})[1]["status"])
+        complete["items"][0]["prefabs"][0]["status"] = "planned"
+        path = archive / "04-plan/ui-baseline-input.json"
+        path.write_text(json.dumps(complete), encoding="utf-8")
+        self.assertEqual("INVALID_UI_BASELINE", self.run_cli("ui-baseline", "--feature-id", archive.name, "--input", path, expected=1)["code"])
+
+    def test_ui_baseline_new_requirement_invalidates_approval_without_resubmission(self):
+        archive, _, package = self.prepare_ui_execution()
+        match = {"status": "matched", "prefabs": [{"path": "Assets/UI/RewardPanel.prefab", "name": "奖励界面", "reason": "同一界面"}]}
+        source = self.project_root / "requirements.md"
+        brief = self.write_brief([self.requirement(source, match=match), self.requirement(source, key="reward.preview", name="预览奖励", match=match)])
+        self.investigate(archive, brief, CaptureFixture())
+        view = self.ui_approval_view(archive)
+        self.assertEqual("stale", view["conclusions"]["approvals"]["ui-baseline"]["status"])
+        self.assertIn("reward.preview", json.dumps(view["blockers"]))
+        rejected = self.run_cli("start-slice", "--feature-id", archive.name, "--execution-id", "ui-impl",
+                                "--package-file", package, "--workspace-root", self.workspace, expected=1)
+        self.assertEqual("UI_BASELINE_APPROVAL_REQUIRED", rejected["code"])
 
     def prepare_material_candidate(self):
         archive, investigation, package = self.prepare_ui_execution()
@@ -956,7 +1186,7 @@ class FeatureArchiveDloopUiTests(FeatureArchiveCliTestCase):
         path.write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
         return self.run_cli("ui-publish", "--feature-id", archive.name, "--input", path, expected=expected)
 
-    def test_ui_starts_without_initial_annotations_or_human_approval(self):
+    def test_ui_cannot_start_without_investigation_and_human_approval(self):
         archive, _ = self.init_ui()
         self.set_status(archive / "01-requirements/terminology.md", "confirmed")
         self.set_status(archive / "01-requirements/README.md", "confirmed")
@@ -968,8 +1198,9 @@ class FeatureArchiveDloopUiTests(FeatureArchiveCliTestCase):
         value["context_materials"][0].pop("sections", None)
         value["context_materials"].append({"source": f"{archive.name}.design.overview", "purpose": "内部设计", "mode": "full"})
         package.write_text(json.dumps(value), encoding="utf-8")
-        self.run_cli("start-slice", "--feature-id", archive.name, "--execution-id", "ui-impl",
-                     "--package-file", package, "--workspace-root", self.workspace)
+        result = self.run_cli("start-slice", "--feature-id", archive.name, "--execution-id", "ui-impl",
+                              "--package-file", package, "--workspace-root", self.workspace, expected=1)
+        self.assertEqual("UI_BASELINE_APPROVAL_REQUIRED", result["code"])
         state = json.loads((archive / "workflow-state.json").read_bytes())
         self.assertTrue(all(value is None for value in state["approvals"].values()))
         view = self.ui_approval_view(archive)

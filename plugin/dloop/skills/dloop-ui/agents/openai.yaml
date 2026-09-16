@@ -1,7 +1,7 @@
 interface:
   display_name: "DloopUI"
-  short_description: "随实施补全 Unity UI 交互并集中展示供最终验收"
-  default_prompt: "使用 $dloop-ui 推进 Unity UI 长任务，结合真实 Prefab、后端和实现证据补全交互，完成后通过统一 HTML 展示结果与验证情况，供最终验收。"
+  short_description: "核实 Unity UI 开工材料并确认，实施后集中展示供验收"
+  default_prompt: "使用 $dloop-ui 推进 Unity UI 长任务，先核实预制体、协议、配置和需求描述，缺项时暂停实施，材料齐备后展示清单让我确认开工，完成后统一展示供最终验收。"
 
 policy:
   allow_implicit_invocation: false

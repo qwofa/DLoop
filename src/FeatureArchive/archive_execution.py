@@ -393,6 +393,8 @@ def _require_ready_execution_inputs(graph, feature_id: str) -> None:
             "ARCHITECTURE_APPROVAL_BLOCKED",
             "架构决定已拒绝或失效，不能启动新的实施切片。",
         )
+    if approvals.get("ui-baseline", {"status": "not_applicable"})["status"] not in {"approve", "not_applicable"}:
+        raise ArchiveExecutionError("UI_BASELINE_APPROVAL_REQUIRED", "必要材料未齐备或当前开工清单未经用户确认，停止整个需求的实施。")
     blockers = []
     for document in graph.documents.values():
         if (
