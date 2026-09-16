@@ -44,7 +44,7 @@ class ReleaseMetadataTests(unittest.TestCase):
             plugin_root.joinpath(".codex-plugin", "plugin.json").read_text(encoding="utf-8")
         )
 
-        self.assertEqual("3.7.6", version)
+        self.assertEqual("3.8.0", version)
         self.assertEqual("dloop", manifest["name"])
         self.assertEqual(version, manifest["version"])
         self.assertEqual("./skills/", manifest["skills"])
@@ -138,9 +138,9 @@ class ReleaseMetadataTests(unittest.TestCase):
         installation = (REPOSITORY_ROOT / "docs" / "installation.md").read_text(encoding="utf-8")
         changelog = (REPOSITORY_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
 
-        self.assertEqual("3.7.6", version)
-        self.assertIn("v3.7.6", readme)
-        self.assertIn("-Version v3.7.6", installation)
+        self.assertEqual("3.8.0", version)
+        self.assertIn("v3.8.0", readme)
+        self.assertIn("-Version v3.8.0", installation)
         self.assertIn("-Uninstall", installation)
         self.assertIn("install.py", readme)
         self.assertIn("$dloop", readme)
@@ -153,21 +153,21 @@ class ReleaseMetadataTests(unittest.TestCase):
         release = json.loads(
             (REPOSITORY_ROOT / "release.json").read_text(encoding="utf-8")
         )
-        release_notes = (REPOSITORY_ROOT / "docs" / "v3.7.6-version-handoff.md").read_text(encoding="utf-8")
+        release_notes = (REPOSITORY_ROOT / "docs" / "v3.8.0-ui-readiness.md").read_text(encoding="utf-8")
 
         self.assertEqual(
             {
-                "workflowVersion": "3.7.6",
+                "workflowVersion": "3.8.0",
                 "archiveSchemaVersion": 3,
                 "terminologySchemaVersion": 2,
-                "sourceTag": "v3.7.6",
+                "sourceTag": "v3.8.0",
                 "releaseStatus": "frozen",
                 "versionSupport": release["versionSupport"],
             },
             release,
         )
         self.assertIn("frozen", release_notes)
-        self.assertIn("基于冻结版 v3.7.5", release_notes)
+        self.assertIn("基于冻结版 v3.7.6", release_notes)
         self.assertIn("## 验证范围", release_notes)
 
     def test_skill_describes_the_current_runtime_contract(self) -> None:

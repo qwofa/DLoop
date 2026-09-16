@@ -23,7 +23,7 @@ from archive_paths import WORKFLOW_ARTIFACT_DIRECTORIES
 from archive_validation import validate_feature_archive
 
 
-ACTION_INPUT_KINDS = ("task-package", "slice-plan", "checkpoint", "candidate", "review-issues", "review-verification", "ui-delivery")
+ACTION_INPUT_KINDS = ("task-package", "slice-plan", "checkpoint", "candidate", "review-issues", "review-verification", "ui-delivery", "ui-baseline")
 
 
 def action_input_preparation(feature_id: str, input_kind: str, **target) -> Mapping[str, object]:
@@ -83,6 +83,20 @@ def prepare_action_input(
             "command": "check-slice-plan",
             "arguments": {"feature_id": feature_id, "plan_file": str(target)},
         }
+    elif input_kind == "ui-baseline":
+        if package_id is not None or execution_id is not None:
+            raise ArchiveActionInputError("INVALID_ACTION_INPUT_TARGET", "开工清单只指定交付项。")
+        from archive_ui_baseline import baseline_input_template
+        state = _load_state(feature.path, feature_id)
+        template = baseline_input_template(graph, feature_id, state)
+        target = feature.path / "04-plan/ui-baseline-input.json"
+        business_inputs = ["按每项业务核对预制体、协议、配置和需求描述；缺项集中列出已查位置、影响和所需补充"]
+        guidance = {"statuses": ["verified", "missing", "ambiguous", "not_applicable"],
+                    "reference": "已核实项填写真实材料文件路径；用途中注明节点、接口、字段或文档章节。缺项填写已搜索位置。",
+                    "purpose": "用途和业务含义；缺项填写影响及需用户补充的信息。不涉及仅用于协议、配置，必须说明理由。",
+                    "semantic_change": "提交默认按业务变更处理；仅修正用途措辞且含义不变时传 --semantic-change false。需求、材料引用或状态变化不能按非语义修订提交。",
+                    "scope": "所有需求必须齐备；禁止计划新增、占位、延期绕过。先展示确认材料，再登记用户实际回复。"}
+        next_action = {"command": "ui-baseline", "arguments": {"feature_id": feature_id, "input": str(target)}}
     elif input_kind == "ui-delivery":
         state = _load_state(feature.path, feature_id)
         if package_id is not None or execution_id is not None or (state.get("configuration") or {}).get("id") != "dloop-ui-v1":
