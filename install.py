@@ -18,8 +18,8 @@ VERSION = "3.8.0"
 ARCHIVE_URL = f"https://codeload.github.com/qwofa/DLoop/zip/refs/tags/v{VERSION}"
 
 
-def run(*args):
-    result = subprocess.run(args, capture_output=True)
+def run(*args, creationflags=0):
+    result = subprocess.run(args, capture_output=True, creationflags=creationflags)
     if result.returncode:
         detail = (result.stderr or result.stdout).decode("utf-8", errors="replace")
         raise RuntimeError(detail.strip() or f"Command failed: {args[0]}")
@@ -116,18 +116,22 @@ def main():
         source = installers[0].parent
         if (source / "VERSION").read_text(encoding="utf-8").strip() != VERSION:
             raise RuntimeError(f"This entry point installs DLoop {VERSION} only.")
-        command = [powershell, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
-                   str(installers[0]), "-Target", str(target), "-Version", f"v{VERSION}"]
+        installer_path = str(installers[0]).replace("'", "''")
+        target_path = str(target).replace("'", "''")
+        command = [powershell, "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
+                   "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); "
+                   f"& '{installer_path}' -Target '{target_path}' -Version 'v{VERSION}'"]
         restore_ignore = prepare_ignore(target, vcs, scratch)
         try:
             print(f"Installing DLoop {VERSION} into {target}...", flush=True)
-            print(run(*command).decode("utf-8", errors="replace").strip())
+            # Keep UTF-8 output local to the child, without changing the caller's console.
+            print(run(*command, creationflags=subprocess.CREATE_NO_WINDOW).decode("utf-8", errors="replace").strip())
         except BaseException:
             restore_ignore()
             raise
         # A failed read-only verification must not remove a rule needed by an
         # installation that has already completed successfully.
-        run(*command, "-Verify")
+        run(*command, "-Verify", creationflags=subprocess.CREATE_NO_WINDOW)
     print("DLoop installed and verified.")
     print("Open this project in Codex. Use $dloop or $dloop-ui to start.")
     print("Unity and its MCP connection must already be configured in Codex.")
