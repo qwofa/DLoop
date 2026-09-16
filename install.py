@@ -15,12 +15,12 @@ import zipfile
 
 
 VERSION = "3.8.1"
-ARCHIVE_REF = "installer-v3.8.1-r1"
+ARCHIVE_REF = "installer-v3.8.1-r2"
 ARCHIVE_URL = f"https://codeload.github.com/qwofa/DLoop/zip/refs/tags/{ARCHIVE_REF}"
 
 
-def run(*args, creationflags=0):
-    result = subprocess.run(args, capture_output=True, creationflags=creationflags)
+def run(*args, creationflags=0, cwd=None, input_data=None):
+    result = subprocess.run(args, capture_output=True, creationflags=creationflags, cwd=cwd, input=input_data)
     if result.returncode:
         detail = (result.stderr or result.stdout).decode("utf-8", errors="replace")
         raise RuntimeError(detail.strip() or f"Command failed: {args[0]}")
@@ -33,12 +33,12 @@ def project_vcs(target):
             run("git", "-C", str(target), "rev-parse", "--show-toplevel")
             return "git"
         if (directory / ".svn").exists():
-            run("svn", "info", str(target))
+            run("svn", "info", "--xml", ".", cwd=target)
             return "svn"
     raise RuntimeError("Open a Git or SVN project directory before installing DLoop.")
 
 
-def prepare_ignore(target, vcs, scratch):
+def prepare_ignore(target, vcs):
     """Return a rollback action only when project preparation changed a rule."""
     if vcs == "git":
         checked = subprocess.run(
@@ -66,23 +66,21 @@ def prepare_ignore(target, vcs, scratch):
 
     import xml.etree.ElementTree as ET
 
-    properties = ET.fromstring(run("svn", "proplist", "--xml", str(target)))
+    properties = ET.fromstring(run("svn", "proplist", "--xml", ".", cwd=target))
     exists = properties.find(".//property[@name='svn:ignore']") is not None
-    original = run("svn", "propget", "--strict", "svn:ignore", str(target)) if exists else b""
+    original = run("svn", "propget", "--strict", "svn:ignore", ".", cwd=target) if exists else b""
     if b".scratch" in original.splitlines():
         return lambda: None
-    value_file = scratch / "svn-ignore.txt"
     newline = b"\r\n" if b"\r\n" in original else b"\n"
     separator = newline if original and not original.endswith(b"\n") else b""
-    value_file.write_bytes(original + separator + b".scratch" + newline)
-    run("svn", "propset", "svn:ignore", "--file", str(value_file), str(target))
+    run("svn", "propset", "svn:ignore", "--file", "-", ".", cwd=target,
+        input_data=original + separator + b".scratch" + newline)
 
     def restore():
         if exists:
-            value_file.write_bytes(original)
-            run("svn", "propset", "svn:ignore", "--file", str(value_file), str(target))
+            run("svn", "propset", "svn:ignore", "--file", "-", ".", cwd=target, input_data=original)
         else:
-            run("svn", "propdel", "svn:ignore", str(target))
+            run("svn", "propdel", "svn:ignore", ".", cwd=target)
 
     return restore
 
@@ -122,7 +120,7 @@ def main():
         command = [powershell, "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
                    "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); "
                    f"& '{installer_path}' -Target '{target_path}' -Version 'v{VERSION}'"]
-        restore_ignore = prepare_ignore(target, vcs, scratch)
+        restore_ignore = prepare_ignore(target, vcs)
         try:
             print(f"Installing DLoop {VERSION} into {target}...", flush=True)
             # Keep UTF-8 output local to the child, without changing the caller's console.
