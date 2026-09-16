@@ -390,6 +390,12 @@ def _validate_complex_workflow_state(path: Path, feature_id: str) -> None:
             or not nonempty_string(approval.get("decided_at"))
         ):
             invalid(f"严格交付项“{feature_id}”的 {stage} 批准记录不完整。")
+        if stage == "ui-baseline" and (
+            not isinstance(configuration, dict) or configuration.get("id") != "dloop-ui-v1"
+            or not nonempty_string(approval.get("reviewed_digest"))
+            or not nonempty_string(approval.get("user_confirmation"))
+        ):
+            invalid(f"交付项“{feature_id}”的开工确认缺少展示版本或用户回复依据。")
         if stage == "final" and isinstance(configuration, dict) and configuration.get("id") == "dloop-ui-v1":
             if not nonempty_string(approval.get("reviewed_digest")) or not nonempty_string(approval.get("user_confirmation")):
                 invalid(f"严格交付项“{feature_id}”的 UI 最终验收缺少展示版本或用户回复依据。")
@@ -427,7 +433,10 @@ def _validate_complex_workflow_state(path: Path, feature_id: str) -> None:
         if record is None:
             continue
         snapshot = record.get("snapshot")
-        if any(
+        if stage == "ui-baseline":
+            if set(snapshot) != {"baseline_digest"} or snapshot["baseline_digest"] != record.get("reviewed_digest"):
+                invalid(f"交付项“{feature_id}”的开工确认快照不完整。")
+        elif any(
             not nonempty_string(snapshot.get(field))
             for field in ("document_id", "semantic_version", "content_fingerprint")
         ):
