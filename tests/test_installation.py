@@ -502,7 +502,7 @@ class InstallationTests(unittest.TestCase):
                 self.assertFalse(cache_file.exists())
 
     def test_other_versions_are_rejected_before_structure_read_or_changes(self) -> None:
-        for installed_version in ("3.8.0",):
+        for installed_version in (f"{int(VERSION.split('.')[0]) + 1}.0.0",):
             for arguments in ((), ("-Verify",), ("-Uninstall",)):
                 with self.subTest(version=installed_version, arguments=arguments):
                     with tempfile.TemporaryDirectory() as directory:
@@ -518,8 +518,10 @@ class InstallationTests(unittest.TestCase):
                         )
 
                         self.assertNotEqual(0, rejected.returncode)
-                        self.assertIn(installed_version, rejected.stderr)
-                        self.assertIn(VERSION, rejected.stderr)
+                        self.assertIn(
+                            f"目标项目安装版本 {installed_version} 与当前发行版 {VERSION} 不一致",
+                            rejected.stderr,
+                        )
                         self.assertEqual(before, self._managed_snapshot(target))
                         self.assertEqual(ignore_before, self._ignore(target))
 
