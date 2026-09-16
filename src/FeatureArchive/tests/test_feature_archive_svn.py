@@ -78,7 +78,7 @@ class SvnChangelistTests(unittest.TestCase):
         self.assertIn(evidence.relative_to(self.project).as_posix(), result["files"])
         self.assertTrue(any("/shares/" in name for name in result["files"]))
         self.assertTrue(any(name.endswith("workflow-state.json") for name in result["files"]))
-        self.assertIn(".scratch/dloop-v3/friction.jsonl", result["files"])
+        self.assertIn(".scratch/dloop-v3/v3.7.6/friction.jsonl", result["files"])
         self.assertFalse(any("__pycache__" in name or name.endswith(".lock") for name in result["files"]))
         status = _status(self.project)
         self.assertEqual("用户原组", status["unrelated.txt"]["changelist"])
@@ -159,7 +159,7 @@ class SvnChangelistTests(unittest.TestCase):
         grouped = self.installed_cli("sync-svn-changelist", "--feature-id", "delivery")
         self.assertEqual("grouped", grouped["status"])
         self.assertFalse(grouped["committed"])
-        self.assertIn(".scratch/dloop-v3/outputs/delivery/feature.json", grouped["files"])
+        self.assertIn(".scratch/dloop-v3/v3.7.6/outputs/delivery/feature.json", grouped["files"])
         self.assertEqual(guard, workspace_guard_snapshot(self.project)["digest"])
         summary = self.installed_cli("workflow-status", "--feature-id", "delivery")["delivery_view"]["delivery_summary"]
         self.assertEqual("frozen", summary["archive_lifecycle"])

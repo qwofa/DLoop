@@ -12,7 +12,7 @@ import tempfile
 from typing import Mapping
 
 from archive_failure_attribution import read_feature_friction
-from archive_paths import SHARE_MANIFEST_NAME, canonical_share_root
+from archive_paths import ARCHIVE_ROOT_RELATIVE, SHARE_MANIFEST_NAME, canonical_share_root
 from archive_root import require_root_contract
 from archive_context import delivery_view
 from archive_validation import validate_feature_archive
@@ -254,7 +254,7 @@ def export_share_snapshot(
             "feature_id": feature_id,
             "snapshot_id": snapshot_id,
             "source_archive": (
-                Path(".scratch") / "dloop-v3" / "outputs" / feature_id
+                ARCHIVE_ROOT_RELATIVE / feature_id
             ).as_posix(),
             "exported_at": exported_at,
             "source_state_digest": captured.source_state_digest,

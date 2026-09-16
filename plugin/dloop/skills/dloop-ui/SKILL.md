@@ -1,9 +1,9 @@
 ---
 name: dloop-ui
-description: 仅在用户显式调用 $dloop-ui 时，使用 DLoop v3.7.5 随实施补全有依据的交互，并用内置统一 HTML 模板集中展示，供用户最终验收。
+description: 仅在用户显式调用 $dloop-ui 时，使用 DLoop v3.7.6 随实施补全有依据的交互，并用内置统一 HTML 模板集中展示，供用户最终验收。
 ---
 
-# DloopUI v3.7.5
+# DloopUI v3.7.6
 
 本 Skill 是 DLoop 的显式 Unity UI 规划配置。它复用同一交付档案、阶段批准入口和实施闭环，提供真实 Prefab 截图、持续补全的交互记录与最终统一展示。普通 Unity/UI 请求不得隐式选择本配置。
 

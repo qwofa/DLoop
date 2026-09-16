@@ -1,15 +1,16 @@
 {
-  "workflowVersion": "3.7.5",
+  "workflowVersion": "3.7.6",
   "archiveSchemaVersion": 3,
   "terminologySchemaVersion": 2,
-  "sourceTag": "v3.7.5",
+  "sourceTag": "v3.7.6",
   "releaseStatus": "frozen",
   "versionSupport": {
-    "mode": "current-version-only",
+    "mode": "archive-on-upgrade",
     "behaviors": {
       "absent": "install-current",
       "sameVersion": "verify-ownership-and-reinstall-idempotently",
-      "otherVersion": "reject-before-read-or-write"
+      "olderVersion": "archive-retire-and-install",
+      "newerVersion": "reject-before-read-or-write"
     }
   }
 }
