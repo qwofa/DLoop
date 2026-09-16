@@ -77,9 +77,10 @@ class InstallationTests(unittest.TestCase):
         parent: Path,
         *,
         ignored: bool = True,
+        working_copy_name: str = "working-copy",
     ) -> tuple[Path, str]:
         repository = parent / "repository"
-        working_copy = parent / "working-copy"
+        working_copy = parent / working_copy_name
         subprocess.run([str(SVNADMIN), "create", str(repository)], check=True)
         repository_url = repository.resolve().as_uri()
         subprocess.run(
@@ -233,6 +234,22 @@ class InstallationTests(unittest.TestCase):
                 self.assertTrue((target / payload).is_file())
                 self.assertIn(payload.as_posix(), locked_paths)
             self.assertEqual(ignore_before, self._ignore(target))
+
+    def test_install_lifecycle_with_spaces_and_special_characters(self) -> None:
+        for name in ("project - copy (draft) [1] & user's", "项目 - 副本 - 副本"):
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as directory:
+                target, ignore_before = self._svn_project(
+                    Path(directory), working_copy_name=name,
+                )
+                marker = target / "existing.txt"
+                marker.write_bytes(b"keep project content")
+                for arguments in ((), ("-Verify",), (), ("-Uninstall",)):
+                    result = self._run(target, "-Version", f"v{VERSION}", *arguments)
+                    self.assertEqual(0, result.returncode, result.stderr)
+                    self.assertEqual(ignore_before, self._ignore(target))
+                    self.assertEqual(b"keep project content", marker.read_bytes())
+                    self.assertEqual("-Uninstall" not in arguments, (target / LOCK).is_file())
+                self.assertFalse((target / CORE_CLI).exists())
 
     def test_missing_required_ignore_refuses_without_partial_config(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

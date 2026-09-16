@@ -91,7 +91,10 @@ class OnlineInstallationTests(unittest.TestCase):
         for failure in (False, True):
             with self.subTest(failure=failure), tempfile.TemporaryDirectory() as temporary:
                 helper = test_installation.InstallationTests()
-                target, _ = helper._svn_project(Path(temporary), ignored=False)
+                target, _ = helper._svn_project(
+                    Path(temporary), ignored=False,
+                    working_copy_name="项目 - copy (draft) [1] & user's",
+                )
                 subprocess.run([test_installation.SVN, "propset", "svn:ignore", "Library\n", str(target)],
                                check=True, capture_output=True)
                 original = subprocess.run(
@@ -121,7 +124,7 @@ class OnlineInstallationTests(unittest.TestCase):
             )
             address = f"http://127.0.0.1:{server.server_port}"
             source = (ROOT / "install.py").read_text(encoding="utf-8").replace(
-                'ARCHIVE_URL = f"https://codeload.github.com/qwofa/DLoop/zip/refs/tags/v{VERSION}"',
+                'ARCHIVE_URL = f"https://codeload.github.com/qwofa/DLoop/zip/refs/tags/{ARCHIVE_REF}"',
                 f'ARCHIVE_URL = "{address}/release.zip"',
             )
             (serving / "install.py").write_text(source, encoding="utf-8")

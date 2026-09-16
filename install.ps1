@@ -463,9 +463,13 @@ function Invoke-Native {
     $stdoutPath = [System.IO.Path]::GetTempFileName()
     $stderrPath = [System.IO.Path]::GetTempFileName()
     try {
+        # Start-Process joins array items with spaces; preserve each Windows argv item.
+        $quotedArguments = @($Arguments | ForEach-Object {
+            '"' + ($_ -replace '(\\*)"', '$1$1\"' -replace '(\\+)$', '$1$1') + '"'
+        })
         $process = Start-Process `
             -FilePath $FilePath `
-            -ArgumentList $Arguments `
+            -ArgumentList ($quotedArguments -join ' ') `
             -Wait `
             -PassThru `
             -NoNewWindow `
@@ -488,9 +492,9 @@ function Assert-WindowsSvnProject {
     $svn = Find-SvnExecutable
     $info = Invoke-Native `
         -FilePath $svn `
-        -Arguments @("info", "--show-item", "wc-root", $TargetRoot)
+        -Arguments @("info", "--show-item", "wc-root", "--", $TargetRoot)
     if ($info.ExitCode -ne 0 -or [string]::IsNullOrWhiteSpace($info.Stdout)) {
-        throw "目标目录不是可识别的 SVN 工作副本：$($info.Stderr)"
+        throw "SVN 工作副本检查失败（退出码 $($info.ExitCode)）。目标目录：$TargetRoot。原始错误：$($info.Stderr)"
     }
     $workingCopyRoot = [System.IO.Path]::GetFullPath($info.Stdout.Trim())
     if (-not (Test-PathWithin -Candidate $TargetRoot -Root $workingCopyRoot)) {
@@ -499,7 +503,7 @@ function Assert-WindowsSvnProject {
 
     $ignore = Invoke-Native `
         -FilePath $svn `
-        -Arguments @("propget", "svn:ignore", "--strict", $TargetRoot)
+        -Arguments @("propget", "svn:ignore", "--strict", "--", $TargetRoot)
     if ($ignore.ExitCode -ne 0) {
         throw "目标项目必须预先通过 svn:ignore 排除 .scratch；安装器不会修改该规则。"
     }
@@ -523,15 +527,14 @@ function Assert-WindowsVcsProject {
         if (Test-Path -LiteralPath (Join-Path $directory.FullName ".git")) {
             $git = Get-Command git -ErrorAction SilentlyContinue
             if ($null -eq $git) { throw "未找到 Git 客户端。" }
-            $targetArgument = '"' + $TargetRoot.TrimEnd('\') + '"'
             $info = Invoke-Native -FilePath $git.Source -Arguments @(
-                "--no-optional-locks", "-C", $targetArgument, "rev-parse", "--show-toplevel"
+                "--no-optional-locks", "-C", $TargetRoot, "rev-parse", "--show-toplevel"
             )
             if ($info.ExitCode -ne 0 -or [string]::IsNullOrWhiteSpace($info.Stdout)) {
                 throw "目标目录不是可识别的 Git 工作副本：$($info.Stderr)"
             }
             $ignore = Invoke-Native -FilePath $git.Source -Arguments @(
-                "--no-optional-locks", "-C", $targetArgument, "check-ignore", "-q", "--", ".scratch/"
+                "--no-optional-locks", "-C", $TargetRoot, "check-ignore", "-q", "--", ".scratch/"
             )
             if ($ignore.ExitCode -ne 0) {
                 throw "目标项目必须预先通过 Git 忽略规则排除 .scratch；安装器不会修改该规则。"

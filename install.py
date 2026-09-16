@@ -15,7 +15,8 @@ import zipfile
 
 
 VERSION = "3.8.1"
-ARCHIVE_URL = f"https://codeload.github.com/qwofa/DLoop/zip/refs/tags/v{VERSION}"
+ARCHIVE_REF = "installer-v3.8.1-r1"
+ARCHIVE_URL = f"https://codeload.github.com/qwofa/DLoop/zip/refs/tags/{ARCHIVE_REF}"
 
 
 def run(*args, creationflags=0):
