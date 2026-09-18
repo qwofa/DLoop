@@ -377,10 +377,11 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     resolve_slice_parser.add_argument("--feature-id", required=True)
     resolve_slice_parser.add_argument(
-        "--action", required=True, choices=("retry", "release", "release-orphan")
+        "--action", required=True, choices=("retry", "amend-scope", "release", "release-orphan")
     )
     resolve_slice_parser.add_argument("--package-id", required=True)
     resolve_slice_parser.add_argument("--execution-id")
+    resolve_slice_parser.add_argument("--amendment-file", type=Path)
     resolve_slice_parser.add_argument("--workspace-decision", choices=("kept", "restored"))
 
     audit_parser = subparsers.add_parser(
@@ -1004,6 +1005,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 arguments.package_id,
                 arguments.execution_id,
                 arguments.workspace_decision,
+                arguments.amendment_file,
             )
         elif arguments.command == "audit":
             result = audit_archive(

@@ -208,6 +208,10 @@ def require_candidate_submission_ready(
             "授权范围外存在执行期间变化：" + "，".join(outside_changes),
         )
     changes = tuple(snapshot_changes(lease["baseline_snapshot"], current))
+    retained_paths = {path for amendment in record.get("scope_amendments", []) for path in amendment["paths"]}
+    changed_paths = {item["path"] for item in changes}
+    changes += tuple({"path": path, "change": "retained", "result_digest": current["entries"].get(path, "missing")}
+                     for path in sorted(retained_paths - changed_paths))
     if not changes:
         raise ArchiveCandidateError("CANDIDATE_EMPTY", "修改切片没有产生授权范围内的实际变化。")
     return current, guard, changes
@@ -328,6 +332,8 @@ def submit_candidate(
     candidate["workspace_root"] = lease["workspace_root"]
     candidate["workspace_guard_digest"] = guard["digest"]
     candidate["changes"] = [dict(item) for item in changes]
+    candidate["scope_amendments"] = [{k: v for k, v in item.items() if k != "retained_snapshot"}
+                                     for item in record.get("scope_amendments", [])]
     candidate["slice_plan_binding"] = {
         "plan_version": candidate_plan_binding["plan_version"],
         "plan_digest": candidate_plan_binding["plan_digest"],
@@ -511,7 +517,7 @@ def retry_slice(
                 + "、".join(outside_changes)
                 + "。重试沿用原授权范围和基线，更换执行身份或修改任务文件不会使新范围生效。"
                 "先保留现场；恢复这些范围外变化后可原范围重试。确需修订范围时，"
-                "使用 snapshot-list 选择起点，先预览 snapshot-restore 的影响，再按快照恢复流程重新登记契约；"
+                "若仅漏登原业务范围内的具体文件，使用 resolve-slice --action amend-scope --amendment-file 补登记；业务扩展仍须重新确认范围。"
                 "新增范围的既有修改须保留完整差异供评审，不能直接当作干净基线。",
             )
     reviewed = reviewed_candidate(record)

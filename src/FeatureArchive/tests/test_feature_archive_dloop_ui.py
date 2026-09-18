@@ -277,7 +277,7 @@ class FeatureArchiveDloopUiTests(FeatureArchiveCliTestCase):
         state = json.loads(archive.joinpath("workflow-state.json").read_text(encoding="utf-8"))
         model = json.loads(archive.joinpath("ui-model.json").read_text(encoding="utf-8"))
         self.assertEqual("dloop-ui-v1", state["configuration"]["id"])
-        self.assertEqual(4, model["schema_version"])
+        self.assertEqual(5, model["schema_version"])
 
     def test_ui_snapshot_exports_registered_source_bytes_without_restoring_sources(self) -> None:
         sources = {
@@ -972,6 +972,156 @@ class FeatureArchiveDloopUiTests(FeatureArchiveCliTestCase):
         path.write_text(json.dumps(value), encoding="utf-8")
         return path
 
+    def test_scenario_delivery_reuses_records_and_keeps_static_results_out_of_final_approval(self):
+        archive, _, package = self.prepare_ui_execution()
+        value = json.loads(package.read_bytes())
+        value["delivery_requirements"][0]["materials"] = ["acceptance"]
+        value["slice_contract"]["acceptance_scenarios"].append("跨日刷新")
+        value["delivery_requirements"].append({"key": "daily", "scenario": "跨日刷新", "materials": ["acceptance"],
+                                                "required": False, "reason": "用户明确将跨日联调留至下一期"})
+        package.write_text(json.dumps(value), encoding="utf-8")
+        self.run_cli("start-slice", "--feature-id", archive.name, "--execution-id", "ui-impl",
+                     "--package-file", package, "--workspace-root", self.workspace)
+        prepared = self.run_cli("prepare-action-input", "--feature-id", archive.name,
+                                "--input-kind", "acceptance", "--execution-id", "ui-impl")
+        evidence = self.workspace / "ui-slice.txt"
+        evidence.write_text("受控数据下入口显示，实际环境尚未验证", encoding="utf-8")
+        scene = {"scenario": "结果可观察", "changes": "接通领取与剩余次数", "entry": "主界面 → 奖励",
+                 "setup": "测试账号具备可领取次数", "steps": ["进入奖励界面", "点击领取"],
+                 "expected": "次数减少且奖励到账", "level": "static", "status": "passed",
+                 "actual": "代码路径已核对", "pending": "真实账号验证",
+                 "evidence": [{"path": str(evidence), "locator": "入口检查"}]}
+        material = Path(prepared["target"])
+        material.write_text(json.dumps({"scenarios": [scene]}), encoding="utf-8")
+        again = self.run_cli("prepare-action-input", "--feature-id", archive.name,
+                            "--input-kind", "acceptance", "--execution-id", "ui-impl")
+        self.assertFalse(again["written"])
+        self.record_checkpoint("ui-impl", feature_id=archive.name)
+        candidate = archive / "05-implementation/scenario-candidate.json"
+        write_candidate(candidate, "ui-candidate")
+        value = json.loads(candidate.read_bytes())
+        value["delivery_materials"] = [{"requirement": "result", "kind": "acceptance", "path": str(material), "locator": "结果可观察"}]
+        candidate.write_text(json.dumps(value), encoding="utf-8")
+        final = self.accept_material_candidate(archive, candidate, evidence)
+        result = self.run_cli("ui-publish", "--feature-id", archive.name, "--input", final)
+        self.assertFalse(result["delivery_ready"])
+        model = json.loads((archive / "ui-model.json").read_bytes())
+        self.assertEqual("static", model["acceptance_scenarios"][0]["level"])
+        self.assertIsNone(model["annotations"][0]["interaction"])
+        self.assertEqual("pending", self.ui_approval_view(archive)["conclusions"]["approvals"]["ui-delivery"]["status"])
+        page = (archive / "06-validation/ui-delivery.html").read_text(encoding="utf-8")
+        self.assertIn("验收步骤与证据", page)
+        self.assertIn("主界面 → 奖励", page)
+        self.assertIn("跨日刷新", page)
+        self.assertIn("用户明确将跨日联调留至下一期", page)
+        self.assertEqual([], model["acceptance_scenarios"][1]["evidence"])
+        # 原始记录就地更新，通过已有材料修订入口重新汇总，不补第二套交互文件。
+        scene.update(level="runtime", actual="测试账号操作通过", pending="无")
+        material.write_text(json.dumps({"scenarios": [scene]}), encoding="utf-8")
+        self.assertEqual("DELIVERY_MATERIAL_STALE", self.run_cli("ui-publish", "--feature-id", archive.name, "--input", final, expected=1)["code"])
+        value = json.loads(final.read_bytes())
+        value["material_updates"] = [{"package_id": "ui-slice", "requirement": "result", "kind": "acceptance", "path": str(material), "locator": "结果可观察：实际环境验证"}]
+        final.write_text(json.dumps(value), encoding="utf-8")
+        self.assertTrue(self.run_cli("ui-publish", "--feature-id", archive.name, "--input", final)["delivery_ready"])
+        model = json.loads((archive / "ui-model.json").read_bytes())
+        self.assertEqual(["结果可观察：实际环境验证"],
+                         [item["locator"] for item in model["evidence"] if Path(item["path"]) == material])
+        page = (archive / "06-validation/ui-delivery.html").read_text(encoding="utf-8")
+        self.assertIn('"ready": true', page)
+        review = self.ui_approval_view(archive)["conclusions"]["approvals"]["ui-delivery"]
+        self.assertEqual("ready", review["status"])
+        self.set_status(archive / "06-validation/README.md", "completed")
+        confirmation = self.write_integration_confirmation(feature_id=archive.name)
+        self.run_cli("stage-action", "--feature-id", archive.name, "--stage", "final", "--decision", "approve",
+                     "--reviewed-digest", review["review"]["reviewed_digest"],
+                     "--user-confirmation", "测试用户回复：已在产品中验收通过", "--integration-confirmation", confirmation)
+        self.assertEqual("approve", self.ui_approval_view(archive)["conclusions"]["approvals"]["final"]["status"])
+
+    def test_deferred_scenario_without_material_stays_visible_and_can_receive_results(self):
+        archive, investigation, package = self.prepare_ui_execution()
+        value = json.loads(package.read_bytes())
+        value["delivery_requirements"][0].update(materials=["acceptance"], required=False,
+                                                  reason="用户明确本期只交接实现，实际联调延期")
+        package.write_text(json.dumps(value), encoding="utf-8")
+        self.run_cli("start-slice", "--feature-id", archive.name, "--execution-id", "ui-impl",
+                     "--package-file", package, "--workspace-root", self.workspace)
+        evidence = self.workspace / "ui-slice.txt"
+        evidence.write_text("已完成本期实现，运行联调延期", encoding="utf-8")
+        self.record_checkpoint("ui-impl", feature_id=archive.name)
+        prepared = self.run_cli("prepare-action-input", "--feature-id", archive.name,
+                                "--input-kind", "candidate", "--execution-id", "ui-impl")
+        value = prepared["template"]
+        self.assertEqual([], value["delivery_materials"])
+        value.update(candidate_id="ui-candidate", verification=["已核对本期实现"])
+        candidate = Path(prepared["target"])
+        candidate.write_text(json.dumps(value), encoding="utf-8")
+        final = self.accept_material_candidate(archive, candidate, evidence)
+        self.assertTrue(self.run_cli("ui-publish", "--feature-id", archive.name, "--input", final)["delivery_ready"])
+        model = json.loads((archive / "ui-model.json").read_bytes())
+        scene = model["acceptance_scenarios"][0]
+        self.assertEqual("结果可观察", scene["scenario"])
+        self.assertEqual("unverified", scene["status"])
+        self.assertEqual([], scene["evidence"])
+        self.assertFalse(scene["required"])
+        page = (archive / "06-validation/ui-delivery.html").read_text(encoding="utf-8")
+        self.assertIn(scene["reason"], page)
+        self.assertIn("未提供验证结果", page)
+        # 延期场景的展示不能绕过另行声明的必要局部交互验证。
+        value = json.loads(final.read_bytes())
+        outcome = self.change_outcome(investigation)
+        outcome["interaction"] = self.interaction(evidence, status="unverified", detail="局部交互尚未验证")
+        value.update(investigation_token=investigation["investigation_token"], outcomes=[outcome])
+        final.write_text(json.dumps(value), encoding="utf-8")
+        self.assertFalse(self.run_cli("ui-publish", "--feature-id", archive.name, "--input", final)["delivery_ready"])
+        # 后续提交真实记录时替换范围说明投影，不产生同名场景冲突或重复。
+        outcome["interaction"]["required_for_acceptance"] = False
+        scene.update(changes="接通领取", entry="主界面 → 奖励", setup="受控测试数据", steps=["点击领取"],
+                     level="isolated", status="passed", actual="隔离验证通过", pending="实际联调延期",
+                     evidence=[{"path": str(evidence), "locator": "本期验证记录"}])
+        material = archive / "06-validation/ui-slice-acceptance.json"
+        material.write_text(json.dumps({"scenarios": [{k: v for k, v in scene.items() if k not in {"required", "reason"}}]}), encoding="utf-8")
+        value["material_updates"] = [{"package_id": "ui-slice", "requirement": "result", "kind": "acceptance",
+                                      "path": str(material), "locator": "结果可观察"}]
+        final.write_text(json.dumps(value), encoding="utf-8")
+        self.assertTrue(self.run_cli("ui-publish", "--feature-id", archive.name, "--input", final)["delivery_ready"])
+        model = json.loads((archive / "ui-model.json").read_bytes())
+        self.assertEqual(1, len(model["acceptance_scenarios"]))
+        self.assertEqual("隔离验证通过", model["acceptance_scenarios"][0]["actual"])
+
+    def test_delivery_readiness_checks_retained_interaction_evidence(self):
+        archive, investigation, package = self.prepare_ui_execution()
+        implementation = self.accept_ui(archive, package)
+        evidence = archive / "06-validation/interaction-result.txt"
+        evidence.write_text("领取操作已验证", encoding="utf-8")
+        outcome = self.change_outcome(investigation)
+        outcome["interaction"] = self.interaction(evidence)
+        self.assertTrue(self.publish_delivery(archive, investigation, [outcome], implementation)["delivery_ready"])
+        prepared = self.run_cli("prepare-action-input", "--feature-id", archive.name, "--input-kind", "ui-delivery")
+        value = prepared["template"]
+        value["investigation_token"] = investigation["investigation_token"]
+        value["delivery_review"] = {
+            "requirements_check": "已核对原需求", "implementation_check": "已核对实现和保留的局部交互",
+            "evidence": [{"path": str(implementation), "locator": "本次完整实现与验证"}],
+        }
+        final = Path(prepared["target"])
+        final.write_text(json.dumps(value), encoding="utf-8")
+        self.assertTrue(self.run_cli("ui-publish", "--feature-id", archive.name, "--input", final)["delivery_ready"])
+        model = json.loads((archive / "ui-model.json").read_bytes())
+        retained_ids = model["annotations"][0]["interaction"]["evidence_ids"]
+        self.assertEqual([evidence.resolve()], [Path(item["path"]).resolve() for item in model["evidence"] if item["id"] in retained_ids])
+        # 重新运行检查产生新证据；保留的局部说明仍引用上次结果，不能提前报告就绪。
+        evidence.write_text("重新验证领取与失败后恢复", encoding="utf-8")
+        published = self.run_cli("ui-publish", "--feature-id", archive.name, "--input", final)
+        self.assertFalse(published["delivery_ready"])
+        self.assertEqual("blocked", published["status"])
+        page = (archive / "06-validation/ui-delivery.html").read_text(encoding="utf-8")
+        self.assertIn('"ready": false', page)
+        review = self.ui_approval_view(archive)["conclusions"]["approvals"]["ui-delivery"]
+        self.assertEqual("pending", review["status"])
+        self.assertIn("证据文件内容已变化", review["review_blocker"]["message"])
+        self.assertTrue(self.publish_delivery(archive, investigation, [outcome], implementation)["delivery_ready"])
+        self.assertEqual("ready", self.ui_approval_view(archive)["conclusions"]["approvals"]["ui-delivery"]["status"])
+
     def test_ui_material_requirements_are_mandatory_before_start(self):
         archive, _, package = self.prepare_ui_execution()
         value = json.loads(package.read_bytes())
@@ -1198,9 +1348,9 @@ class FeatureArchiveDloopUiTests(FeatureArchiveCliTestCase):
         additional["scenario"] = "结果可观察"
         candidate.write_text(json.dumps(value), encoding="utf-8")
         final_input = self.accept_material_candidate(archive, candidate, evidence)
-        rejected = self.run_cli("ui-publish", "--feature-id", archive.name, "--input", final_input, expected=1)
-        self.assertEqual("DELIVERY_MATERIALS_INCOMPLETE", rejected["code"])
-        self.assertIn("必要验证尚未通过", rejected["message"])
+        published = self.run_cli("ui-publish", "--feature-id", archive.name, "--input", final_input)
+        self.assertFalse(published["delivery_ready"])
+        self.assertEqual("pending", self.ui_approval_view(archive)["conclusions"]["approvals"]["ui-delivery"]["status"])
         from archive_candidates import candidate_input_template
         state = json.loads((archive / "workflow-state.json").read_bytes())
         repair_input = candidate_input_template(state["execution"]["slices"]["ui-slice"])
@@ -1281,8 +1431,8 @@ class FeatureArchiveDloopUiTests(FeatureArchiveCliTestCase):
         archive, investigation, package = self.prepare_ui_execution()
         evidence = self.accept_ui(archive, package)
         outcome = self.change_outcome(investigation)
-        rejected = self.publish_delivery(archive, investigation, [outcome], evidence, expected=1)
-        self.assertEqual("DLOOP_UI_PLAN_BLOCKED", rejected["code"])
+        published = self.publish_delivery(archive, investigation, [outcome], evidence)
+        self.assertFalse(published["delivery_ready"])
         outcome["interaction"] = self.interaction(evidence)
         self.publish_delivery(archive, investigation, [outcome], evidence)
         html = (archive / "06-validation/ui-delivery.html").read_text(encoding="utf-8")
@@ -1326,7 +1476,7 @@ class FeatureArchiveDloopUiTests(FeatureArchiveCliTestCase):
         evidence = self.accept_ui(archive, package)
         outcome = self.change_outcome(investigation)
         outcome["interaction"] = self.interaction(evidence, status="unverified", detail="仅完成代码核对，必要运行验证未执行")
-        self.assertEqual("DLOOP_UI_PLAN_BLOCKED", self.publish_delivery(archive, investigation, [outcome], evidence, expected=1)["code"])
+        self.assertFalse(self.publish_delivery(archive, investigation, [outcome], evidence)["delivery_ready"])
         outcome["interaction"]["required_for_acceptance"] = False
         outcome["interaction"]["detail"] = "原需求明确将运行联调留给后续，本次只交付接线"
         self.publish_delivery(archive, investigation, [outcome], evidence)
