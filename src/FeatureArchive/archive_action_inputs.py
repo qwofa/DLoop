@@ -23,7 +23,7 @@ from archive_paths import WORKFLOW_ARTIFACT_DIRECTORIES
 from archive_validation import validate_feature_archive
 
 
-ACTION_INPUT_KINDS = ("task-package", "slice-plan", "checkpoint", "candidate", "review-issues", "review-verification", "ui-delivery", "ui-baseline")
+ACTION_INPUT_KINDS = ("task-package", "slice-plan", "checkpoint", "candidate", "review-issues", "review-verification", "ui-delivery", "ui-baseline", "acceptance")
 
 
 def action_input_preparation(feature_id: str, input_kind: str, **target) -> Mapping[str, object]:
@@ -97,6 +97,22 @@ def prepare_action_input(
                     "semantic_change": "提交默认按业务变更处理；仅修正用途措辞且含义不变时传 --semantic-change false。需求、材料引用或状态变化不能按非语义修订提交。",
                     "scope": "所有需求必须齐备；禁止计划新增、占位、延期绕过。先展示确认材料，再登记用户实际回复。"}
         next_action = {"command": "ui-baseline", "arguments": {"feature_id": feature_id, "input": str(target)}}
+    elif input_kind == "acceptance":
+        if execution_id is None or package_id is not None:
+            raise ArchiveActionInputError("INVALID_ACTION_INPUT_TARGET", "验收准备须指定当前执行身份。")
+        state = _load_state(feature.path, feature_id)
+        record = find_slice_by_execution(_execution_state(state), execution_id)
+        if record is None:
+            raise ArchiveActionInputError("INVALID_ACTION_INPUT_TARGET", "找不到对应实施任务。")
+        from archive_acceptance import acceptance_template
+        template = acceptance_template(record["package"]["acceptance_conditions"])
+        target = feature.path / "06-validation" / (record["package"]["package_id"] + "-acceptance.json")
+        business_inputs = ["实施开始时填写账号、数据、入口和最短操作；每完成一个场景就更新实际结果与证据，不在交付时重写。"]
+        guidance = {"levels": {"static": "仅静态检查", "isolated": "客户端隔离验证", "runtime": "真实产品环境验证"},
+                    "evidence": "已执行须有文件与定位；未执行可留空，缺少环境写入 setup 和 pending。",
+                    "reuse": "同一份文件可作为多个验收场景的 acceptance 材料；locator 填对应场景。"}
+        next_action = {"command": "submit-slice", "arguments": {"feature_id": feature_id, "execution_id": execution_id},
+                       "instruction": "先跑通入口，再逐场景验证。候选材料引用此文件，不立即提交。"}
     elif input_kind == "ui-delivery":
         state = _load_state(feature.path, feature_id)
         if package_id is not None or execution_id is not None or (state.get("configuration") or {}).get("id") != "dloop-ui-v1":
@@ -118,7 +134,7 @@ def prepare_action_input(
             "evidence": [{"path": "待填写：整体核对证据文件", "locator": "待填写：核对位置"}],
         }, "material_updates": []}
         target = feature.path / "06-validation/ui-delivery-input.json"
-        business_inputs = ["整体双向核对结论和证据；交互自动读取已接受任务的材料，材料返修只填写受影响引用"]
+        business_inputs = ["整体双向核对结论和证据；场景记录自动读取已接受任务的材料，不重新填写步骤或交互，材料返修只填写受影响引用"]
         guidance = {
             "submitted_materials": [{"package_id": key, **(reviewed_candidate(record) or {}).get("delivery", {})}
                                     for key, record in state["execution"]["slices"].items() if record.get("status") == "accepted"],
@@ -151,11 +167,11 @@ def prepare_action_input(
         guidance = task_package_input_guidance(feature_id)
         if (state.get("configuration") or {}).get("id") == "dloop-ui-v1":
             template["delivery_requirements"] = []
-            business_inputs.append("逐个验收场景声明必要交付材料；UI 场景通常包含交互、元素定位、截图及验证依据")
+            business_inputs.append("逐个业务场景声明 acceptance 验收记录；多个功能点共享场景和证据，截图及元素定位按需提供")
             guidance["delivery_requirements"] = {
-                "description": "每项引用现有验收场景；非必要项须说明范围或延期依据。UI 材料使用当前调研生成的真实截图及节点。",
+                "description": "每项引用现有验收场景；默认仅交场景验收记录。非必要项须有用户明确的范围或延期依据。",
                 "example": {"key": "feature.result", "scenario": "与契约中的验收场景原文一致",
-                            "materials": ["interaction", "ui-location", "screenshot", "verification"], "required": True},
+                            "materials": ["acceptance"], "required": True},
                 "submission": "候选提交 delivery_materials 文件引用；发现同范围遗漏时追加 additional_delivery_requirements。",
             }
         next_action = {

@@ -217,7 +217,13 @@ def resolve_slice(
     package_id: str,
     execution_id: str | None,
     workspace_decision: str | None,
+    amendment_file: Path | None = None,
 ) -> Mapping[str, object]:
+    if action == "amend-scope":
+        if amendment_file is None:
+            raise ArchiveTransactionError("SCOPE_AMENDMENT_REQUIRED", "补登记范围须提供 --amendment-file，列明具体文件、漏登原因及已有业务授权。")
+        from archive_slice_flow import amend_slice_scope
+        return amend_slice_scope(root, feature_id, package_id, amendment_file)
     if action == "retry":
         if execution_id is None:
             raise ArchiveTransactionError("EXECUTION_ID_REQUIRED", "返修必须提供新的执行标识。")
@@ -235,5 +241,5 @@ def resolve_slice(
         return release_orphaned_lease(root, feature_id, package_id, workspace_decision)
     raise ArchiveTransactionError(
         "INVALID_RESOLUTION_ACTION",
-        "收敛动作必须为 retry、release 或 release-orphan。",
+        "收敛动作必须为 retry、amend-scope、release 或 release-orphan。",
     )
