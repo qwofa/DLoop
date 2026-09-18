@@ -92,7 +92,7 @@ class CaptureFixture:
 
 def create_model(root: Path, requirement_names: tuple[str, ...] = ("领取奖励",)):
     project = root / "project"
-    feature = project / ".scratch" / "dloop-v3" / "v3.8.1" / "outputs" / "reward-feature"
+    feature = project / ".scratch" / "dloop-v3" / "v3.9.0" / "outputs" / "reward-feature"
     (project / "Assets" / "UI").mkdir(parents=True)
     feature.mkdir(parents=True)
     source = project / "requirements.md"
@@ -141,7 +141,7 @@ class DloopUILightweightTests(unittest.TestCase):
     def test_new_model_uses_current_lightweight_schema(self) -> None:
         model = dloop_ui.new_model("feature", "功能")
 
-        self.assertEqual(4, model["schema_version"])
+        self.assertEqual(5, model["schema_version"])
         self.assertEqual(
             {"requirements", "prefabs", "annotations", "skips", "evidence"},
             set(dloop_ui.ENTITY_SPECS),
@@ -294,7 +294,7 @@ class DloopUILightweightTests(unittest.TestCase):
             self.assertIn("![奖励界面编号截图](ui-annotations/", markdown)
             self.assertNotIn("原始截图：[查看]", markdown)
             self.assertIn("用户看到领取结果。", markdown)
-            html = dloop_ui.render_delivery_html(model, feature)
+            html = dloop_ui.render_delivery_html(model, feature, delivery_ready=False)
             self.assertIn("用户看到领取结果。", html)
             self.assertIn("无需产品修改", html)
             self.assertNotIn("{{DELIVERY_DATA}}", html)

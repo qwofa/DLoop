@@ -13,9 +13,10 @@ import tempfile
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Protocol
+from urllib.parse import quote
 
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 BRIEF_INPUT_VERSION = 1
 REVIEW_INPUT_VERSION = 1
 CAPTURE_SCHEMA_VERSION = 1
@@ -41,6 +42,7 @@ TOP_LEVEL_FIELDS = {
     "planning_scope",
     "delivery_review",
     "delivery_materials",
+    "acceptance_scenarios",
     *ENTITY_SPECS,
     "computed_counts",
 }
@@ -266,6 +268,7 @@ def new_model(feature_id: str, title: str) -> dict[str, Any]:
         },
         "delivery_review": None,
         "delivery_materials": [],
+        "acceptance_scenarios": [],
         "requirements": [],
         "prefabs": [],
         "annotations": [],
@@ -989,6 +992,7 @@ def apply_brief_snapshot(
     if not isinstance(feature, dict):
         raise DloopUiError("DLOOP_UI_MODEL_INVALID", "UI 模型缺少功能身份。")
     model["delivery_review"] = None
+    model["acceptance_scenarios"] = []
     project_root = Path(canonical_path(project_root_value))
     refreshed_sources = _refresh_registered_sources(model)
     sources_by_path = {
@@ -1524,7 +1528,8 @@ def apply_review_snapshot(
 ) -> None:
     """用当前截图对应的完整业务评审替换标注和目标不可见结论。"""
 
-    _require_fields(review, {"input_version", "investigation_token", "outcomes"} | ({"delivery_review"} if "delivery_review" in review else set()), "界面标注评审")
+    fields = {"input_version", "investigation_token"} | {key for key in ("outcomes", "scenarios", "delivery_review") if key in review}
+    _require_fields(review, fields, "界面标注评审")
     if review.get("input_version") != REVIEW_INPUT_VERSION:
         raise DloopUiError(
             "DLOOP_UI_INPUT_VERSION",
@@ -1535,7 +1540,7 @@ def apply_review_snapshot(
             "DLOOP_UI_INVESTIGATION_CHANGED",
             "界面调研结果已经变化，请根据最新截图重新形成标注评审。",
         )
-    raw_outcomes = review.get("outcomes")
+    raw_outcomes = review.get("outcomes", [])
     if not isinstance(raw_outcomes, list):
         raise DloopUiError("DLOOP_UI_INPUT_INVALID", "界面标注评审 outcomes 必须是数组。")
     project_root = Path(canonical_path(project_root_value))
@@ -1550,9 +1555,17 @@ def apply_review_snapshot(
         if isinstance(item, dict)
     }
     model["delivery_review"] = None
-    model["evidence"] = [e for e in model["evidence"] if e.get("kind") != "delivery_source"]
-    model["annotations"] = []
-    model["skips"] = [
+    model["acceptance_scenarios"] = review.get("scenarios", [])
+    if "outcomes" in review:
+        model["annotations"] = []
+    retained_evidence = {
+        evidence_id
+        for annotation in model["annotations"]
+        for evidence_id in (annotation.get("interaction") or {}).get("evidence_ids", [])
+    }
+    model["evidence"] = [e for e in model["evidence"]
+                         if e.get("kind") != "delivery_source" or e["id"] in retained_evidence]
+    model["skips"] = model["skips"] if "outcomes" not in review else [
         item
         for item in as_list(model.get("skips"))
         if isinstance(item, dict) and item.get("reason") != "target-not-visible"
@@ -2582,6 +2595,19 @@ def delivery_errors(model: dict[str, Any]) -> list[dict[str, str]]:
             errors.append(issue("UI_DELIVERY_REVIEW_REQUIRED", "缺少双向核对说明。"))
     if not checked.get("evidence_ids") or any(e not in evidence for e in checked.get("evidence_ids", [])):
         errors.append(issue("UI_DELIVERY_EVIDENCE_REQUIRED", "双向核对缺少实际证据。"))
+    for material in model.get("delivery_materials", []):
+        if material["kind"] == "verification" and material.get("required", True) and material["status"] != "passed":
+            errors.append(issue("UI_REQUIRED_VERIFICATION_PENDING", "必要验证尚未通过：" + material["requirement"]))
+    scenarios = model.get("acceptance_scenarios", [])
+    if scenarios:
+        for scenario in scenarios:
+            if scenario["required"] and (scenario["status"] != "passed" or scenario["level"] != "runtime"):
+                errors.append(issue("UI_REQUIRED_VERIFICATION_PENDING", scenario["scenario"] + "：必要实际环境验证尚未通过。"))
+        for annotation in model["annotations"]:
+            interaction = annotation.get("interaction")
+            if interaction and interaction["required_for_acceptance"] and interaction["status"] != "verified":
+                errors.append(issue("UI_REQUIRED_VERIFICATION_PENDING", "本次必要实现或验证尚未完成，不能宣称最终验收就绪。", annotation["id"]))
+        return errors
     covered = set()
     for annotation in model["annotations"]:
         for requirement_id in annotation["requirement_ids"]:
@@ -2688,9 +2714,22 @@ def _presentation_pages(model: dict[str, Any], feature_path: Path) -> list[dict[
     return pages
 
 
-def render_delivery_html(model: dict[str, Any], feature_path: Path) -> str:
+def render_delivery_html(model: dict[str, Any], feature_path: Path, *, delivery_ready: bool) -> str:
     template = Path(__file__).with_name("templates") / "ui-delivery.html"
-    data = {"title": model["feature"]["title"], "pages": _presentation_pages(model, feature_path)}
+    scenarios = []
+    for item in model.get("acceptance_scenarios", []):
+        refs = []
+        for ref in item["evidence"]:
+            path = Path(ref["path"])
+            try:
+                href = quote(os.path.relpath(path, feature_path / "06-validation").replace("\\", "/"), safe="/")
+            except ValueError:
+                href = path.as_uri()
+            refs.append({"label": path.name + " · " + ref["locator"],
+                         "href": href})
+        scenarios.append({**item, "evidence": refs})
+    data = {"title": model["feature"]["title"], "pages": _presentation_pages(model, feature_path),
+            "scenarios": scenarios, "ready": delivery_ready}
     payload = json.dumps(data, ensure_ascii=False).replace("<", "\\u003c").replace("&", "\\u0026")
     return template.read_text(encoding="utf-8").replace("{{DELIVERY_DATA}}", payload)
 

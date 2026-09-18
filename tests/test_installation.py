@@ -27,7 +27,7 @@ SVNADMIN = shutil.which("svnadmin") or (
 )
 VERSION = (REPOSITORY_ROOT / "VERSION").read_text(encoding="utf-8").strip()
 CORE_CLI = Path("Tools") / "FeatureArchive" / "feature_archive.py"
-FRICTION_INBOX = Path(".scratch") / "dloop-v3" / "v3.8.1" / "friction-inbox"
+FRICTION_INBOX = Path(".scratch") / "dloop-v3" / "v3.9.0" / "friction-inbox"
 LOCK = Path(".agents") / "feature-archive-workflow.lock.json"
 UNITY_PACKAGE = Path("Packages") / "com.dloop.ui-capture"
 REQUIRED_CONFIGURATION_PAYLOADS = (
@@ -366,10 +366,10 @@ class InstallationTests(unittest.TestCase):
             target, ignore_before = self._svn_project(Path(directory))
             installed = self._run(target, "-Version", f"v{VERSION}")
             self.assertEqual(0, installed.returncode, installed.stderr)
-            archive = target / ".scratch" / "dloop-v3" / "v3.8.1" / "outputs" / "kept.json"
+            archive = target / ".scratch" / "dloop-v3" / "v3.9.0" / "outputs" / "kept.json"
             archive.parent.mkdir(parents=True)
             archive.write_text('{"kept": true}\n', encoding="utf-8")
-            history = target / ".scratch/dloop-v3/v3.8.1/snapshots/kept.git/objects/retained"
+            history = target / ".scratch/dloop-v3/v3.9.0/snapshots/kept.git/objects/retained"
             history.parent.mkdir(parents=True)
             history.write_bytes(b"persistent snapshot")
 
@@ -452,7 +452,7 @@ class InstallationTests(unittest.TestCase):
             self.assertTrue(
                 (target / ".agents" / "skills" / "dloop" / "references" / "friction-records.md").is_file()
             )
-            friction = target / ".scratch" / "dloop-v3" / "v3.8.1" / "friction.jsonl"
+            friction = target / ".scratch" / "dloop-v3" / "v3.9.0" / "friction.jsonl"
             preserved_friction = friction.read_bytes()
 
             self.assertEqual(
