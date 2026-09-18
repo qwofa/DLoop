@@ -119,7 +119,7 @@ ACTION_CONTRACT_SPECS: Mapping[str, Mapping[str, object]] = {
     },
     "resolve-slice": {
         "accepted_arguments": ("package_id", "action"),
-        "required_inputs": ("action", "workspace_decision（释放时）"),
+        "required_inputs": ("action", "workspace_decision（释放时）", "amendment_file（补登记范围时）"),
     },
     "start-slice": {
         "accepted_arguments": ("package_id",),
@@ -1098,11 +1098,13 @@ def _stage_projection(
                     blockers,
                 )
             if status == "circuit_open":
-                blockers.append({"code": "SLICE_BREAKER_RESOLUTION_REQUIRED", "message": "切片已熔断，只能在原范围内重试，或由人工恢复工作区后终止。"})
+                source_record = execution["slices"][package_id]
+                scope_only = set(source_record["checkpoints"][-1]["boundary_rules"]) == {"write_scope_violation"}
+                blockers.append({"code": "SLICE_BREAKER_RESOLUTION_REQUIRED", "message": "切片已熔断。仅文件漏登且属于原业务授权时，可保留成果补登记范围后重试；其他阻断仍须解决后重试，或恢复工作区后终止。"})
                 return (
                     "implementation-recovery",
                     {"command": "resolve-slice", "package_id": package_id},
-                    {"required": True, "decision": "选择原范围重试，或人工恢复到基线后终止当前切片。"},
+                    {"required": not scope_only, "decision": "核对阻断与原授权；仅漏登文件可补登记范围，无须重复业务批准，否则处理阻断后重试或恢复到基线后终止。"},
                     blockers,
                 )
             if status == "active":
@@ -1906,7 +1908,7 @@ def _review_role_view(
     }
     if "ui-delivery" in context.delivery["trusted_machine_facts"]["approval_statuses"]:
         result["decision_rules"].append(
-            "从完整原始需求查实际实现，再从本次实际实现反查交互说明；逐个检查相关后端状态、入口条件、操作、反馈和结果。原范围内且不更换已确认开工依据的补充不重复请求批准，但须同步设计、交互数据及验证；遗漏说明、无依据扩展或未验证冒充完成时退回具体问题。"
+            "从完整原始需求查实际实现，再从本次实际实现反查业务场景验收记录；按场景检查相关后端状态、入口条件、操作、反馈和结果，不要求逐控件重复说明。原范围内且不更换已确认开工依据的补充不重复请求批准，但须同步设计、场景记录及验证；遗漏必要场景、无依据扩展或未验证冒充完成时退回具体问题。"
         )
     if isinstance(repair_handoff, dict):
         result["repair_handoff"] = repair_handoff

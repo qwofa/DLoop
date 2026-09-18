@@ -377,7 +377,7 @@ class FeatureArchiveSliceContractTests(FeatureArchiveCliTestCase):
             {item["rule"] for item in result["breaker_report"]["triggered_rules"]},
         )
         self.assertEqual(
-            ["retry", "terminate_restored"],
+            ["retry", "amend-scope", "terminate_restored"],
             [item["action"] for item in result["breaker_report"]["allowed_actions"]],
         )
         blocked = self.checkpoint("hard-2", expected=1)
@@ -526,6 +526,79 @@ class FeatureArchiveSliceContractTests(FeatureArchiveCliTestCase):
         self.assertEqual(1, record["package"]["slice_contract"]["version"])
         self.assertEqual("exec-2", record["execution_id"])
         self.assertTrue(record["breaker_reports"])
+
+    def test_scope_amendment_preserves_files_and_keeps_them_in_candidate_review(self):
+        self.run_cli("transition-lifecycle", "--feature-id", "reliable-delivery", "--to", "active")
+        self.start(self.write_package("slice-1"))
+        product = self.workspace / "slice-1.txt"
+        product.write_text("已完成的实现", encoding="utf-8")
+        extra = self.workspace / "binding.txt"
+        extra.write_text("生成器绑定元数据", encoding="utf-8")
+        self.checkpoint("missed-scope", validation_status="passed")
+        view = self.run_cli("workflow-status", "--feature-id", "reliable-delivery")["delivery_view"]
+        self.assertFalse(view["requires_human"]["required"])
+        amendment = self.write_value(self.artifact_path("reliable-delivery", "05-implementation", "amendment.json"),
+                                     {"paths": ["binding.txt"], "reason": "生成器同步写入漏登",
+                                      "authorization": "原需求包含该界面的接线，保留现有生成结果"})
+        result = self.run_cli("resolve-slice", "--feature-id", "reliable-delivery", "--package-id", "slice-1",
+                              "--action", "amend-scope", "--amendment-file", amendment)
+        self.assertEqual(2, result["contract_version"])
+        self.assertEqual("已完成的实现", product.read_text(encoding="utf-8"))
+        self.assertEqual("生成器绑定元数据", extra.read_text(encoding="utf-8"))
+        self.run_cli("resolve-slice", "--feature-id", "reliable-delivery", "--package-id", "slice-1",
+                     "--action", "retry", "--execution-id", "exec-2")
+        self.record_checkpoint("exec-2")
+        candidate = self.artifact_path("reliable-delivery", "05-implementation", "candidate.json")
+        write_candidate(candidate, "candidate-1")
+        submitted = self.run_cli("submit-slice", "--feature-id", "reliable-delivery", "--execution-id", "exec-2",
+                                 "--status", "completed", "--candidate-file", candidate)
+        self.assertEqual({"slice-1.txt", "binding.txt"}, {item["path"] for item in submitted["changes"]})
+        self.assertEqual("retained", next(item["change"] for item in submitted["changes"] if item["path"] == "binding.txt"))
+        self.assertEqual(1, len(submitted["scope_amendments"]))
+        review = self.run_cli("context-summary", "--feature-id", "reliable-delivery", "--action", "implementation",
+                              "--role", "review", "--execution-id", "scope-review")
+        self.assertIn("role_view", review, review.get("role_blocker"))
+        self.assertEqual(submitted["scope_amendments"], review["role_view"]["review_handoff"]["candidate"]["scope_amendments"])
+        state = self.value(self.root / "reliable-delivery/workflow-state.json")
+        record = state["execution"]["slices"]["slice-1"]
+        self.assertEqual(2, len(record["contract_history"]))
+        self.assertEqual(1, len(record["breaker_reports"]))
+
+    def test_scope_amendment_interruption_keeps_declared_recovery_boundary(self):
+        self.start(self.write_package("slice-1"))
+        product = self.workspace / "slice-1.txt"
+        product.write_text("本轮实施", encoding="utf-8")
+        extra = self.workspace / "binding.txt"
+        extra.write_text("补登记时的绑定", encoding="utf-8")
+        self.checkpoint("scope", validation_status="passed")
+        amendment = self.write_value(self.artifact_path("reliable-delivery", "05-implementation", "amendment.json"),
+                                     {"paths": ["binding.txt"], "reason": "生成器漏登", "authorization": "原业务接线"})
+        self.run_cli("resolve-slice", "--feature-id", "reliable-delivery", "--package-id", "slice-1",
+                     "--action", "amend-scope", "--amendment-file", amendment)
+        self.run_cli("resolve-slice", "--feature-id", "reliable-delivery", "--package-id", "slice-1",
+                     "--action", "retry", "--execution-id", "exec-2")
+        extra.write_text("重试后的绑定", encoding="utf-8")
+        self.run_cli("submit-slice", "--feature-id", "reliable-delivery", "--execution-id", "exec-2", "--status", "interrupted")
+        self.assertFalse(product.exists())
+        self.assertEqual("补登记时的绑定", extra.read_text(encoding="utf-8"))
+
+    def test_scope_amendment_rejects_broad_paths(self):
+        self.start(self.write_package("slice-1"))
+        (self.workspace / "binding.txt").write_text("绑定", encoding="utf-8")
+        self.checkpoint("scope", validation_status="passed")
+        amendment = self.write_value(self.artifact_path("reliable-delivery", "05-implementation", "amendment.json"),
+                                     {"paths": ["other-directory"], "reason": "补登记", "authorization": "原范围接线"})
+        result = self.run_cli("resolve-slice", "--feature-id", "reliable-delivery", "--package-id", "slice-1",
+                              "--action", "amend-scope", "--amendment-file", amendment, expected=1)
+        self.assertEqual("SCOPE_AMENDMENT_PATHS_MISMATCH", result["code"])
+
+    def test_scope_amendment_cannot_resolve_business_breakers(self):
+        self.hard_break(self.write_package("slice-1"))
+        amendment = self.write_value(self.artifact_path("reliable-delivery", "05-implementation", "amendment.json"),
+                                     {"paths": ["binding.txt"], "reason": "补登记", "authorization": "原范围接线"})
+        result = self.run_cli("resolve-slice", "--feature-id", "reliable-delivery", "--package-id", "slice-1",
+                              "--action", "amend-scope", "--amendment-file", amendment, expected=1)
+        self.assertEqual("SCOPE_AMENDMENT_NOT_AVAILABLE", result["code"])
 
     def test_retry_does_not_consume_identity_until_outside_changes_are_resolved(self) -> None:
         self.start(self.write_package("slice-1"))

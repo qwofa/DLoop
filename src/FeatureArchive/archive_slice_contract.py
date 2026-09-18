@@ -50,6 +50,7 @@ HARD_BREAKER_RULES = {
 }
 BREAKER_ALLOWED_ACTIONS = (
     {"action": "retry", "summary": "保持原契约和写入范围，修复后用新执行身份重试"},
+    {"action": "amend-scope", "summary": "仅文件漏登且仍属原业务授权时，保留成果补登记具体文件，再重试与评审"},
     {"action": "terminate_restored", "summary": "人工恢复工作区基线后终止当前切片"},
 )
 SLICE_STATUS_TRANSITIONS = {

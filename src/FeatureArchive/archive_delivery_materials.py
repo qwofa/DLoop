@@ -11,8 +11,8 @@ import re
 from archive_handoff import ArchiveHandoffError
 
 
-MATERIAL_KINDS = {"interaction", "ui-location", "screenshot", "verification"}
-KIND_LABELS = {"interaction": "交互说明", "ui-location": "UI 元素定位", "screenshot": "截图", "verification": "验证依据"}
+MATERIAL_KINDS = {"acceptance", "interaction", "ui-location", "screenshot", "verification"}
+KIND_LABELS = {"acceptance": "场景验收", "interaction": "交互说明", "ui-location": "UI 元素定位", "screenshot": "截图", "verification": "验证依据"}
 
 
 def fail(code, message):
@@ -131,7 +131,16 @@ def collect_materials(requirements, values, feature_path, workspace, *, final=Fa
             problems.append(f"{label}：文件不存在 {path}")
             continue
         entry = {**item, "path": str(path), "sha256": "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()}
-        if item["kind"] == "verification":
+        if item["kind"] == "acceptance":
+            from archive_acceptance import read_acceptance
+            entry["acceptance"] = read_acceptance(path, requirement["scenario"], workspace)
+            entry["acceptance"]["required"] = requirement["required"]
+            entry["acceptance"]["reason"] = requirement.get("reason", "")
+            entry["acceptance_evidence"] = [
+                {**ref, "sha256": "sha256:" + hashlib.sha256(Path(ref["path"]).read_bytes()).hexdigest()}
+                for ref in entry["acceptance"]["evidence"]
+            ]
+        elif item["kind"] == "verification":
             if item["status"] not in {"passed", "failed", "unverified"}:
                 fail("INVALID_DELIVERY_VERIFICATION", f"{label}：验证状态只能是 passed、failed 或 unverified。")
             if final and requirement["required"] and item["status"] != "passed":
@@ -180,6 +189,10 @@ def submitted_delivery(package, value, feature_path, workspace):
 
 def delivery_paths(candidate):
     for item in candidate.get("delivery", {}).get("materials", []):
+        for ref in item.get("acceptance_evidence", []):
+            evidence_path = Path(ref["path"])
+            if not evidence_path.is_file() or "sha256:" + hashlib.sha256(evidence_path.read_bytes()).hexdigest() != ref["sha256"]:
+                fail("DELIVERY_MATERIAL_STALE", "场景验收证据已变化，须更新检查结果后重新提交。")
         path = Path(item["path"])
         if not path.is_file() or "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest() != item["sha256"]:
             fail("DELIVERY_MATERIAL_STALE", f"候选材料 {item['requirement']}/{item['kind']} 已变化，须重新提交当前材料后评审。")
@@ -206,6 +219,7 @@ def assemble_delivery(execution, review, feature_path, workspace, model):
             fail("INVALID_DELIVERY_UPDATE", "同一材料不能重复更新。")
         update_map[key] = {k: v for k, v in item.items() if k != "package_id"}
     outcomes, materials, used_updates = {}, [], set()
+    scenarios, deferred = [], {}
     for package_id, record in execution.get("slices", {}).items():
         if record.get("status") != "accepted":
             continue
@@ -214,10 +228,15 @@ def assemble_delivery(execution, review, feature_path, workspace, model):
         if not isinstance(delivery, dict):
             fail("DELIVERY_HANDOFF_MISSING", f"任务 {package_id} 未通过提交入口交接材料。")
         requirements = {r["key"]: r for r in delivery["requirements"]}
+        for requirement in requirements.values():
+            if not requirement["required"] and "acceptance" in requirement["materials"]:
+                reasons = deferred.setdefault(requirement["scenario"], [])
+                if requirement["reason"] not in reasons:
+                    reasons.append(requirement["reason"])
         submitted = {(m["requirement"], m["kind"]): m for m in delivery["materials"]}
         for key, material in previous.items():
             if key[0] == package_id and material.get("candidate_digest") == candidate["candidate_digest"]:
-                submitted[(key[1], key[2])] = {k: v for k, v in material.items() if k not in {"package_id", "candidate_digest"}}
+                submitted[(key[1], key[2])] = {k: v for k, v in material.items() if k not in {"package_id", "candidate_digest", "required"}}
         for key in update_map:
             if key[0] == package_id:
                 submitted.setdefault((key[1], key[2]), {})
@@ -233,6 +252,7 @@ def assemble_delivery(execution, review, feature_path, workspace, model):
                 values.append(updated)
                 used_updates.add(key)
                 continue
+            delivery_paths({"delivery": {"materials": [original]}})
             path = Path(original["path"])
             if not path.is_file() or "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest() != original["sha256"]:
                 fail("DELIVERY_MATERIAL_STALE", f"任务 {package_id} 的材料 {requirement_key}/{kind} 已变化或缺失；通过 material_updates 交回更新文件。")
@@ -240,10 +260,12 @@ def assemble_delivery(execution, review, feature_path, workspace, model):
                 current = _bindings(runtime, model, _read_review(path), workspace)
                 if current != original.get("prefab_bindings"):
                     fail("DELIVERY_LOCATION_STALE", f"任务 {package_id} 的 {requirement_key}/{kind} 关联 UI 已变化，须更新受影响截图和定位材料。")
-            values.append({k: v for k, v in original.items() if k not in {"sha256", "prefab_bindings"}})
-        checked = collect_materials(list(requirements.values()), values, feature_path, workspace, final=True, current_tokens=False)
+            values.append({k: v for k, v in original.items() if k not in {"sha256", "prefab_bindings", "acceptance", "acceptance_evidence"}})
+        checked = collect_materials(list(requirements.values()), values, feature_path, workspace, final=False, current_tokens=False)
         for item in checked:
-            materials.append({"package_id": package_id, "candidate_digest": candidate["candidate_digest"], **item})
+            materials.append({"package_id": package_id, "candidate_digest": candidate["candidate_digest"], "required": requirements[item["requirement"]]["required"], **item})
+            if item["kind"] == "acceptance":
+                scenarios.append(item["acceptance"])
             if item["kind"] != "interaction":
                 continue
             for outcome in _read_review(Path(item["path"]))["outcomes"]:
@@ -256,6 +278,28 @@ def assemble_delivery(execution, review, feature_path, workspace, model):
                 outcomes[key] = outcome
     if set(update_map) != used_updates:
         fail("INVALID_DELIVERY_UPDATE", "材料更新只能引用已接受任务及其已声明的材料要求。")
+    if scenarios or deferred:
+        grouped = {}
+        for scenario in scenarios:
+            key = scenario["scenario"]
+            if key in grouped:
+                previous = grouped[key]
+                if {k: v for k, v in previous.items() if k not in {"required", "reason"}} != {k: v for k, v in scenario.items() if k not in {"required", "reason"}}:
+                    fail("DELIVERY_SCENARIO_CONFLICT", "同一业务场景的验收记录不一致：" + key)
+                previous["required"] = previous["required"] or scenario["required"]
+            else:
+                grouped[key] = scenario
+        for scenario, reasons in deferred.items():
+            if scenario not in grouped:
+                grouped[scenario] = {
+                    "scenario": scenario, "changes": "未提交场景验收记录",
+                    "entry": "未提供", "setup": "未提供", "steps": [], "expected": scenario,
+                    "level": "runtime", "status": "unverified", "actual": "未提供验证结果",
+                    "pending": "按本期范围说明保留未验证事项", "evidence": [],
+                    "required": False, "reason": "；".join(reasons),
+                }
+        review["scenarios"] = list(grouped.values())
+        review["investigation_token"] = runtime.investigation_token(model)
     if outcomes:
         if "outcomes" in review:
             fail("DELIVERY_DUPLICATED_INPUT", "已有任务交接的交互材料；最终生成无需再次填写 outcomes，修订使用 material_updates。")

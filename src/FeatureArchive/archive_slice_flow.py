@@ -61,6 +61,77 @@ def _convert(exception: SliceContractError) -> ArchiveSliceFlowError:
     return ArchiveSliceFlowError(exception.code, exception.message)
 
 
+@serialized_workflow_state
+def amend_slice_scope(root: Path, feature_id: str, package_id: str, input_path: Path) -> Mapping[str, object]:
+    """只补登记当前漏登文件，保留成果、原契约和熔断历史。"""
+    from archive_execution import _safe_scope
+    from archive_workspace import assert_safe_write_scopes, workspace_content_snapshot, _canonical_digest
+    from archive_snapshots import register_snapshot_scopes
+
+    graph = validate_feature_archive(root, feature_id)
+    feature = _require_complex_feature(graph, feature_id)
+    state = _load_state(feature.path, feature_id)
+    record = _execution_state(state)["slices"].get(package_id)
+    if not isinstance(record, dict) or record.get("status") != "circuit_open":
+        raise ArchiveSliceFlowError("SCOPE_AMENDMENT_NOT_AVAILABLE", "仅能修订因写入范围漏登而熔断的切片。")
+    latest = record["checkpoints"][-1]
+    if set(latest["boundary_rules"]) != {"write_scope_violation"}:
+        raise ArchiveSliceFlowError("SCOPE_AMENDMENT_NOT_AVAILABLE", "仍有业务或依赖阻断，不能仅修订文件范围后继续。")
+    _, lease = require_modification_lease(root, feature_id, package_id)
+    current_guard = current_workspace_guard_snapshot(lease)
+    changes = outside_scope_guard_changes(lease["baseline_guard_snapshot"], current_guard, lease["write_scopes"])
+    value = _read_json(input_path, "范围修订")
+    if set(value) != {"paths", "reason", "authorization"}:
+        raise ArchiveSliceFlowError("INVALID_SCOPE_AMENDMENT", "范围修订须包含 paths、漏登原因 reason 和已有业务授权依据 authorization。")
+    try:
+        paths = tuple(_safe_scope(path) for path in string_list(value["paths"], "paths"))
+        reason = required_string(value["reason"], "reason")
+        authorization = required_string(value["authorization"], "authorization")
+    except (SliceContractError, ArchiveExecutionError) as error:
+        raise ArchiveSliceFlowError(error.code, error.message) from error
+    if not changes or set(paths) != set(changes):
+        raise ArchiveSliceFlowError("SCOPE_AMENDMENT_PATHS_MISMATCH", "仅补登记本次实际漏登的具体文件，须逐项核对：" + "、".join(changes))
+    workspace = Path(lease["workspace_root"])
+    if any((workspace / path).is_dir() for path in paths):
+        raise ArchiveSliceFlowError("INVALID_SCOPE_AMENDMENT", "范围修订不能扩大到整个目录。")
+    scopes = sorted(set(lease["write_scopes"]) | set(paths))
+    assert_safe_write_scopes(scopes, feature_id)
+    # 新增范围没有受管的执行前正文；其恢复点明确设为本次保留现场，不能假称干净基线。
+    retained = workspace_content_snapshot(workspace, paths)
+    contents = deepcopy(lease["baseline_content_snapshot"])
+    contents["scopes"] = scopes
+    contents["entries"].update(retained["entries"])
+    entries = {path: entry["digest"] for path, entry in contents["entries"].items()}
+    contents["digest"] = _canonical_digest(entries)
+    baseline = {**lease["baseline_snapshot"], "scopes": scopes, "entries": entries, "digest": contents["digest"]}
+    package = deepcopy(record["package"])
+    package["write_scope"] = scopes
+    contract = package["slice_contract"]
+    contract["version"] += 1
+    contract["revision_summary"] = reason
+    contract["rollback_point"] += "；本次补登记文件（" + "、".join(paths) + "）恢复至范围修订时保留的现场。"
+    package["rollback"] = contract["rollback_point"]
+    now = _utc_now()
+    check = evaluate_contract(contract, package["contract_check"], now)
+    amendment = {"paths": list(paths), "reason": reason, "authorization": authorization,
+                 "retained_snapshot": retained, "guard_digest": current_guard["digest"], "recorded_at": now,
+                 "rollback_boundary": "原范围恢复至实施起点；补登记文件恢复至本次保留现场。"}
+    record.setdefault("scope_amendments", []).append(amendment)
+    record["package"] = package
+    record["contract_check"] = check
+    record["contract_history"].append(_history_entry(package, check, now))
+    record["updated_at"] = now
+    invalidate_final_approval(state)
+    register_snapshot_scopes(root, feature_id, workspace, scopes)
+    commit_workflow_and_lease_atomically(root, feature.path, feature_id, package_id, state,
+                                        {"write_scopes": scopes, "baseline_snapshot": baseline,
+                                         "baseline_digest": baseline["digest"], "baseline_content_snapshot": contents})
+    return {"status": "circuit_open", "scope_amended": True, "package_id": package_id,
+            "contract_version": contract["version"], "retained_paths": list(paths),
+            "rollback_boundary": amendment["rollback_boundary"],
+            "next_action": "使用新的执行身份 resolve-slice --action retry，重新验证后提交独立评审。"}
+
+
 def _read_json(path: Path, label: str) -> Mapping[str, object]:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))

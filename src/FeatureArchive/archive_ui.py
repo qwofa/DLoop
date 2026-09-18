@@ -502,6 +502,11 @@ def _publish(
                     locator=material["locator"], summary=f"任务 {material['package_id']} 的交付材料",
                 ))
                 model["delivery_review"]["evidence_ids"].append(evidence["id"])
+                for ref in material.get("acceptance_evidence", []):
+                    source = runtime.upsert_evidence(model, runtime.build_file_evidence(
+                        "delivery_source", Path(ref["path"]), locator=ref["locator"], summary=ref["locator"],
+                    ))
+                    model["delivery_review"]["evidence_ids"].append(source["id"])
             for relative in ("01-requirements/README.md", "03-design/README.md"):
                 evidence = runtime.upsert_evidence(model, runtime.build_file_evidence(
                     "delivery_source", feature_path / relative,
@@ -514,17 +519,12 @@ def _publish(
             plan_report["errors"].extend(runtime.delivery_errors(model))
             if plan_report["errors"]:
                 plan_report["status"] = "BLOCKED"
-        if model.get("delivery_review") and plan_report["status"] != "PASS":
-            raise runtime.DloopUiError(
-                "DLOOP_UI_PLAN_BLOCKED",
-                "界面标注评审未形成完整结果："
-                + "；".join(item["message"] for item in plan_report["errors"]),
-            )
         views = runtime.render_views(model, plan_report, feature_path)
         annotation_media = runtime.render_annotation_media(model, feature_path)
     except runtime.DloopUiError as exception:
         raise ArchiveConfigurationError(exception.code, exception.message) from exception
     relative_plan = UI_VIEW_PATHS["ui-annotation-plan.md"]
+    delivery_ready = bool(model.get("delivery_review")) and plan_report["status"] == "PASS"
     capture_paths = _owned_capture_paths(model, feature_path)
     generated_paths = sorted(capture_paths.union({relative_plan, UI_DELIVERY_PATH}, annotation_media))
     files = {
@@ -538,7 +538,7 @@ def _publish(
             _requirements_version(feature_path),
         ),
         **annotation_media,
-        UI_DELIVERY_PATH: runtime.render_delivery_html(model, feature_path),
+        UI_DELIVERY_PATH: runtime.render_delivery_html(model, feature_path, delivery_ready=delivery_ready),
     }
     status = runtime.publication_status(model, plan_report)
     return _operation_result(
@@ -552,7 +552,7 @@ def _publish(
             "configuration": DLOOP_UI_CONFIGURATION,
             "model_path": UI_MODEL_RELATIVE_PATH,
             "artifacts": [UI_DELIVERY_PATH, relative_plan, *sorted(annotation_media)],
-            "delivery_ready": bool(model.get("delivery_review")),
+            "delivery_ready": delivery_ready,
             "skips": runtime._public_skips(model, project_root),
             "computed_counts": dict(plan_report["computed_counts"]),
         },

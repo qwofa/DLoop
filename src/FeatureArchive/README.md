@@ -1,8 +1,8 @@
 # 交付档案工具
 
-## 3.8.1 中间态入口
+## 3.9.0 中间态入口
 
-SVN/Git 项目均需要 Git 客户端。每个作业的持久快照库在 `.scratch/dloop-v3/v3.8.1/snapshots/<feature-id>.git`；不写源仓库分支、暂存区或 SVN 服务器。保存正文与业务状态，失败检查点也保留。
+SVN/Git 项目均需要 Git 客户端。每个作业的持久快照库在 `.scratch/dloop-v3/v3.9.0/snapshots/<feature-id>.git`；不写源仓库分支、暂存区或 SVN 服务器。保存正文与业务状态，失败检查点也保留。
 
 UI 明确登记的需求来源以原始字节保存为只读输入，导出至 `inputs/`。导出清单 `snapshot.json` 的 `inputs` 将来源原路径对应到导出文件；缺失来源标为 `null`，不生成虚构正文。这些输入供查看或作为新作业材料，恢复不会因登记来源而获得覆盖原文件的授权。
 
@@ -15,7 +15,7 @@ UI 明确登记的需求来源以原始字节保存为只读输入，导出至 `
 
 恢复后当前实施或待评审候选回到可重新启动的契约状态，必须使用新的执行身份，并保留原切片起点来计算完整候选差异。历史结论不删除，后续受影响结果退出当前集合，最终验证重新进行。冻结作业不原地恢复；源仓库修订变化时只允许导出后另建变更作业。缓存清理与卸载保留快照，完整作业清理会同时预览和删除快照。
 
-3.8.1 为候选版，基于冻结版 v3.8.0，尚未发布标签。修正生成范围预检、采集产物保护、重试前检查与具体阻断指引，复用已有内部草稿展示。升级时封存旧作业、解除旧占用，活动材料使用完整发行版本独立目录；旧作业不续跑、不迁移。Git 检查与撤销不改写暂存区，不自动提交或推送；含变化的子模块须独立运行。
+3.9.0 为候选版，基于冻结版 v3.8.0，尚未发布标签。修正生成范围预检、采集产物保护、重试前检查与具体阻断指引，复用已有内部草稿展示。升级时封存旧作业、解除旧占用，活动材料使用完整发行版本独立目录；旧作业不续跑、不迁移。Git 检查与撤销不改写暂存区，不自动提交或推送；含变化的子模块须独立运行。
 
 任务包的 `generated_write_scope` 接收项目生成器只读预检查的预计写入路径，包括预制体绑定信息、代码及新增元文件；全部被 `write_scope` 覆盖后才可登记或启动。没有生成操作时留空。工具不推测项目生成器行为，也不自动扩大授权。
 
@@ -53,7 +53,7 @@ DloopUI 任务包增加按验收场景声明的 `delivery_requirements`；候选
 
 ## 规范档案与分享快照
 
-3.8.1 的公开命令从项目内 `Tools/FeatureArchive/feature_archive.py` 固定安装位置确定项目根，不读取当前工作目录，也不接受 `--root` 或 `--project-root`。正式状态和材料唯一位于 `.scratch/dloop-v3/v3.8.1/outputs/<feature-id>/`；携带交付项的业务结果通过 `archive_location` 返回实际规范位置，全局命令保持原有响应结构。协调者角色投影只在当前请求属于已开放、可写的六个交付阶段时，通过 `write_targets` 返回该阶段总览的精确写入目标；动作被阻断以及冻结、清理等只读动作返回空写入目标，其他角色同样不取得正式文档写入目标。
+3.9.0 的公开命令从项目内 `Tools/FeatureArchive/feature_archive.py` 固定安装位置确定项目根，不读取当前工作目录，也不接受 `--root` 或 `--project-root`。正式状态和材料唯一位于 `.scratch/dloop-v3/v3.9.0/outputs/<feature-id>/`；携带交付项的业务结果通过 `archive_location` 返回实际规范位置，全局命令保持原有响应结构。协调者角色投影只在当前请求属于已开放、可写的六个交付阶段时，通过 `write_targets` 返回该阶段总览的精确写入目标；动作被阻断以及冻结、清理等只读动作返回空写入目标，其他角色同样不取得正式文档写入目标。
 
 任务包、检查点、候选与评审材料等正式输入，只能来自当前交付项对应的规范阶段目录。集成确认继续完全沿用最终验收原有合同，检查其 `06-validation` 位置、内容和当前候选绑定，不增加分享目录专用错误；需求来源和产品工作区仍按各自合同接受外部路径。其他规范目录之外的副本会被拒绝；存在分享身份文件时，即使清单内容不可读，也会稳定返回“只用于读取、不能执行”的诊断和当前交付项中的精确恢复目标，有效清单同时返回导出时间与来源状态摘要。
 
@@ -64,7 +64,7 @@ python Tools/FeatureArchive/feature_archive.py export-share `
   --feature-id building-interaction
 ```
 
-快照写入临时目录后再次核对工作流状态、正式文件、派生交付状态和可归属摩擦；来源未变化才在同一事务锁内原子发布到 `.scratch/dloop-v3/v3.8.1/shares/<feature-id>/<snapshot-id>/`，正式档案提交在发布完成前等待。来源变化时删除临时结果，并要求调用者根据最新状态重新显式导出。快照包含 Markdown、`feature.json`、可选 `ui-model.json`、媒体证据、派生交付状态和可明确归属的摩擦记录。`.dloop-share.json` 保存来源状态摘要和全部导出文件摘要；机器工作流状态、根合同与锁不导出。导出在当前 Python 进程内一次完成，不启动后台任务、不自动重试，也不轮询。`read_only` 和 `executable: false` 只表达该快照不具备正式工作流资格。
+快照写入临时目录后再次核对工作流状态、正式文件、派生交付状态和可归属摩擦；来源未变化才在同一事务锁内原子发布到 `.scratch/dloop-v3/v3.9.0/shares/<feature-id>/<snapshot-id>/`，正式档案提交在发布完成前等待。来源变化时删除临时结果，并要求调用者根据最新状态重新显式导出。快照包含 Markdown、`feature.json`、可选 `ui-model.json`、媒体证据、派生交付状态和可明确归属的摩擦记录。`.dloop-share.json` 保存来源状态摘要和全部导出文件摘要；机器工作流状态、根合同与锁不导出。导出在当前 Python 进程内一次完成，不启动后台任务、不自动重试，也不轮询。`read_only` 和 `executable: false` 只表达该快照不具备正式工作流资格。
 
 ## 阶段交接提示
 
@@ -95,7 +95,7 @@ python Tools/FeatureArchive/feature_archive.py stage-action `
   --feature-id reliable-delivery `
   --stage final `
   --decision approve `
-  --integration-confirmation .scratch/dloop-v3/v3.8.1/outputs/reliable-delivery/06-validation/integration-confirmation.json
+  --integration-confirmation .scratch/dloop-v3/v3.9.0/outputs/reliable-delivery/06-validation/integration-confirmation.json
 ```
 
 独立评审可以按风险附加自己设计的负向或边界测试证据，也可以不附证据或“不适用”理由；这些字段不是通过结论的门槛。每次固定候选与评审结论只追加一个不可变评审快照，活动候选随后清空，不维护候选与评审的同步副本。返修产生新候选和新快照，旧快照保留。
@@ -107,11 +107,11 @@ python Tools/FeatureArchive/feature_archive.py stage-action `
 ```powershell
 python Tools/FeatureArchive/feature_archive.py check-slice-plan `
   --feature-id reliable-delivery `
-  --plan-file .scratch/dloop-v3/v3.8.1/outputs/reliable-delivery/04-plan/slice-plan.json
+  --plan-file .scratch/dloop-v3/v3.9.0/outputs/reliable-delivery/04-plan/slice-plan.json
 
 python Tools/FeatureArchive/feature_archive.py approve-slice-plan `
   --feature-id reliable-delivery `
-  --plan-file .scratch/dloop-v3/v3.8.1/outputs/reliable-delivery/04-plan/slice-plan.json `
+  --plan-file .scratch/dloop-v3/v3.9.0/outputs/reliable-delivery/04-plan/slice-plan.json `
   --plan-digest sha256:<检查结果摘要>
 ```
 
@@ -184,7 +184,7 @@ python Tools/FeatureArchive/feature_archive.py workflow-rules `
 - `start-slice`：确认需求、设计和计划输入已就绪后校验简化任务包，并首次启动执行；
 - `submit-slice`：关闭执行，并在修改成功时固定由真实工作区快照产生的候选；
 - `review-slice`：记录不同声明执行身份对候选的验收；真实宿主上下文隔离由主协调者负责；
-- `resolve-slice`：终止未开始实施的草稿、检查失败或已就绪切片并保留契约历史；在原契约和写入范围内重试失败或熔断切片，在未验收修改已经人工恢复后终止熔断切片，或收敛其他异常执行状态。
+- `resolve-slice`：终止未开始实施的草稿、检查失败或已就绪切片并保留契约历史；仅文件漏登且仍属原业务授权时，通过 `amend-scope` 保留成果补登记具体文件；修复阻断后重试失败或熔断切片，在未验收修改已经人工恢复后终止熔断切片，或收敛其他异常执行状态。
 
 每个实施切片都是具有明确写入范围的修改任务，并在当前项目的 Git 或 SVN 工作区取得全工作流唯一修改租约。任一时刻只推进一个实施切片；进入、切换或异常恢复交付项时查询全局状态，正常业务命令在事务内自行核对资格。只读调查不进入实施切片和候选状态机。
 

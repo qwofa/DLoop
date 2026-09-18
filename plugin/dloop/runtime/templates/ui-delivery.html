@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>交互交付说明</title>
+<title>验收导航</title>
 <style>
 :root{color-scheme:light;font-family:"Segoe UI","Microsoft YaHei",sans-serif;color:#1d2939;background:#f3f5f8;font-size:16px}
 *{box-sizing:border-box}body{margin:0}button{font:inherit;cursor:pointer}button:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid #805ad5;outline-offset:3px}
@@ -14,10 +14,15 @@ p{line-height:1.7;margin:8px 0}.muted{color:#667085}
 @media(max-width:900px){.shell{padding:12px}.workspace{gap:12px;grid-template-columns:minmax(0,1fr) 320px}.card{padding:16px}.toolbar{gap:5px;padding:8px}.toolbar button{padding:6px}}
 @media(max-width:640px){.workspace{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) minmax(0,1fr)}.drawer-controls{padding:8px}.toolbar span{font-size:14px}}
 @media print{.workspace{display:block}.visual{position:static}nav,.toolbar{display:none}.viewport{height:auto;overflow:visible}.card{break-inside:avoid}.canvas{max-width:100%}.shell{padding:0;height:auto}.drawer,.cards{overflow:visible}.drawer-controls{display:none}}
+.shell.acceptance-mode{height:auto;min-height:100dvh;display:block;max-width:1120px}.acceptance-header{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:20px}.acceptance-header h1{font-size:26px;margin:0;flex:1}.acceptance-header button{padding:8px 12px;border:1px solid #d0d8e5;border-radius:8px;background:white}.scenario-list{display:grid;gap:14px}.scenario{background:#fff;border:1px solid #dce2eb;border-radius:12px;padding:20px}.scenario h2{font-size:19px;margin:0 0 10px}.scenario .result{font-weight:600;color:#526078}.scenario .pending{color:#874110}.scenario details{border-top:1px solid #e4e7ec;padding-top:12px;margin-top:12px}.scenario summary{cursor:pointer}.scenario li{line-height:1.7}.scenario a{overflow-wrap:anywhere}.scenario p{white-space:pre-wrap;overflow-wrap:anywhere}.scenario-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 24px}.acceptance-mode .workspace{height:76dvh;margin-top:12px}.acceptance-mode nav{margin-top:16px}@media(max-width:640px){.scenario-grid{grid-template-columns:1fr}.scenario{padding:16px}.acceptance-header h1{font-size:22px}}
 </style>
 </head>
 <body>
 <main class="shell">
+<section id="acceptance" hidden aria-label="业务场景验收">
+<div class="acceptance-header"><h1 id="feature-title"></h1><button id="toggle-locations">查看界面定位</button></div>
+<p id="acceptance-state" class="muted"></p><div id="scenario-list" class="scenario-list"></div>
+</section>
 <nav id="pages" aria-label="界面列表"></nav>
 <div class="workspace">
 <section class="visual" aria-label="界面截图">
@@ -130,7 +135,7 @@ function renderPage(index){
    const dl=node("dl");addField(dl,"条件",operation.conditions);addField(dl,"操作",operation.action);addField(dl,"反馈",operation.feedback);addField(dl,"结果",operation.expected);card.append(dl);
    if(operation.location_note)card.append(node("p",operation.location_note,"muted"));
   }
-  const details=node("details"),sources=node("ul");details.open=true;details.append(node("summary","核对依据"));
+  const details=node("details"),sources=node("ul");details.open=false;details.append(node("summary","核对依据"));
   for(const element of item.elements){details.append(node("p",element.roles.join(" / ")+" · "+element.name,"element-path-label"),pathRow(element.path,"复制元素路径："+element.name))}
   for(const operation of item.operations){details.append(node("p",operation.status+" · "+operation.detail));operation.sources.forEach(text=>sources.append(node("li",text)))}
   details.append(sources);card.append(details);$("cards").append(card);
@@ -150,8 +155,28 @@ $("actual-size").addEventListener("click",()=>{scale=page().width/Math.min(page(
 $("viewport").addEventListener("pointerdown",event=>{if(event.target.closest("button")||event.pointerType==="touch")return;drag={x:event.clientX,y:event.clientY,left:$("viewport").scrollLeft,top:$("viewport").scrollTop};$("viewport").setPointerCapture(event.pointerId);$("viewport").classList.add("dragging")});
 $("viewport").addEventListener("pointermove",event=>{if(!drag)return;$("viewport").scrollLeft=drag.left-event.clientX+drag.x;$("viewport").scrollTop=drag.top-event.clientY+drag.y});
 for(const event of ["pointerup","pointercancel","lostpointercapture"])$("viewport").addEventListener(event,()=>{drag=null;$("viewport").classList.remove("dragging")});
-window.addEventListener("resize",sizeImage);
-renderPage(0);
+window.addEventListener("resize",()=>{if(!document.querySelector(".workspace").hidden)sizeImage()});
+function showAcceptance(){
+ const levels={static:"静态检查",isolated:"客户端隔离验证",runtime:"实际环境验证"},statuses={passed:"通过",failed:"未通过",unverified:"未验证"};
+ $("acceptance").hidden=false;document.querySelector(".shell").classList.add("acceptance-mode");
+ $("feature-title").textContent=data.title;
+ $("acceptance-state").textContent=data.ready?"必要场景验证已完成，可按以下入口进行人工验收。":"当前成果可查看；实际验证层级和待完成事项列在各场景中。";
+ for(const item of data.scenarios){
+  const card=node("article",undefined,"scenario");card.append(node("h2",item.scenario),node("p",levels[item.level]+" · "+statuses[item.status],"result"));
+  card.append(node("p","本次变化："+item.changes));
+  const grid=node("div",undefined,"scenario-grid");grid.append(node("p","进入方式："+item.entry),node("p","准备条件："+item.setup));card.append(grid);
+  card.append(node("p","实际结果："+item.actual));
+  if(item.pending!=="无")card.append(node("p","待完成："+item.pending,"pending"));
+  if(!item.required)card.append(node("p","本期范围："+item.reason,"muted"));
+  const details=node("details");details.append(node("summary","验收步骤与证据"));const steps=node("ol");item.steps.forEach(text=>steps.append(node("li",text)));details.append(steps,node("p","预期结果："+item.expected));
+  const refs=node("ul");for(const ref of item.evidence){const li=node("li"),link=node("a",ref.label);link.href=ref.href;link.target="_blank";link.rel="noopener";li.append(link);refs.append(li)}
+  if(!item.evidence.length)details.append(node("p","尚无运行证据。","muted"));else details.append(refs);
+  card.append(details);$("scenario-list").append(card);
+ }
+ $("pages").hidden=true;document.querySelector(".workspace").hidden=true;
+ $("toggle-locations").addEventListener("click",()=>{const workspace=document.querySelector(".workspace");workspace.hidden=!workspace.hidden;$("pages").hidden=workspace.hidden;$("toggle-locations").textContent=workspace.hidden?"查看界面定位":"收起界面定位";if(!workspace.hidden)renderPage(pageIndex)});
+}
+if(data.scenarios?.length)showAcceptance();else renderPage(0);
 </script>
 </body>
 </html>
