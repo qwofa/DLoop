@@ -15,6 +15,18 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+trap {
+    $failure = $_
+    $diagnosticPath = Join-Path ([System.IO.Path]::GetTempPath()) ("dloop-install-error-" + [Guid]::NewGuid().ToString("N") + ".log")
+    try {
+        [System.IO.File]::WriteAllText($diagnosticPath, (($failure | Out-String) + $failure.ScriptStackTrace), [System.Text.UTF8Encoding]::new($false))
+    }
+    catch { $diagnosticPath = $null }
+    [Console]::Error.WriteLine("DLoop 操作未完成：" + $failure.Exception.Message)
+    if ($diagnosticPath) { [Console]::Error.WriteLine("诊断日志：" + $diagnosticPath) }
+    exit 1
+}
+
 $RequiredSvnIgnore = ".scratch"
 $ManagedToolRelativeDirectory = "Tools\FeatureArchive"
 
@@ -378,7 +390,8 @@ function Assert-NoReparsePoint {
 function Get-ValidatedLockPayload {
     param(
         [Parameter(Mandatory = $true)]$Lock,
-        [Parameter(Mandatory = $true)][string]$TargetRoot
+        [Parameter(Mandatory = $true)][string]$TargetRoot,
+        [switch]$AllowLocalChanges
     )
 
     $filesProperty = $Lock.PSObject.Properties["files"]
@@ -398,6 +411,7 @@ function Get-ValidatedLockPayload {
     )
     $seen = @{}
     $result = @()
+    $modifiedPaths = @()
     foreach ($file in @($filesProperty.Value)) {
         if ($null -eq $file -or -not ($file -is [System.Management.Automation.PSCustomObject])) {
             throw "安装锁中的受管文件记录不是 JSON 对象。"
@@ -440,16 +454,23 @@ function Get-ValidatedLockPayload {
             throw "受管文件缺失或类型变化：$relativePath"
         }
         $normalizedHash = $hash.ToLowerInvariant()
-        if ((Get-Sha256 -Path $destination) -ne $normalizedHash) {
-            throw "受管文件发生本地漂移：$relativePath"
-        }
+        $actualHash = Get-Sha256 -Path $destination
+        $modified = $actualHash -ne $normalizedHash
+        if ($modified) { $modifiedPaths += $relativePath }
         $seen[$relativePath] = $true
         $result += [PSCustomObject]@{
             Destination = $destination
+            RelativePath = $relativePath
+            Hash = $actualHash
+            LocallyModified = $modified
         }
     }
     if ($result.Count -eq 0) {
         throw "安装锁中的受管文件记录为空。"
+    }
+    if ($modifiedPaths.Count -gt 0 -and -not $AllowLocalChanges) {
+        throw ("受管文件存在本地漂移（本地修改），本次未覆盖：`n- " + ($modifiedPaths -join "`n- ") +
+            "`n升级到更新版本时会先备份再替换。同版本重装或卸载前，请备份这些修改并恢复原版本文件；不要删除或改写安装锁。")
     }
     return @($result)
 }
@@ -674,13 +695,15 @@ function Restore-DirectorySnapshots {
 function Get-SupportedManagedState {
     param(
         [Parameter(Mandatory = $true)]$Lock,
-        [Parameter(Mandatory = $true)][string]$TargetRoot
+        [Parameter(Mandatory = $true)][string]$TargetRoot,
+        [switch]$AllowLocalChanges
     )
 
     $payload = @(Get-ValidatedLockPayload `
         -Lock $Lock `
-        -TargetRoot $TargetRoot)
+        -TargetRoot $TargetRoot -AllowLocalChanges:$AllowLocalChanges)
     $registeredPayloadPaths = @{}
+    $registeredDirectories = @{}
     $registeredToolDirectories = @{}
     $managedToolRoot = [System.IO.Path]::GetFullPath(
         (Join-Path $TargetRoot $ManagedToolRelativeDirectory)
@@ -688,6 +711,12 @@ function Get-SupportedManagedState {
     foreach ($item in $payload) {
         $destination = [System.IO.Path]::GetFullPath($item.Destination)
         $registeredPayloadPaths[$destination] = $true
+        $parent = Split-Path -Parent $destination
+        while (Test-PathWithin -Candidate $parent -Root $TargetRoot) {
+            $registeredDirectories[$parent] = $true
+            if ($parent.Equals($TargetRoot, [System.StringComparison]::OrdinalIgnoreCase)) { break }
+            $parent = Split-Path -Parent $parent
+        }
         if (Test-PathWithin -Candidate $destination -Root $managedToolRoot) {
             $directory = Split-Path -Parent $destination
             while (Test-PathWithin -Candidate $directory -Root $managedToolRoot) {
@@ -704,6 +733,8 @@ function Get-SupportedManagedState {
     }
     $runtimeCacheFiles = @()
     $runtimeCacheDirectories = @{}
+    $additionalFiles = @()
+    $additionalDirectories = @()
     foreach ($relativeRoot in @(
         @($ManagedSkillRelativeDirectories) +
         @($ManagedToolRelativeDirectory) +
@@ -719,7 +750,28 @@ function Get-SupportedManagedState {
                 throw "受管目录包含链接或重解析点，拒绝处理：$($entry.FullName)"
             }
             $entryPath = [System.IO.Path]::GetFullPath($entry.FullName)
+            $relativePath = $entryPath.Substring(
+                [System.IO.Path]::GetFullPath($TargetRoot).TrimEnd("\", "/").Length
+            ).TrimStart("\", "/").Replace("\", "/")
             if ($entry.PSIsContainer) {
+                $parent = Split-Path -Parent $entryPath
+                if ($AllowLocalChanges) {
+                    if (
+                        $entry.Name.Equals("__pycache__", [System.StringComparison]::OrdinalIgnoreCase) -and
+                        (Test-PathWithin -Candidate $entryPath -Root $managedToolRoot) -and
+                        $registeredToolDirectories.ContainsKey($parent)
+                    ) {
+                        $runtimeCacheDirectories[$entryPath] = $true
+                        continue
+                    }
+                    if (-not $registeredDirectories.ContainsKey($entryPath)) {
+                        $additionalDirectories += [PSCustomObject]@{
+                            Destination = $entryPath
+                            RelativePath = $relativePath
+                        }
+                    }
+                    continue
+                }
                 $parent = Split-Path -Parent $entryPath
                 if ($entry.Name.Equals(
                     "__pycache__",
@@ -761,6 +813,14 @@ function Get-SupportedManagedState {
                     $runtimeCacheFiles += $entryPath
                     continue
                 }
+                if ($AllowLocalChanges) {
+                    $additionalFiles += [PSCustomObject]@{
+                        Destination = $entryPath
+                        RelativePath = $relativePath
+                        Hash = Get-Sha256 -Path $entryPath
+                    }
+                    continue
+                }
                 $relativePath = $entryPath.Substring(
                     [System.IO.Path]::GetFullPath($TargetRoot).TrimEnd("\", "/").Length
                 ).TrimStart("\", "/").Replace("\", "/")
@@ -772,7 +832,63 @@ function Get-SupportedManagedState {
         Payload = @($payload)
         RuntimeCacheFiles = @($runtimeCacheFiles)
         RuntimeCacheDirectories = @($runtimeCacheDirectories.Keys)
+        AdditionalFiles = @($additionalFiles)
+        AdditionalDirectories = @($additionalDirectories)
+        ConflictingAdditions = @()
     }
+}
+
+function Backup-ModifiedInstallation {
+    param(
+        [Parameter(Mandatory = $true)]$State,
+        [Parameter(Mandatory = $true)][string]$TargetRoot,
+        [Parameter(Mandatory = $true)][string]$LockPath,
+        [Parameter(Mandatory = $true)][string]$InstalledVersion,
+        [Parameter(Mandatory = $true)][string]$ReleaseVersion
+    )
+    $modified = @($State.Payload | Where-Object { $_.LocallyModified })
+    if ($modified.Count -eq 0 -and $State.AdditionalFiles.Count -eq 0 -and $State.AdditionalDirectories.Count -eq 0) { return }
+    $relative = ".scratch/dloop-install-backups/" + $InstalledVersion + "-before-" + $ReleaseVersion + "-" +
+        [DateTime]::UtcNow.ToString("yyyyMMddTHHmmssfffZ") + "-" + [Guid]::NewGuid().ToString("N")
+    $backupRoot = Resolve-ManagedRelativePath -TargetRoot $TargetRoot -RelativePath $relative
+    Assert-NoReparsePoint -Path $backupRoot -Boundary $TargetRoot
+    Write-Output ("旧版安装中有 $($modified.Count) 个文件被修改、$($State.AdditionalFiles.Count) 个新增文件、$($State.AdditionalDirectories.Count) 个新增目录，将完整备份后升级：`n- " +
+        ((@($modified) + @($State.AdditionalFiles) + @($State.AdditionalDirectories) | ForEach-Object { $_.RelativePath }) -join "`n- "))
+    $files = @($State.Payload) + @($State.AdditionalFiles) + @([PSCustomObject]@{
+        Destination = $LockPath
+        RelativePath = ".agents/feature-archive-workflow.lock.json"
+        Hash = Get-Sha256 -Path $LockPath
+    })
+    foreach ($directory in $State.AdditionalDirectories) {
+        New-Item -ItemType Directory -Path (Join-Path (Join-Path $backupRoot "payload") $directory.RelativePath) -Force | Out-Null
+    }
+    foreach ($file in $files) {
+        $destination = Join-Path (Join-Path $backupRoot "payload") $file.RelativePath
+        New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
+        Copy-Item -LiteralPath $file.Destination -Destination $destination
+        if ((Get-Sha256 -Path $destination) -ne $file.Hash) {
+            throw "旧安装备份校验失败，尚未替换旧文件。请检查磁盘空间或文件占用后重试。备份位置：$backupRoot"
+        }
+        Test-FailureInjection -Step "during-upgrade-backup"
+    }
+    Write-JsonDocument -Path (Join-Path $backupRoot "manifest.json") -Document ([ordered]@{
+        sourceVersion = $InstalledVersion
+        replacementVersion = $ReleaseVersion
+        modifiedFiles = @($modified | ForEach-Object { $_.RelativePath })
+        additionalFiles = @($State.AdditionalFiles | ForEach-Object { $_.RelativePath })
+        additionalDirectories = @($State.AdditionalDirectories | ForEach-Object { $_.RelativePath })
+        relocatedPaths = @($State.ConflictingAdditions | ForEach-Object { $_.RelativePath })
+        files = @($files | ForEach-Object { [ordered]@{ path = $_.RelativePath; sha256 = $_.Hash } })
+    })
+    Write-Utf8WithoutBom -Path (Join-Path $backupRoot "README.md") -Content (
+        "# 升级前的本地安装备份`n`n旧版本：$InstalledVersion；目标版本：$ReleaseVersion。`n`n" +
+        "payload 保留已登记文件的升级前正文（含本地修改）、新增文件和目录及原安装锁；manifest.json 列出修改、新增、移出路径及备份摘要。`n`n" +
+        "不冲突的新增内容保留原位；占用新版文件或目录位置的内容移入本备份，不会成为新版受管文件。`n`n" +
+        "升级失败时安装器会自动恢复旧现场；本备份继续保留。升级成功后可从这里查阅本地补丁，不要将整包直接覆盖到已有新版作业的工程。`n" +
+        "旧作业另存于同级 dloop-history，业务代码不在本备份内，也不会因升级被回退。`n"
+    )
+    Write-Output "旧安装备份已校验：$backupRoot"
+    Test-FailureInjection -Step "after-upgrade-backup"
 }
 
 function Get-UnownedManagedResiduals {
@@ -1029,7 +1145,24 @@ if ($Verify) {
 
 $upgradeState = $null
 if ($isUpgrade) {
-    $upgradeState = Get-SupportedManagedState -Lock $existingLock -TargetRoot $targetRoot
+    $upgradeState = Get-SupportedManagedState -Lock $existingLock -TargetRoot $targetRoot -AllowLocalChanges
+    $newPaths = @($payload | ForEach-Object { Join-Path $targetRoot $_.RelativePath })
+    $additions = @($upgradeState.AdditionalFiles) + @($upgradeState.AdditionalDirectories)
+    $conflictingAdditions = @()
+    foreach ($addition in @($additions | Sort-Object { $_.Destination.Length })) {
+        $path = $addition.Destination
+        if (@($conflictingAdditions | Where-Object {
+            Test-PathWithin -Candidate $path -Root $_.Destination
+        }).Count -gt 0) { continue }
+        $isFile = Test-Path -LiteralPath $path -PathType Leaf
+        if (@($newPaths | Where-Object {
+            (Test-PathWithin -Candidate $path -Root $_) -or
+            ($isFile -and (Test-PathWithin -Candidate $_ -Root $path))
+        }).Count -gt 0) {
+            $conflictingAdditions += $addition
+        }
+    }
+    $upgradeState.ConflictingAdditions = @($conflictingAdditions)
 }
 $existingLockHashes = Get-LockHashMap -Lock $existingLock
 
@@ -1041,6 +1174,9 @@ foreach ($item in $payload) {
     }
     $destinationHash = Get-Sha256 -Path $destination
     if ($destinationHash -eq $item.Hash) {
+        continue
+    }
+    if ($isUpgrade) {
         continue
     }
     if (
@@ -1066,7 +1202,7 @@ if ($null -ne $existingLock -and -not $isUpgrade) {
 if ($conflicts.Count -gt 0) {
     throw (
         "检测到无法安全处理的本地漂移或归属冲突，拒绝覆盖：`n- " +
-        ($conflicts -join "`n- ")
+        ($conflicts -join "`n- ") + "`n请先备份上述文件并核对归属；不要删除或改写安装锁。旧版已登记文件的本地修改可在升级到更新版本时自动备份。"
     )
 }
 
@@ -1113,6 +1249,7 @@ $stagingRoot = Join-Path ([System.IO.Path]::GetTempPath()) (
 )
 $snapshots = @{}
 $directorySnapshots = @{}
+$relocatedAdditions = @()
 try {
     New-Item -ItemType Directory -Path $stagingRoot -Force | Out-Null
     foreach ($item in $payload) {
@@ -1125,6 +1262,20 @@ try {
         }
     }
 
+    if ($isUpgrade) {
+        Backup-ModifiedInstallation -State $upgradeState -TargetRoot $targetRoot -LockPath $lockPath `
+            -InstalledVersion $installedVersion -ReleaseVersion $releaseVersion
+        foreach ($addition in $upgradeState.ConflictingAdditions) {
+            $holdingPath = Join-Path $stagingRoot ("local-addition-" + [Guid]::NewGuid().ToString("N"))
+            Move-Item -LiteralPath $addition.Destination -Destination $holdingPath
+            $relocatedAdditions += [PSCustomObject]@{
+                Original = $addition.Destination
+                Holding = $holdingPath
+            }
+            Write-Output "新增内容与新版安装路径冲突，已备份并移出：$($addition.RelativePath)"
+            Test-FailureInjection -Step "during-upgrade-relocation"
+        }
+    }
     if ($retireRuntime) {
         Save-DirectoryHierarchySnapshot -Snapshots $directorySnapshots -Path $historyDirectory -Boundary $targetRoot
         New-Item -ItemType Directory -Path $historyDirectory -Force | Out-Null
@@ -1188,6 +1339,10 @@ catch {
     }
     Restore-FileSnapshots -Snapshots $snapshots
     Restore-DirectorySnapshots -Snapshots $directorySnapshots
+    foreach ($addition in $relocatedAdditions) {
+        Move-Item -LiteralPath $addition.Holding -Destination $addition.Original
+    }
+    [Console]::Error.WriteLine("安装事务已回滚：旧文件、安装记录和原有作业保持不变。请处理下方原因后重试。")
     throw $failure
 }
 finally {

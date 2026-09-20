@@ -2,10 +2,10 @@
 
 ## 源码安装
 
-当前源码为 v3.9.0 冻结版。源码安装时，在 Git/SVN 项目中准备 `.scratch` 忽略规则，再从本版源码目录运行：
+当前源码为 v3.9.1 冻结版。源码安装时，在 Git/SVN 项目中准备 `.scratch` 忽略规则，再从本版源码目录运行：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Target "D:\projects\test-project" -Version v3.9.0
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Target "D:\projects\test-project" -Version v3.9.1
 ```
 
 同一命令追加 `-Verify` 校验，追加 `-Uninstall` 卸载。需要在线安装或 ZIP 安装时使用下文对应入口。
@@ -20,22 +20,26 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Target "D:\pr
 irm https://raw.githubusercontent.com/qwofa/DLoop/main/install.py -ErrorAction Stop | python -
 ```
 
-一行入口下载公开仓库 `v3.9.0` 标签对应的冻结版源码，并完成安装与校验。
+一行入口安装公开主线指定的发行版；3.9.1 在公开主线合并并发布对应标签前，请使用上面的本地源码入口。
 
 ## 本地或离线安装
 
 在本版源码目录使用当前源码 ZIP 安装：
 
 ```powershell
-python install.py --target "D:\projects\my-project" --archive "D:\downloads\DLoop-3.9.0.zip"
+python install.py --target "D:\projects\my-project" --archive "D:\downloads\DLoop-3.9.1.zip"
 ```
 
-ZIP 使用带顶层目录的源码包布局。获取本版标签后，可用 `git archive --format=zip --prefix=DLoop-3.9.0/ --output=DLoop-3.9.0.zip v3.9.0` 生成。不要用其他版本的 ZIP 替代本版源码。
+ZIP 使用带顶层目录的源码包布局。本版修改提交后，可用 `git archive --format=zip --prefix=DLoop-3.9.1/ --output=DLoop-3.9.1.zip HEAD` 生成；未提交修改不会包含在 ZIP 中，开发期间使用源码安装。
 
 安装完成会显示 `DLoop installed and verified.`，接着在目标项目的 Codex 中使用 `$dloop` 或 `$dloop-ui`。
 
 ## 安装会做什么
 
+- 升级到较新版本时，若旧安装中已登记的文件存在本地修改，列出全部变化路径，先完整备份旧载荷和原安装锁并核对摘要，再继续安装；无需先恢复原文件或修改安装锁。备份位于 `.scratch/dloop-install-backups/`，成功或失败均保留。
+- 备份未完成不会替换旧安装；后续安装失败会恢复原文件、原安装记录及旧作业。失败原因显示在控制台，完整诊断日志另存系统临时目录，具体路径随错误返回。
+- 升级时受管目录内新增文件和目录也会完整备份：不冲突的保留原位；与新版文件同名、或挡住新版目录的内容移入备份，再安装新版。备份清单记录新增与移出路径，包含空目录；新增内容不登记为新版载荷，失败恢复原状。
+- 缺失的已登记文件、其文件类型变化、链接或安装锁路径归属问题仍停止处理；同版本重装、校验和卸载不会自动接受本地修改，卸载仍拒绝含未登记文件的受管目录。维护者应在源码中修复工具，再通过新版安装交付，不给已安装文件打补丁或重写安装锁。
 - 在项目内安装两项 Skill、共享工具和 Unity 编辑器截图包。
 - Git 项目已有有效规则时保持原样，否则在目标项目的 `.gitignore` 末尾补入 `/.scratch/`。
 - SVN 项目保留原有 `svn:ignore` 内容，必要时追加 `.scratch`。
@@ -46,7 +50,7 @@ Git 忽略规则可能成为一项本地改动；入口不暂存或提交它。�
 
 入口支持全新安装、同版本重装，以及从较旧安装升级；拒绝降级。升级前先停止旧版命令和 Agent，无需先完成旧作业。安装器验证旧载荷归属后整体归档旧活动材料并释放占用，保留项目代码改动；失败恢复原现场。同版本重装保留现有作业。重复安装保留已有忽略内容，不重复添加规则。
 
-新材料位于 `.scratch/dloop-v3/v3.9.0/`；旧材料位于 `.scratch/dloop-history/<旧版本>-<时间>-<唯一标识>/runtime/`，外层说明标记整批作业已失效。历史不再参与活动索引、恢复、批准或清理；可直接打开文档和附件查阅。已卸载遗留材料的来源版本标为 `uninstalled`，新装时同样隔离。详见[版本交替说明](v3.7.6-version-handoff.md)。
+新材料位于 `.scratch/dloop-v3/v3.9.1/`；旧材料位于 `.scratch/dloop-history/<旧版本>-<时间>-<唯一标识>/runtime/`，外层说明标记整批作业已失效。历史不再参与活动索引、恢复、批准或清理；可直接打开文档和附件查阅。已卸载遗留材料的来源版本标为 `uninstalled`，新装时同样隔离。详见[版本交替说明](v3.7.6-version-handoff.md)。
 
 ## 常见问题
 
@@ -71,13 +75,13 @@ Git 忽略规则可能成为一项本地改动；入口不暂存或提交它。�
 取得并解压对应版本的 DLoop 源码，在该源码目录运行：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Target "D:\projects\my-project" -Version v3.9.0 -Verify
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Target "D:\projects\my-project" -Version v3.9.1 -Verify
 ```
 
 卸载：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Target "D:\projects\my-project" -Version v3.9.0 -Uninstall
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Target "D:\projects\my-project" -Version v3.9.1 -Uninstall
 ```
 
 卸载移除本版管理的 Skill、工具和截图包，保留交付档案与项目忽略规则。受管文件被修改或无法确认归属时会停止并说明原因。
