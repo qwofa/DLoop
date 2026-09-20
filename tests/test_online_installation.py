@@ -1,6 +1,7 @@
 """Exercise the one-line entry point against real Git and SVN projects."""
 
 import os
+import re
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -85,6 +86,24 @@ class OnlineInstallationTests(unittest.TestCase):
                 self.assertEqual(original, ignore.read_bytes() if ignore.exists() else None)
                 self.assertFalse((target / test_installation.LOCK).exists())
                 self.assertFalse((target / test_installation.CORE_CLI).exists())
+
+    def test_failure_explains_reason_and_keeps_diagnostics_outside_download_directory(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            target = self.git_project(temporary)
+            result = self.install(target, failure=True, stdin=True)
+            self.assertNotEqual(0, result.returncode)
+            message = result.stderr.decode("utf-8")
+            self.assertIn("测试故障注入：after-lock", message)
+            self.assertIn("安装事务已回滚", message)
+            self.assertNotIn("CategoryInfo", message)
+            self.assertNotIn("FullyQualifiedErrorId", message)
+            match = re.search(r"诊断日志：([^\r\n]+)", message)
+            self.assertIsNotNone(match, message)
+            log = Path(match.group(1))
+            self.addCleanup(log.unlink)
+            self.assertTrue(log.is_file())
+            self.assertIn("after-lock", log.read_text(encoding="utf-8"))
+            self.assertFalse((target / test_installation.LOCK).exists())
 
     @unittest.skipUnless(test_installation.SVN and test_installation.SVNADMIN, "SVN tools")
     def test_svn_preparation_and_failure_restore(self):

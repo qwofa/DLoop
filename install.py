@@ -1,6 +1,6 @@
 """Download and install the current DLoop version into the current project.
 
-This distribution entry point installs v3.9.0 without changing its payload.
+This distribution entry point installs v3.9.1 without changing its payload.
 It can run from stdin; --archive also supports a previously downloaded ZIP.
 """
 
@@ -14,14 +14,16 @@ import urllib.request
 import zipfile
 
 
-VERSION = "3.9.0"
-ARCHIVE_REF = "v3.9.0"
+VERSION = "3.9.1"
+ARCHIVE_REF = "v3.9.1"
 ARCHIVE_URL = f"https://codeload.github.com/qwofa/DLoop/zip/refs/tags/{ARCHIVE_REF}"
 
 
-def run(*args, creationflags=0, cwd=None, input_data=None):
+def run(*args, creationflags=0, cwd=None, input_data=None, show_output_on_error=False):
     result = subprocess.run(args, capture_output=True, creationflags=creationflags, cwd=cwd, input=input_data)
     if result.returncode:
+        if show_output_on_error and result.stdout:
+            print(result.stdout.decode("utf-8", errors="replace").strip(), flush=True)
         detail = (result.stderr or result.stdout).decode("utf-8", errors="replace")
         raise RuntimeError(detail.strip() or f"Command failed: {args[0]}")
     return result.stdout
@@ -88,7 +90,7 @@ def prepare_ignore(target, vcs):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", type=Path, default=Path.cwd())
-    parser.add_argument("--archive", type=Path, help="Use a downloaded v3.9.0 source ZIP")
+    parser.add_argument("--archive", type=Path, help="Use a downloaded v3.9.1 source ZIP")
     args = parser.parse_args()
     if sys.platform != "win32":
         raise RuntimeError("DLoop currently requires Windows.")
@@ -124,7 +126,7 @@ def main():
         try:
             print(f"Installing DLoop {VERSION} into {target}...", flush=True)
             # Keep UTF-8 output local to the child, without changing the caller's console.
-            print(run(*command, creationflags=subprocess.CREATE_NO_WINDOW).decode("utf-8", errors="replace").strip())
+            print(run(*command, creationflags=subprocess.CREATE_NO_WINDOW, show_output_on_error=True).decode("utf-8", errors="replace").strip())
         except BaseException:
             restore_ignore()
             raise
@@ -137,6 +139,8 @@ def main():
 
 
 if __name__ == "__main__":
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
     try:
         main()
     except Exception as error:
