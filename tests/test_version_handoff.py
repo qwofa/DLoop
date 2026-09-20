@@ -3,6 +3,7 @@
 import json
 import os
 from pathlib import Path
+import py_compile
 import shutil
 import subprocess
 import sys
@@ -49,7 +50,18 @@ class VersionHandoffTests(unittest.TestCase):
         self.assertEqual(expected, result.returncode, result.stderr or result.stdout)
         return json.loads(result.stdout or result.stderr)
 
-    def previous_project(self, base, *, unfinished=True, vcs="git"):
+    def previous_project(self, base, *, unfinished=True, vcs="git", without_new_paths=False):
+        source = self.previous_source
+        if without_new_paths:
+            source = base / "previous-source"
+            shutil.copytree(self.previous_source, source)
+            for relative in (
+                "src/FeatureArchive/README.md",
+                "plugin/dloop/skills/dloop/references/snapshots.md",
+                "plugin/dloop/skills/dloop-ui/references/model-contract.md",
+            ):
+                (source / relative).unlink()
+            (source / "plugin/dloop/skills/dloop-ui/references").rmdir()
         if vcs == "svn":
             target, _ = test_installation.InstallationTests()._svn_project(base)
         else:
@@ -62,9 +74,12 @@ class VersionHandoffTests(unittest.TestCase):
             self.git(target, "add", ".gitignore", "main.txt")
             self.git(target, "commit", "-qm", "fixture")
         result = subprocess.run(
-            [POWERSHELL, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
-             str(self.previous_source / "install.ps1"), "-Target", str(target)],
+            [POWERSHELL, "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
+             "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); & '" +
+             str(source / "install.ps1").replace("'", "''") + "' -Target '" +
+             str(target).replace("'", "''") + "'"],
             capture_output=True, encoding="utf-8",
+            creationflags=subprocess.CREATE_NO_WINDOW,
         )
         self.assertEqual(0, result.returncode, result.stderr)
         result = self.cli(target, "init", "--feature-id", "delivery", "--title", "未完成交付")
@@ -93,6 +108,157 @@ class VersionHandoffTests(unittest.TestCase):
     def files(root):
         return {path.relative_to(root).as_posix(): path.read_bytes()
                 for path in root.rglob("*") if path.is_file()}
+
+    def test_modified_old_installation_is_backed_up_before_upgrade(self):
+        for vcs in ("git", "svn"):
+            with self.subTest(vcs=vcs), tempfile.TemporaryDirectory() as temporary:
+                target, _ = self.previous_project(Path(temporary), vcs=vcs)
+                paths = (".agents/skills/dloop/references/execution.md", "Tools/FeatureArchive/archive_candidates.py")
+                for relative in paths:
+                    with (target / relative).open("ab") as output:
+                        output.write(b"\n# local maintenance patch\n")
+                original = self._managed_snapshot(target)
+                runtime = self.files(target / ".scratch/dloop-v3")
+                result = self._run(target)
+                self.assertEqual(0, result.returncode, result.stderr)
+                backups = list((target / ".scratch/dloop-install-backups").iterdir())
+                self.assertEqual(1, len(backups))
+                backup = backups[0]
+                self.assertIn(str(backup.resolve()), result.stdout)
+                for relative in paths:
+                    self.assertIn(relative, result.stdout)
+                for relative, content in original.items():
+                    if content is not None and "__pycache__" not in relative and not relative.startswith(".scratch/"):
+                        self.assertEqual(content, (backup / "payload" / relative).read_bytes())
+                history = next((target / ".scratch/dloop-history").iterdir())
+                self.assertEqual(runtime, self.files(history / "runtime"))
+                self.assertEqual(b"unfinished implementation\n", (target / "main.txt").read_bytes())
+                self.assertEqual(0, self._run(target, "-Verify").returncode)
+
+    def test_modified_upgrade_failure_restores_patch_lock_and_old_jobs(self):
+        for step in ("during-upgrade-backup", "after-upgrade-backup", "after-retirement", "after-lock"):
+            with self.subTest(step=step), tempfile.TemporaryDirectory() as temporary:
+                target, _ = self.previous_project(Path(temporary))
+                patch = target / ".agents/skills/dloop/references/execution.md"
+                patch.write_bytes(patch.read_bytes() + b"\nlocal maintenance patch\n")
+                original = self._managed_snapshot(target)
+                runtime = self.files(target / ".scratch/dloop-v3")
+                result = self._run(target, fail_step=step)
+                self.assertNotEqual(0, result.returncode)
+                self.assertIn(step, result.stderr)
+                self.assertEqual(original, self._managed_snapshot(target))
+                self.assertEqual(runtime, self.files(target / ".scratch/dloop-v3"))
+                self.assertEqual(b"unfinished implementation\n", (target / "main.txt").read_bytes())
+                backup = next((target / ".scratch/dloop-install-backups").iterdir())
+                if step != "during-upgrade-backup":
+                    self.assertEqual(patch.read_bytes(), (backup / "payload/.agents/skills/dloop/references/execution.md").read_bytes())
+                self.assertNotIn("CategoryInfo", result.stderr)
+                self.assertNotIn("FullyQualifiedErrorId", result.stderr)
+
+    @staticmethod
+    def add_user_content(target):
+        additions = {
+            "Tools/FeatureArchive/README.md": b"user file at new file path\n",
+            ".agents/skills/dloop/references/snapshots.md/nested/user.bin": bytes(range(256)),
+            ".agents/skills/dloop-ui/references": b"user file at new directory path\n",
+            "Tools/FeatureArchive/custom/notes.txt": b"keep tool notes\n",
+            "Tools/FeatureArchive/__pycache__/nested/notes.txt": b"keep cache-directory notes\n",
+            ".agents/skills/dloop/local [draft].md": "用户补充说明\n".encode(),
+            "Packages/com.dloop.ui-capture/custom/settings.json": b'{"user": true}\n',
+        }
+        directories = (
+            ".agents/skills/dloop/references/snapshots.md/empty",
+            "Tools/FeatureArchive/custom/empty",
+        )
+        for relative, content in additions.items():
+            path = target / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(content)
+        for relative in directories:
+            (target / relative).mkdir(parents=True)
+        return additions, directories
+
+    def test_upgrade_preserves_additions_and_backs_up_path_conflicts(self):
+        for vcs in ("git", "svn"):
+            with self.subTest(vcs=vcs), tempfile.TemporaryDirectory() as temporary:
+                target, _ = self.previous_project(Path(temporary), vcs=vcs, without_new_paths=True)
+                additions, directories = self.add_user_content(target)
+                cache = Path(py_compile.compile(str(target / CORE_CLI), doraise=True))
+                original_lock = (target / LOCK).read_bytes()
+                runtime = self.files(target / ".scratch/dloop-v3")
+                result = self._run(target)
+                self.assertEqual(0, result.returncode, result.stderr)
+                self.assertFalse(cache.exists())
+                backup, = (target / ".scratch/dloop-install-backups").iterdir()
+                manifest = json.loads((backup / "manifest.json").read_text(encoding="utf-8-sig"))
+                self.assertEqual([], manifest["modifiedFiles"])
+                self.assertEqual(set(additions), set(manifest["additionalFiles"]))
+                self.assertEqual({
+                    "Tools/FeatureArchive/README.md",
+                    ".agents/skills/dloop/references/snapshots.md",
+                    ".agents/skills/dloop-ui/references",
+                }, set(manifest["relocatedPaths"]))
+                for relative, content in additions.items():
+                    self.assertEqual(content, (backup / "payload" / relative).read_bytes())
+                    if not any(relative == path or relative.startswith(path + "/")
+                               for path in manifest["relocatedPaths"]):
+                        self.assertEqual(content, (target / relative).read_bytes())
+                for relative in directories:
+                    self.assertTrue((backup / "payload" / relative).is_dir())
+                self.assertTrue((target / directories[1]).is_dir())
+                self.assertEqual(original_lock, (backup / "payload" / LOCK).read_bytes())
+                new_lock = json.loads((target / LOCK).read_text(encoding="utf-8-sig"))
+                owned = {item["path"] for item in new_lock["files"]}
+                self.assertNotIn("Tools/FeatureArchive/custom/notes.txt", owned)
+                history, = (target / ".scratch/dloop-history").iterdir()
+                self.assertEqual(runtime, self.files(history / "runtime"))
+                self.assertEqual(b"unfinished implementation\n", (target / "main.txt").read_bytes())
+                self.assertEqual(0, self._run(target, "-Verify").returncode)
+                self.assertEqual(0, self._run(target).returncode)
+
+    def test_addition_conflict_failure_restores_files_directories_and_jobs(self):
+        for step in ("during-upgrade-backup", "after-upgrade-backup", "during-upgrade-relocation",
+                     "after-retirement", "after-uninstall-payload", "after-payload", "after-lock"):
+            with self.subTest(step=step), tempfile.TemporaryDirectory() as temporary:
+                target, _ = self.previous_project(Path(temporary), without_new_paths=True)
+                additions, directories = self.add_user_content(target)
+                py_compile.compile(str(target / CORE_CLI), doraise=True)
+                patch = target / ".agents/skills/dloop/references/execution.md"
+                patch.write_bytes(patch.read_bytes() + b"\nlocal patch\n")
+                original = self._managed_snapshot(target)
+                result = self._run(target, fail_step=step)
+                self.assertNotEqual(0, result.returncode)
+                self.assertIn(step, result.stderr)
+                self.assertEqual(original, self._managed_snapshot(target))
+                self.assertEqual(b"unfinished implementation\n", (target / "main.txt").read_bytes())
+                if step != "during-upgrade-backup":
+                    backup, = (target / ".scratch/dloop-install-backups").iterdir()
+                    for relative, content in additions.items():
+                        self.assertEqual(content, (backup / "payload" / relative).read_bytes())
+                    for relative in directories:
+                        self.assertTrue((backup / "payload" / relative).is_dir())
+                retry = self._run(target)
+                self.assertEqual(0, retry.returncode, retry.stderr)
+
+    def test_upgrade_with_only_nonconflicting_additions(self):
+        for empty_only in (True, False):
+            with self.subTest(empty_only=empty_only), tempfile.TemporaryDirectory() as temporary:
+                target, _ = self.previous_project(Path(temporary), unfinished=False)
+                directory = target / "Tools/FeatureArchive/user/empty"
+                directory.mkdir(parents=True)
+                if not empty_only:
+                    (directory.parent / "notes.txt").write_bytes(b"user notes")
+                original = self.files(directory.parent)
+                result = self._run(target)
+                self.assertEqual(0, result.returncode, result.stderr)
+                self.assertTrue(directory.is_dir())
+                self.assertEqual(original, self.files(directory.parent))
+                backup, = (target / ".scratch/dloop-install-backups").iterdir()
+                self.assertTrue((backup / "payload/Tools/FeatureArchive/user/empty").is_dir())
+                self.assertEqual(original, self.files(backup / "payload/Tools/FeatureArchive/user"))
+                manifest = json.loads((backup / "manifest.json").read_text(encoding="utf-8-sig"))
+                self.assertEqual([], manifest["relocatedPaths"])
+                self.assertEqual(0, self._run(target, "-Verify").returncode)
 
     def test_unfinished_job_retires_unlocks_and_new_job_is_independent(self):
         with tempfile.TemporaryDirectory() as temporary:
