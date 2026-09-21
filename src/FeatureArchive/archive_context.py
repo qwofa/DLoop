@@ -1465,7 +1465,7 @@ def _coordinator_role_view(
         "allowed_operations": allowed_operations,
         "forbidden_operations": forbidden_operations,
         "decision_rules": [
-            "按批准场景核对位置、触发和证据；延期、复用或隐藏项写承接者、缺失输入、影响和恢复条件；局部通过不等于整体完成",
+            "按批准场景核对位置、触发、证据；延期、复用、隐藏项注明承接者、缺失输入、影响及恢复条件。",
         ] if action in {"plan", "implementation", "validation"} else [],
         "preconditions": ["当前交付项已选择", "全局写入资格与当前功能审计通过"],
         "required_materials": [],
