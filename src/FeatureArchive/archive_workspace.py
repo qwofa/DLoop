@@ -25,6 +25,12 @@ _PROCESS_LOCKS: Dict[str, threading.RLock] = {}
 _PROCESS_LOCKS_GUARD = threading.Lock()
 _THREAD_LOCK_STATE = threading.local()
 _F = TypeVar("_F", bound=Callable[..., object])
+_MANAGED_SCRATCH_ROOTS = (
+    (".scratch", "dloop-v3"),
+    (".scratch", "dloop-history"),
+    (".scratch", "dloop-v1"),
+    (".scratch", "feature-archive"),
+)
 
 
 class ArchiveWorkspaceError(Exception):
@@ -254,7 +260,7 @@ def _relative_workspace_path(workspace_root: Path, path: Path) -> str:
 
 def _is_guard_excluded(relative: str) -> bool:
     parts = PurePosixPath(relative).parts
-    managed = parts[:2] in ((".scratch", "dloop-v3"), (".scratch", "dloop-history"))
+    managed = parts[:2] in _MANAGED_SCRATCH_ROOTS
     return managed or _is_untracked_runtime_path(relative)
 
 
@@ -570,7 +576,7 @@ def _is_untracked_runtime_path(relative_path: str) -> bool:
 def assert_safe_write_scopes(scopes: Sequence[str], feature_id: str) -> None:
     """拒绝把 DLoop 自有状态或其父目录声明为产品写入范围。"""
 
-    managed_roots = ((".scratch", "dloop-v3"), (".scratch", "dloop-history"))
+    managed_roots = _MANAGED_SCRATCH_ROOTS
     unsafe = []
     for scope in sorted(set(scopes)):
         normalized = PurePosixPath(str(scope).replace("\\", "/"))

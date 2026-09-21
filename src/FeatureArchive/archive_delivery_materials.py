@@ -138,7 +138,8 @@ def collect_materials(requirements, values, feature_path, workspace, *, final=Fa
             entry["acceptance"]["reason"] = requirement.get("reason", "")
             entry["acceptance_evidence"] = [
                 {**ref, "sha256": "sha256:" + hashlib.sha256(Path(ref["path"]).read_bytes()).hexdigest()}
-                for ref in entry["acceptance"]["evidence"]
+                for ref in (entry["acceptance"]["evidence"]
+                            + entry["acceptance"]["runtime_smoke"]["evidence"])
             ]
         elif item["kind"] == "verification":
             if item["status"] not in {"passed", "failed", "unverified"}:

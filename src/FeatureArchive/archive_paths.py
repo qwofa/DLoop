@@ -8,8 +8,8 @@ from pathlib import Path
 from typing import Mapping
 
 
-ARCHIVE_ROOT_RELATIVE = Path(".scratch") / "dloop-v3" / "v3.9.1" / "outputs"
-SHARE_ROOT_RELATIVE = Path(".scratch") / "dloop-v3" / "v3.9.1" / "shares"
+ARCHIVE_ROOT_RELATIVE = Path(".scratch") / "dloop-v3" / "v3.9.2" / "outputs"
+SHARE_ROOT_RELATIVE = Path(".scratch") / "dloop-v3" / "v3.9.2" / "shares"
 SHARE_MANIFEST_NAME = ".dloop-share.json"
 
 WORKFLOW_ARTIFACT_DIRECTORIES: Mapping[str, Path] = {

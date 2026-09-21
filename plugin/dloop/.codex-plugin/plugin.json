@@ -1,6 +1,6 @@
 {
   "name": "dloop",
-  "version": "3.9.1",
+  "version": "3.9.2",
   "description": "DLoop delivery workflow with an explicitly selected Unity UI planning configuration.",
   "author": {
     "name": "DLoop"

@@ -90,12 +90,12 @@ def prepare_action_input(
         state = _load_state(feature.path, feature_id)
         template = baseline_input_template(graph, feature_id, state)
         target = feature.path / "04-plan/ui-baseline-input.json"
-        business_inputs = ["按每项业务核对预制体、协议、配置和需求描述；缺项集中列出已查位置、影响和所需补充"]
-        guidance = {"statuses": ["verified", "missing", "ambiguous", "not_applicable"],
-                    "reference": "每条已核实项只填一个真实文件路径；多个文件拆成多条材料，不用分号拼接。用途中注明节点、接口、字段或文档章节。缺项填写已搜索位置。",
+        business_inputs = ["按每项业务核对预制体、协议、配置和需求描述；逐份覆盖已登记来源，并显式列出本次不做的结果"]
+        guidance = {"statuses": ["verified", "inherited", "missing", "ambiguous", "not_applicable"],
+                    "reference": "每条已核实项只填一个真实文件路径；沿用既有协议或配置使用 inherited 并引用提供该能力的文件。多个文件拆成多条材料。缺项填写已搜索位置。",
                     "purpose": "用途和业务含义；缺项填写影响及需用户补充的信息。不涉及仅用于协议、配置，必须说明理由。",
                     "semantic_change": "提交默认按业务变更处理；仅修正用途措辞且含义不变时传 --semantic-change false。需求、材料引用或状态变化不能按非语义修订提交。",
-                    "scope": "所有需求必须齐备；禁止计划新增、占位、延期绕过。先展示确认材料，再登记用户实际回复。"}
+                    "scope": "每份已登记来源必须形成至少一项需求，或在 scope_exclusions 中写明来源位置、本次不交付结果和原因。禁止静默缩小范围。先展示确认材料，再登记用户实际回复。"}
         next_action = {"command": "ui-baseline", "arguments": {"feature_id": feature_id, "input": str(target)}}
     elif input_kind == "acceptance":
         if execution_id is None or package_id is not None:
@@ -107,9 +107,10 @@ def prepare_action_input(
         from archive_acceptance import acceptance_template
         template = acceptance_template(record["package"]["acceptance_conditions"])
         target = feature.path / "06-validation" / (record["package"]["package_id"] + "-acceptance.json")
-        business_inputs = ["实施开始时填写账号、数据、入口和最短操作；每完成一个场景就更新实际结果与证据，不在交付时重写。"]
+        business_inputs = ["实施开始时填写账号、数据、入口和最短操作；优先跑通进入、非空内容、退出和刷新四项最小冒烟；每完成一个场景就更新实际结果与证据。"]
         guidance = {"levels": {"static": "仅静态检查", "isolated": "客户端隔离验证", "runtime": "真实产品环境验证"},
                     "evidence": "已执行须有文件与定位；未执行可留空，缺少环境写入 setup 和 pending。",
+                    "runtime_smoke": "必须如实记录进入、非空内容、退出和刷新；无法执行时保持 unverified 并尽早请用户协助，不得以静态检查冒充通过。",
                     "reuse": "同一份文件可作为多个验收场景的 acceptance 材料；locator 填对应场景。"}
         next_action = {"command": "submit-slice", "arguments": {"feature_id": feature_id, "execution_id": execution_id},
                        "instruction": "先跑通入口，再逐场景验证。候选材料引用此文件，不立即提交。"}

@@ -166,6 +166,15 @@ function showAcceptance(){
   card.append(node("p","本次变化："+item.changes));
   const grid=node("div",undefined,"scenario-grid");grid.append(node("p","进入方式："+item.entry),node("p","准备条件："+item.setup));card.append(grid);
   card.append(node("p","实际结果："+item.actual));
+  if(item.runtime_smoke){
+   const smoke=item.runtime_smoke,smokeStatus=statuses[smoke.status]||smoke.status;
+   card.append(node("p","最小运行冒烟："+smokeStatus,"result"));
+   const smokeDetails=node("details");smokeDetails.append(node("summary","进入、内容、退出与刷新"));
+   const smokeList=node("ul");for(const text of [smoke.entry,smoke.content,smoke.exit,smoke.refresh])smokeList.append(node("li",text));smokeDetails.append(smokeList);
+   if(smoke.pending!=="无")smokeDetails.append(node("p","待完成："+smoke.pending,"pending"));
+   const smokeRefs=node("ul");for(const ref of smoke.evidence){const li=node("li"),link=node("a",ref.label);link.href=ref.href;link.target="_blank";link.rel="noopener";li.append(link);smokeRefs.append(li)}
+   if(!smoke.evidence.length)smokeDetails.append(node("p","尚无运行冒烟证据。","muted"));else smokeDetails.append(smokeRefs);card.append(smokeDetails);
+  }
   if(item.pending!=="无")card.append(node("p","待完成："+item.pending,"pending"));
   if(!item.required)card.append(node("p","本期范围："+item.reason,"muted"));
   const details=node("details");details.append(node("summary","验收步骤与证据"));const steps=node("ol");item.steps.forEach(text=>steps.append(node("li",text)));details.append(steps,node("p","预期结果："+item.expected));
