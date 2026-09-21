@@ -2601,6 +2601,9 @@ def delivery_errors(model: dict[str, Any]) -> list[dict[str, str]]:
     scenarios = model.get("acceptance_scenarios", [])
     if scenarios:
         for scenario in scenarios:
+            smoke = scenario.get("runtime_smoke")
+            if scenario["required"] and (not isinstance(smoke, dict) or smoke.get("status") != "passed"):
+                errors.append(issue("UI_RUNTIME_SMOKE_PENDING", scenario["scenario"] + "：最小运行冒烟尚未通过。"))
             if scenario["required"] and (scenario["status"] != "passed" or scenario["level"] != "runtime"):
                 errors.append(issue("UI_REQUIRED_VERIFICATION_PENDING", scenario["scenario"] + "：必要实际环境验证尚未通过。"))
         for annotation in model["annotations"]:
@@ -2727,7 +2730,18 @@ def render_delivery_html(model: dict[str, Any], feature_path: Path, *, delivery_
                 href = path.as_uri()
             refs.append({"label": path.name + " · " + ref["locator"],
                          "href": href})
-        scenarios.append({**item, "evidence": refs})
+        smoke = item.get("runtime_smoke")
+        smoke_refs = []
+        if isinstance(smoke, dict):
+            for ref in smoke.get("evidence", []):
+                path = Path(ref["path"])
+                try:
+                    href = quote(os.path.relpath(path, feature_path / "06-validation").replace("\\", "/"), safe="/")
+                except ValueError:
+                    href = path.as_uri()
+                smoke_refs.append({"label": path.name + " · " + ref["locator"], "href": href})
+        scenarios.append({**item, "evidence": refs,
+                          "runtime_smoke": ({**smoke, "evidence": smoke_refs} if isinstance(smoke, dict) else None)})
     data = {"title": model["feature"]["title"], "pages": _presentation_pages(model, feature_path),
             "scenarios": scenarios, "ready": delivery_ready}
     payload = json.dumps(data, ensure_ascii=False).replace("<", "\\u003c").replace("&", "\\u0026")

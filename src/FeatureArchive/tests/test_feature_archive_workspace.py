@@ -101,6 +101,17 @@ class FeatureArchiveWorkspaceTests(unittest.TestCase):
             current = snapshot_workspace(workspace, ["Tools"])
             self.assertEqual((), snapshot_changes(baseline, current))
 
+    def test_guard_ignores_current_and_legacy_dloop_managed_scratch_roots(self) -> None:
+        for path in (
+            ".scratch/dloop-v3/v3.9.2/outputs/item/state.json",
+            ".scratch/dloop-history/v3.9.1/item/state.json",
+            ".scratch/dloop-v1/job.json",
+            ".scratch/feature-archive/index.json",
+        ):
+            with self.subTest(path=path):
+                self.assertTrue(archive_workspace._is_guard_excluded(path))
+        self.assertFalse(archive_workspace._is_guard_excluded(".scratch/outputs/product.txt"))
+
     def test_snapshot_changes_ignores_cache_keys_from_historical_baseline(self) -> None:
         baseline = {
             "entries": {

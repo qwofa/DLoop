@@ -31,7 +31,7 @@ class FeatureArchiveFrictionNoteTests(FeatureArchiveCliTestCase):
         arguments = (
             "--summary", "冷读者需要明确术语，交接未提供术语入口",
             "--extra-work", "协调者再次定位术语表并重新交接",
-            "--evidence", "path:.scratch/dloop-v3/v3.9.1/outputs/reliable-delivery/01-requirements/terminology.md",
+            "--evidence", "path:.scratch/dloop-v3/v3.9.2/outputs/reliable-delivery/01-requirements/terminology.md",
             "--recovery", "补上术语入口后冷读通过",
             "--cost", "据本次交接记录，额外进行一次交接",
             "--role", "coordinator", "--stage", "requirements",

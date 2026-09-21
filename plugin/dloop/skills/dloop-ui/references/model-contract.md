@@ -319,11 +319,13 @@ Prefab 不存在、歧义、单项截图失败和目标不可见是正常结果�
 
 调查后用 `prepare-action-input --input-kind ui-baseline --feature-id <id>` 取得清单；提交使用 `ui-baseline --feature-id <id> --input <文件>`。该命令保存不完整清单和缺项报告，不因保存成功就授予实施资格。每次补充修改同一输入后重交，不直接编辑工具生成的正式清单。
 
-顶层为 `input_version: 1` 和 `items`。每项用 `requirement_key` 对应当前完整调研中的需求键，且包含 `prefabs`、`protocols`、`configurations`、`requirement_sources` 四个材料数组。全部需求均须覆盖；遗漏或空数组形成缺项。
+顶层为 `input_version: 2`、`scope_exclusions` 和 `items`。每项用 `requirement_key` 对应当前完整调研中的需求键，且包含 `prefabs`、`protocols`、`configurations`、`requirement_sources` 四个材料数组。全部需求均须覆盖；遗漏或空数组形成缺项。
+
+每份初始化时登记的需求来源必须至少被一项需求引用，或在 `scope_exclusions` 中明确说明本次不交付。排除项包含真实 `source` 文件、可复核 `locator`、用户可理解的 `outcome` 和具体 `reason`；它会显示在确认页最前面并随确认摘要绑定。不能用范围排除掩盖来源未读、实现困难或必要业务材料缺失。
 
 每份材料包含：
 
-- `status`：`verified`（已核实）、`missing`（缺失）、`ambiguous`（待选择）或 `not_applicable`（不涉及）。不支持计划新增或延期占位。
+- `status`：`verified`（已核实）、`inherited`（沿用既有协议或配置）、`missing`（缺失）、`ambiguous`（待选择）或 `not_applicable`（不涉及）。`inherited` 只用于协议和配置，必须引用真实提供能力的文件；`not_applicable` 不得带文件引用。不支持计划新增或延期占位。
 - `reference`：每条已核实项只填一个真实本地文件路径，可为项目相对路径；多个文件分别填多条，不用分号拼接。网页资料先摘录为本地文件。缺项或歧义记录已经搜索的位置及候选。不涉及可留空。
 - `purpose`：文件内具体节点、接口、字段或文档章节，业务用途和关键含义；缺项写明影响以及需用户补充什么。不涉及必须有理由，且只用于协议和配置，不能与同类其他条目混用。
 
@@ -340,7 +342,9 @@ Prefab 不存在、歧义、单项截图失败和目标不可见是正常结果�
 
 任务包默认对每个既有验收场景声明 `materials: ["acceptance"]`。多个功能点可共享一个场景，同一文件可被多个场景引用。`interaction`、`ui-location`、`screenshot` 是有实际用途时追加的材料，不是默认四件套。
 
-开始实施时运行 `prepare-action-input --input-kind acceptance --execution-id <id>`。生成的 JSON 使用 `scenarios` 列表，每项包含：
+开始实施时运行 `prepare-action-input --input-kind acceptance --execution-id <id>`。生成的 JSON 顶层包含 `runtime_smoke` 和 `scenarios`。`runtime_smoke` 记录真实入口、非空业务内容、正常退出、重新进入或刷新四项结果，以及 `status`、`pending` 和证据；未执行时保持 `unverified` 并写明缺项，已执行则必须提供证据。必要场景的最小运行冒烟未通过时，成果页可以生成，但不能标记最终就绪。
+
+`scenarios` 每项包含：
 
 - `scenario`：已登记的验收场景原文；同一文件内唯一。
 - `changes`、`entry`、`setup`：本次变化、产品内进入方式、账号/数据准备条件及责任人。

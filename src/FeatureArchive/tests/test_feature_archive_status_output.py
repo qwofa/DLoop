@@ -100,6 +100,7 @@ class FeatureArchiveStatusOutputTests(FeatureArchiveCliTestCase):
             write_candidate(self.feature / "05-implementation" / "candidate.json", "candidate-1"),
         )
         ready, _ = self.status_pair()
+        self.assertEqual("incomplete", ready["delivery_view"]["delivery_summary"]["completion_claim"])
         self.assertEqual("review-slice", ready["delivery_view"]["next_action_contract"]["command"])
         self.assertEqual(
             "candidate-1", ready["delivery_view"]["trusted_machine_facts"]["modification_lease"]["current_candidate_id"],
@@ -109,6 +110,7 @@ class FeatureArchiveStatusOutputTests(FeatureArchiveCliTestCase):
         self.assertEqual("implementation-recovery", blocked["delivery_view"]["current_stage"])
         self.assertIsNone(blocked["delivery_view"]["next_action_contract"])
         self.assertTrue(blocked["delivery_view"]["requires_human"]["required"])
+        self.assertEqual("incomplete", blocked["delivery_view"]["delivery_summary"]["completion_claim"])
 
     def test_other_delivery_lease_blocks_final_approval_and_freeze_until_released(self):
         confirmation = self.accept_test_implementation()
@@ -129,6 +131,10 @@ class FeatureArchiveStatusOutputTests(FeatureArchiveCliTestCase):
                 expected_stage = "freeze-ready"
                 ready, _ = self.status_pair()
                 self.assertEqual(expected_stage, ready["delivery_view"]["current_stage"])
+                self.assertEqual(
+                    "accepted" if approved else "incomplete",
+                    ready["delivery_view"]["delivery_summary"]["completion_claim"],
+                )
                 execution_id = f"other-exec-{approved}"
                 if approved:
                     self.run_cli(
@@ -182,3 +188,5 @@ class FeatureArchiveStatusOutputTests(FeatureArchiveCliTestCase):
             "--validation-conclusion", "passed", "--unverified-boundaries", "none",
             "--residual-risks", "none",
         )
+        frozen, _ = self.status_pair()
+        self.assertEqual("complete", frozen["delivery_view"]["delivery_summary"]["completion_claim"])
