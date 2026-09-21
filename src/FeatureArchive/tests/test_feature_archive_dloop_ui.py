@@ -12,6 +12,7 @@ except ModuleNotFoundError:
     from ._feature_archive_support import FeatureArchiveCliTestCase, write_candidate
 
 from archive_configuration import ArchiveConfigurationError, configuration_evaluation
+from archive_ui import _runtime
 
 
 _write_candidate = write_candidate
@@ -26,6 +27,22 @@ def write_candidate(path, candidate_id):
                                     "path": str(evidence), "locator": "本次验证", "status": "passed"}]
     path.write_text(json.dumps(value), encoding="utf-8")
     return path
+
+
+def acceptance_record(scenarios, evidence, *, smoke_status="passed"):
+    return {
+        "runtime_smoke": {
+            "entry": "从真实主界面打开奖励页面",
+            "content": "真实账号显示非空剩余次数",
+            "exit": "关闭页面后返回主界面且无残留遮挡",
+            "refresh": "重新打开后剩余次数保持最新",
+            "status": smoke_status,
+            "pending": "无" if smoke_status == "passed" else "等待可用实际环境",
+            "evidence": ([{"path": str(evidence), "locator": "最小运行冒烟"}]
+                         if smoke_status != "unverified" else []),
+        },
+        "scenarios": scenarios,
+    }
 
 
 PREFAB_TEXT = """%YAML 1.1
@@ -905,11 +922,44 @@ class FeatureArchiveDloopUiTests(FeatureArchiveCliTestCase):
             value = json.loads(json.dumps(complete))
             value["items"][0]["protocols"][0].update(status=status, reference=reference)
             self.assertEqual("blocked", self.submit_baseline(archive, value=value)[1]["status"])
-        self.assertEqual("blocked", self.submit_baseline(archive, value={"input_version": 1, "items": []})[1]["status"])
+        self.assertEqual("blocked", self.submit_baseline(
+            archive, value={"input_version": 2, "scope_exclusions": [], "items": []},
+        )[1]["status"])
         complete["items"][0]["prefabs"][0]["status"] = "planned"
         path = archive / "04-plan/ui-baseline-input.json"
         path.write_text(json.dumps(complete), encoding="utf-8")
         self.assertEqual("INVALID_UI_BASELINE", self.run_cli("ui-baseline", "--feature-id", archive.name, "--input", path, expected=1)["code"])
+
+    def test_ui_baseline_requires_every_registered_source_or_explicit_exclusion(self):
+        archive, _, _ = self.prepare_ui_execution(approve_baseline=False)
+        extra = self.project_root / "secondary-requirements.md"
+        extra.write_text("# 排行榜\n本期需求材料还描述了排行榜入口。\n", encoding="utf-8")
+        runtime = _runtime()
+        model_path = archive / "ui-model.json"
+        model = runtime.read_json(model_path)
+        runtime.upsert_evidence(model, runtime.build_file_evidence(
+            "source_document", extra, summary="补充需求材料",
+        ))
+        runtime.sync_ids(model)
+        model_path.write_text(json.dumps(model, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+        value, blocked = self.submit_baseline(archive)
+        self.assertEqual("blocked", blocked["status"])
+        self.assertTrue(any(
+            item["category"] == "requirement_sources" and "尚未形成需求" in item["message"]
+            for item in blocked["blockers"]
+        ))
+
+        value["scope_exclusions"] = [{
+            "source": str(extra), "locator": "排行榜章节", "outcome": "本次不交付排行榜入口",
+            "reason": "用户明确本期只交付领取结果，排行榜另行立项",
+        }]
+        value["items"][0]["protocols"][0]["status"] = "inherited"
+        ready = self.submit_baseline(archive, value=value)[1]
+        self.assertEqual("ready", ready["status"])
+        review = Path(ready["materials"][0]).read_text(encoding="utf-8")
+        self.assertIn("本次明确不做", review)
+        self.assertIn("沿用既有能力", review)
 
     def test_ui_baseline_new_requirement_invalidates_approval_without_resubmission(self):
         archive, _, package = self.prepare_ui_execution()
@@ -992,7 +1042,7 @@ class FeatureArchiveDloopUiTests(FeatureArchiveCliTestCase):
                  "actual": "代码路径已核对", "pending": "真实账号验证",
                  "evidence": [{"path": str(evidence), "locator": "入口检查"}]}
         material = Path(prepared["target"])
-        material.write_text(json.dumps({"scenarios": [scene]}), encoding="utf-8")
+        material.write_text(json.dumps(acceptance_record([scene], evidence)), encoding="utf-8")
         again = self.run_cli("prepare-action-input", "--feature-id", archive.name,
                             "--input-kind", "acceptance", "--execution-id", "ui-impl")
         self.assertFalse(again["written"])
@@ -1002,6 +1052,22 @@ class FeatureArchiveDloopUiTests(FeatureArchiveCliTestCase):
         value = json.loads(candidate.read_bytes())
         value["delivery_materials"] = [{"requirement": "result", "kind": "acceptance", "path": str(material), "locator": "结果可观察"}]
         candidate.write_text(json.dumps(value), encoding="utf-8")
+        # 候选输入缺少任一冒烟结果，或宣称已执行却没有证据，都不能交接。
+        for field in ("entry", "content", "exit", "refresh"):
+            with self.subTest(missing_smoke_result=field):
+                record = acceptance_record([scene], evidence)
+                del record["runtime_smoke"][field]
+                material.write_text(json.dumps(record), encoding="utf-8")
+                rejected = self.submit_material_candidate(archive, candidate, expected=1)
+                self.assertEqual("INVALID_ACCEPTANCE_RECORD", rejected["code"])
+        for status in ("passed", "failed"):
+            with self.subTest(smoke_without_evidence=status):
+                record = acceptance_record([scene], evidence, smoke_status=status)
+                record["runtime_smoke"]["evidence"] = []
+                material.write_text(json.dumps(record), encoding="utf-8")
+                rejected = self.submit_material_candidate(archive, candidate, expected=1)
+                self.assertEqual("INVALID_ACCEPTANCE_RECORD", rejected["code"])
+        material.write_text(json.dumps(acceptance_record([scene], evidence)), encoding="utf-8")
         final = self.accept_material_candidate(archive, candidate, evidence)
         result = self.run_cli("ui-publish", "--feature-id", archive.name, "--input", final)
         self.assertFalse(result["delivery_ready"])
@@ -1017,10 +1083,36 @@ class FeatureArchiveDloopUiTests(FeatureArchiveCliTestCase):
         self.assertEqual([], model["acceptance_scenarios"][1]["evidence"])
         # 原始记录就地更新，通过已有材料修订入口重新汇总，不补第二套交互文件。
         scene.update(level="runtime", actual="测试账号操作通过", pending="无")
-        material.write_text(json.dumps({"scenarios": [scene]}), encoding="utf-8")
+        material.write_text(json.dumps(acceptance_record([scene], evidence)), encoding="utf-8")
         self.assertEqual("DELIVERY_MATERIAL_STALE", self.run_cli("ui-publish", "--feature-id", archive.name, "--input", final, expected=1)["code"])
         value = json.loads(final.read_bytes())
         value["material_updates"] = [{"package_id": "ui-slice", "requirement": "result", "kind": "acceptance", "path": str(material), "locator": "结果可观察：实际环境验证"}]
+        final.write_text(json.dumps(value), encoding="utf-8")
+        smoke_evidence = archive / "06-validation/runtime-smoke.txt"
+        smoke_evidence.write_text("真实入口可打开，退出时仍有残留遮挡", encoding="utf-8")
+        for status in ("unverified", "failed"):
+            with self.subTest(pending_runtime_smoke=status):
+                record = acceptance_record([scene], smoke_evidence, smoke_status=status)
+                record["runtime_smoke"]["exit"] = "尚未验证" if status == "unverified" else "退出后仍有残留遮挡"
+                record["runtime_smoke"]["pending"] = "等待运行验证" if status == "unverified" else "修复退出后的遮挡"
+                material.write_text(json.dumps(record), encoding="utf-8")
+                result = self.run_cli("ui-publish", "--feature-id", archive.name, "--input", final)
+                self.assertFalse(result["delivery_ready"])
+                model = json.loads((archive / "ui-model.json").read_bytes())
+                self.assertIn("UI_RUNTIME_SMOKE_PENDING", [item["code"] for item in _runtime().delivery_errors(model)])
+                self.assertEqual("pending", self.ui_approval_view(archive)["conclusions"]["approvals"]["ui-delivery"]["status"])
+                page = (archive / "06-validation/ui-delivery.html").read_text(encoding="utf-8")
+                self.assertIn('"ready": false', page)
+        smoke_evidence.write_text("真实入口、非空内容、退出和刷新均通过", encoding="utf-8")
+        material.write_text(json.dumps(acceptance_record([scene], smoke_evidence)), encoding="utf-8")
+        self.assertTrue(self.run_cli("ui-publish", "--feature-id", archive.name, "--input", final)["delivery_ready"])
+        # 正常补测会重新生成独立冒烟证据；旧材料必须失效，显式交回后才重新就绪。
+        unchanged_record = material.read_bytes()
+        smoke_evidence.write_text("另一测试账号重复验证：真实入口、非空内容、退出和刷新均通过", encoding="utf-8")
+        final.write_text(json.dumps({key: item for key, item in value.items() if key != "material_updates"}), encoding="utf-8")
+        rejected = self.run_cli("ui-publish", "--feature-id", archive.name, "--input", final, expected=1)
+        self.assertEqual("DELIVERY_MATERIAL_STALE", rejected["code"])
+        self.assertEqual(unchanged_record, material.read_bytes())
         final.write_text(json.dumps(value), encoding="utf-8")
         self.assertTrue(self.run_cli("ui-publish", "--feature-id", archive.name, "--input", final)["delivery_ready"])
         model = json.loads((archive / "ui-model.json").read_bytes())
@@ -1079,7 +1171,9 @@ class FeatureArchiveDloopUiTests(FeatureArchiveCliTestCase):
                      level="isolated", status="passed", actual="隔离验证通过", pending="实际联调延期",
                      evidence=[{"path": str(evidence), "locator": "本期验证记录"}])
         material = archive / "06-validation/ui-slice-acceptance.json"
-        material.write_text(json.dumps({"scenarios": [{k: v for k, v in scene.items() if k not in {"required", "reason"}}]}), encoding="utf-8")
+        material.write_text(json.dumps(acceptance_record(
+            [{k: v for k, v in scene.items() if k not in {"required", "reason"}}], evidence,
+        )), encoding="utf-8")
         value["material_updates"] = [{"package_id": "ui-slice", "requirement": "result", "kind": "acceptance",
                                       "path": str(material), "locator": "结果可观察"}]
         final.write_text(json.dumps(value), encoding="utf-8")

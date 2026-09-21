@@ -45,6 +45,7 @@ class FeatureArchiveDeliveryFreezeTests(FeatureArchiveCliTestCase):
         self.enter_validation()
         view = self.status()
         self.assertEqual("freeze-ready", view["current_stage"])
+        self.assertEqual("incomplete", view["delivery_summary"]["completion_claim"])
         self.assertFalse(view["requires_human"]["required"])
         self.assertIn("integration_confirmation", view["next_action_contract"]["required_inputs"])
         handoff = self.run_cli(
@@ -59,7 +60,11 @@ class FeatureArchiveDeliveryFreezeTests(FeatureArchiveCliTestCase):
         self.assertEqual(state_before, (self.feature / "workflow-state.json").read_bytes())
         summary = self.status()["delivery_summary"]
         self.assertEqual("pending", summary["acceptance"])
+        self.assertEqual("incomplete", summary["completion_claim"])
         self.assertTrue(summary["archive_read_only"])
+        shared = self.run_cli("export-share", "--feature-id", "reliable-delivery")
+        status = json.loads((Path(shared["share_location"]["path"]) / "delivery-status.json").read_text(encoding="utf-8"))
+        self.assertEqual("incomplete", status["delivery_status"]["delivery_summary"]["completion_claim"])
 
     def test_post_delivery_debug_does_not_reopen_or_invalidate_history(self):
         self.enter_validation()
@@ -71,6 +76,7 @@ class FeatureArchiveDeliveryFreezeTests(FeatureArchiveCliTestCase):
         after = self.status()
         self.assertEqual(before, after)
         self.assertEqual("approve", after["delivery_summary"]["acceptance"])
+        self.assertEqual("complete", after["delivery_summary"]["completion_claim"])
         self.assertEqual("frozen", after["current_stage"])
         self.assertEqual([], after["blockers"])
         self.assertIsNone(after["next_action"])
@@ -78,6 +84,7 @@ class FeatureArchiveDeliveryFreezeTests(FeatureArchiveCliTestCase):
         shared = self.run_cli("export-share", "--feature-id", "reliable-delivery")
         status = json.loads((Path(shared["share_location"]["path"]) / "delivery-status.json").read_text(encoding="utf-8"))
         self.assertEqual("approve", status["delivery_status"]["delivery_summary"]["acceptance"])
+        self.assertEqual("complete", status["delivery_status"]["delivery_summary"]["completion_claim"])
         self.assertEqual(files, {path: path.read_bytes() for path in self.feature.rglob("*") if path.is_file()})
         rejected = self.run_cli(
             "transition-lifecycle", "--feature-id", "reliable-delivery", "--to", "active", expected=1,

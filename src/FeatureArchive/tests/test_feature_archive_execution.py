@@ -123,7 +123,7 @@ class FeatureArchiveExecutionTests(FeatureArchiveCliTestCase):
     def test_dloop_owned_state_is_rejected_before_a_lease_is_created(self) -> None:
         package = self.write_package(
             "slice-1",
-            scope=[".scratch/dloop-v3/v3.9.1/outputs/reliable-delivery/workflow-state.json"],
+            scope=[".scratch/dloop-v3/v3.9.2/outputs/reliable-delivery/workflow-state.json"],
         )
 
         result = self.run_cli(
@@ -136,12 +136,12 @@ class FeatureArchiveExecutionTests(FeatureArchiveCliTestCase):
         self.assertFalse(self.root.joinpath(".feature-archive-workspace-state.json").exists())
 
     def test_ui_model_is_managed_evidence_not_a_product_scope(self) -> None:
-        model = self.workspace / ".scratch/dloop-v3/v3.9.1/outputs/reliable-delivery/ui-model.json"
+        model = self.workspace / ".scratch/dloop-v3/v3.9.2/outputs/reliable-delivery/ui-model.json"
         model.parent.mkdir(parents=True)
         model.write_text("{}\n", encoding="utf-8")
         package = self.write_package(
             "slice-ui",
-            scope=[".scratch/dloop-v3/v3.9.1/outputs/reliable-delivery/ui-model.json"],
+            scope=[".scratch/dloop-v3/v3.9.2/outputs/reliable-delivery/ui-model.json"],
         )
 
         result = self.run_cli(
@@ -181,7 +181,7 @@ class FeatureArchiveExecutionTests(FeatureArchiveCliTestCase):
         package = self.write_package(
             "slice-ui",
             scope=[
-                ".scratch/dloop-v3/v3.9.1/outputs/reliable-delivery/"
+                ".scratch/dloop-v3/v3.9.2/outputs/reliable-delivery/"
                 "05-implementation/ui-model.json"
             ],
         )
@@ -198,7 +198,7 @@ class FeatureArchiveExecutionTests(FeatureArchiveCliTestCase):
     def test_other_feature_ui_model_is_not_a_product_scope(self) -> None:
         package = self.write_package(
             "slice-ui",
-            scope=[".scratch/dloop-v3/v3.9.1/outputs/other-feature/ui-model.json"],
+            scope=[".scratch/dloop-v3/v3.9.2/outputs/other-feature/ui-model.json"],
         )
 
         result = self.run_cli(

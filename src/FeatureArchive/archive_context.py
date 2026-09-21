@@ -1303,7 +1303,19 @@ def delivery_view(root: Path, feature_id: str) -> Mapping[str, object]:
     return _delivery_view(graph, feature_id, state)
 
 
-def _delivery_summary(feature, execution, approvals, rechecks, blockers):
+def _completion_claim(feature, stage, approvals, blockers):
+    """给汇报者唯一状态；测试通过不能替代候选、评审和用户接受。"""
+    final = approvals["final"]["status"]
+    if feature.lifecycle in {"frozen", "pending_cleanup"} and final == "approve" and not blockers:
+        return "complete"
+    if stage == "freeze-ready" and final == "approve" and not blockers:
+        return "accepted"
+    if stage == "final-review" and not blockers:
+        return "ready-for-acceptance"
+    return "incomplete"
+
+
+def _delivery_summary(feature, stage, execution, approvals, rechecks, blockers):
     """从已有批准和候选区分接受、验证程度与档案保留状态。"""
     candidates = []
     for package_id, record in execution["slices"].items():
@@ -1333,9 +1345,10 @@ def _delivery_summary(feature, execution, approvals, rechecks, blockers):
         "acceptance": acceptance,
         "archive_lifecycle": feature.lifecycle,
         "verification_status": evidence_status,
+        "completion_claim": _completion_claim(feature, stage, approvals, blockers),
     }
     if not candidates:
-        return {"acceptance": acceptance}
+        return {"acceptance": acceptance, "completion_claim": summary["completion_claim"]}
     return {
         **summary,
         "acceptance_label": labels[acceptance],
@@ -1399,7 +1412,7 @@ def _delivery_view(
     lease_summary = modification_lease_summary(normalized_lease)
     return {
         "current_stage": stage,
-        "delivery_summary": _delivery_summary(feature, execution, approvals, required_rechecks, blockers),
+        "delivery_summary": _delivery_summary(feature, stage, execution, approvals, required_rechecks, blockers),
         "can_advance": next_action is not None and not blockers and not requires_human["required"],
         "blockers": list(blockers),
         "next_action": next_action,
