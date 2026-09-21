@@ -16,7 +16,7 @@ from archive_workspace import serialized_workflow_state
 BASELINE_PATH = "04-plan/ui-implementation-baseline.json"
 REVIEW_PATH = "04-plan/ui-implementation-baseline.html"
 CATEGORIES = {"prefabs": "预制体", "protocols": "协议", "configurations": "配置", "requirement_sources": "需求描述"}
-STATUSES = {"verified", "missing", "ambiguous", "not_applicable"}
+STATUSES = {"verified", "inherited", "missing", "ambiguous", "not_applicable"}
 
 
 def _error(message):
@@ -37,8 +37,14 @@ def _facts(graph, feature_id, model):
         requirements.append({"key": item["identity_key"], "name": item["name_zh"],
                              "result": item["statement"], "prefabs": prefabs,
                              "sources": item.get("evidence_ids", []), "locator": item.get("source_locator", "")})
+    sources = [
+        {"id": item["id"], "path": item["path"]}
+        for item in model.get("evidence", [])
+        if item.get("kind") == "source_document"
+    ]
     document = graph.documents.get(f"{feature_id}.requirements.overview")
     return {"requirements": sorted(requirements, key=lambda item: item["key"]),
+            "sources": sorted(sources, key=lambda item: item["path"]),
             "requirements_version": document.semantic_version if document else None}
 
 
@@ -58,14 +64,26 @@ def baseline_input_template(graph, feature_id, state):
             item["requirement_sources"] = [{"status": "verified", "reference": source["path"],
                                             "purpose": fact["locator"] or fact["result"]} for source in sources]
         items.append(item)
-    return {"input_version": 1, "items": items}
+    return {"input_version": 2, "scope_exclusions": [], "items": items}
 
 
 def _normalize(value):
-    if not isinstance(value, dict) or set(value) != {"input_version", "items"} or value["input_version"] != 1:
-        raise _error("开工清单必须包含 input_version=1 和 items。")
+    if (not isinstance(value, dict)
+            or set(value) != {"input_version", "scope_exclusions", "items"}
+            or value["input_version"] != 2):
+        raise _error("开工清单必须包含 input_version=2、scope_exclusions 和 items。")
     if not isinstance(value["items"], list):
         raise _error("items 必须为按业务需求组织的清单。")
+    if not isinstance(value["scope_exclusions"], list):
+        raise _error("scope_exclusions 必须为本次明确不做事项列表。")
+    exclusions = []
+    for entry in value["scope_exclusions"]:
+        if not isinstance(entry, dict) or set(entry) != {"source", "locator", "outcome", "reason"}:
+            raise _error("每条范围排除必须包含 source、locator、outcome 和 reason。")
+        if any(not isinstance(entry[field], str) or not entry[field].strip()
+               for field in ("source", "locator", "outcome", "reason")):
+            raise _error("范围排除必须说明来源、位置、不交付结果和原因。")
+        exclusions.append({field: entry[field].strip() for field in ("source", "locator", "outcome", "reason")})
     seen = set()
     for item in value["items"]:
         if not isinstance(item, dict) or set(item) != {"requirement_key", *CATEGORIES}:
@@ -85,7 +103,9 @@ def _normalize(value):
                     raise _error("材料状态或引用、用途格式不合法；不支持计划新增或延期占位。")
                 for field in ("reference", "purpose"):
                     entry[field] = entry[field].strip()
-    return {"input_version": 1, "items": sorted(value["items"], key=lambda item: item["requirement_key"])}
+    return {"input_version": 2,
+            "scope_exclusions": sorted(exclusions, key=lambda item: (item["source"], item["locator"], item["outcome"])),
+            "items": sorted(value["items"], key=lambda item: item["requirement_key"])}
 
 
 def _blockers(value, facts, project_root):
@@ -94,6 +114,29 @@ def _blockers(value, facts, project_root):
         blockers.append({"code": "UI_BASELINE_INCOMPLETE", "requirement_key": key,
                          "category": category, "message": message})
     items = {item["requirement_key"]: item for item in value["items"]}
+    source_by_path = {str(Path(item["path"]).resolve()): item for item in facts["sources"]}
+    referenced_source_ids = {
+        source_id
+        for fact in facts["requirements"]
+        for source_id in fact["sources"]
+    }
+    excluded_source_ids = set()
+    for exclusion in value["scope_exclusions"]:
+        path = Path(exclusion["source"])
+        if not path.is_absolute():
+            path = project_root / path
+        source = source_by_path.get(str(path.resolve()))
+        if source is None:
+            add("", "scope_exclusions", f"范围排除引用了未登记的需求来源：{exclusion['source']}。")
+            continue
+        if not path.is_file():
+            add("", "scope_exclusions", f"范围排除的需求来源不存在：{exclusion['source']}。")
+            continue
+        excluded_source_ids.add(source["id"])
+    for source in facts["sources"]:
+        if source["id"] not in referenced_source_ids | excluded_source_ids:
+            add("", "requirement_sources",
+                f"已登记需求来源尚未形成需求，也未列入本次明确不做：{source['path']}。")
     if not facts["requirements"]:
         add("", "requirement_sources", "尚未完成需求调查，请先提取完整业务需求。")
     current_keys = {fact["key"] for fact in facts["requirements"]}
@@ -116,7 +159,11 @@ def _blockers(value, facts, project_root):
                 if status == "not_applicable":
                     if category not in {"protocols", "configurations"} or len(entries) != 1:
                         add(key, category, f"{fact['name']}：{label}不能标记为不涉及或与其他材料混用。")
+                    if reference:
+                        add(key, category, f"{fact['name']}：{label}标记为不涉及时不能同时引用文件；已有能力请使用 inherited。")
                     continue
+                if status == "inherited" and category not in {"protocols", "configurations"}:
+                    add(key, category, f"{fact['name']}：只有协议或配置可以标记为沿用既有能力。")
                 path = Path(reference)
                 if not path.is_absolute():
                     path = project_root / path
@@ -133,13 +180,21 @@ def _render(value, facts, blockers):
     lines = ["# DloopUI 开工确认", "", "请核对每项功能的预期结果、使用材料及用途。缺项未补齐时不能开工；补齐材料不代表已经确认。", ""]
     if blockers:
         lines += ["## 待补齐", "", *[f"- {item['message']}" for item in blockers], ""]
+    lines += ["## 本次明确不做", ""]
+    if value["scope_exclusions"]:
+        lines += [f"- {item['outcome']}；来源：{item['source']}（{item['locator']}）；原因：{item['reason']}"
+                  for item in value["scope_exclusions"]]
+    else:
+        lines.append("- 无")
+    lines.append("")
     names = {fact["key"]: fact for fact in facts["requirements"]}
     for item in value["items"]:
         fact = names.get(item["requirement_key"], {"name": item["requirement_key"], "result": "需求已变化"})
         lines += [f"## {fact['name']}", "", fact["result"], ""]
         for category, label in CATEGORIES.items():
             for entry in item[category]:
-                status = {"verified": "已核实", "missing": "缺失", "ambiguous": "待选择", "not_applicable": "不涉及"}[entry["status"]]
+                status = {"verified": "已核实", "inherited": "沿用既有能力", "missing": "缺失",
+                          "ambiguous": "待选择", "not_applicable": "不涉及"}[entry["status"]]
                 lines.append(f"- {label}（{status}）：{entry['reference']}；{entry['purpose']}")
         lines.append("")
     body = []
@@ -158,10 +213,11 @@ def _render(value, facts, blockers):
 
 
 def _material_scope(value):
-    return [{"requirement_key": item["requirement_key"],
-             **{category: [{field: entry[field] for field in ("status", "reference")}
-                           for entry in item[category]] for category in CATEGORIES}}
-            for item in value["items"]]
+    return {"scope_exclusions": value["scope_exclusions"],
+            "items": [{"requirement_key": item["requirement_key"],
+                       **{category: [{field: entry[field] for field in ("status", "reference")}
+                                     for entry in item[category]] for category in CATEGORIES}}
+                      for item in value["items"]]}
 
 
 def baseline_review(graph, feature_id, state):
@@ -172,7 +228,7 @@ def baseline_review(graph, feature_id, state):
     if not path.is_file():
         return {"status": "missing", "blockers": [{"code": "UI_BASELINE_REQUIRED", "message": "请先调查并提交四类开工材料清单。"}]}
     saved = json.loads(path.read_text(encoding="utf-8"))
-    value = _normalize({key: saved[key] for key in ("input_version", "items")})
+    value = _normalize({key: saved[key] for key in ("input_version", "scope_exclusions", "items")})
     blockers = _blockers(value, facts, project_root_from_archive_root(graph.root))
     if saved["facts"] != facts:
         blockers.append({"code": "UI_BASELINE_STALE", "message": "需求范围或预制体匹配已变化，请重新提交开工清单。"})

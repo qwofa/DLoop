@@ -1,15 +1,13 @@
 ---
 name: dloop
-description: 使用 DLoop v3.9.1 管理至少包含一个实施切片的大型功能交付流；普通调用不生成 Unity UI 专属产物。
+description: 使用 DLoop v3.9.2 管理至少包含一个实施切片的大型功能交付流；普通调用不生成 Unity UI 专属产物。
 ---
 
-# DLoop v3.9.1 功能交付流入口
+# DLoop v3.9.2 功能交付流入口
 
 本技能只在用户显式调用 `$dloop`，且目标需要跨轮规划、至少一个实现切片、独立候选评审和最终集成验收时管理大型功能交付。不满足入口条件的事项直接按普通任务处理，不初始化交付档案；进行中确认不需要实现切片时停止 DLoop，不得用空候选集合完成验收。`$dloop-ui` 是独立的显式入口；界面相关自然语言不会让普通 DLoop 选择 UI 配置或生成 UI 证据。
 
 本文件只供主协调者和跨回合恢复者完整读取。冷读、设计评审、实施、候选评审、返修和最终验收角色直接使用 `context-summary` 返回的闭合角色视图，不读取本入口或前序对话。
-
-全局交付视图供协调者使用；下游只取得当前阶段、阻断和当前角色完整合同，不为补齐全局进度另读 `workflow-status`。任务包中的范围与契约是当前任务事实的唯一正文，角色按现有材料引用读取必要业务内容。
 
 需求确认与最终验收直接用现有入口展示业务场景，具体规则随对应动作投递。普通 DLoop 可引用任务已有的场景和证据；这不启用 `$dloop-ui` 的专属模型、Prefab 采集或标注流水线。
 
@@ -21,7 +19,7 @@ description: 使用 DLoop v3.9.1 管理至少包含一个实施切片的大型�
 4. 按 `delivery_view` 推进；事实不唯一由协调者决定，机器阻断原样返回，不拼接视图或手改状态。暂停、保存或回退先按 `snapshot` 规则处理；返修用 `slice-release`。
 5. 创建下游上下文前调用 `prepare-handoff --feature-id <id> --action <action> --role <role>`，附上该角色所需临时输入。只有 `handoff_ready: true` 才交付工具生成的 `task_message` 与 `context_command` 并启动下游；正式事实不复制进任务消息。缺项由原上游上下文在授权范围内补齐，输入未变化时不重试；涉及业务决定或批准变化时交还协调者。下游自行执行返回的读取命令，独立核对完整性与业务正确性。
 
-交付档案固定在 `.scratch/dloop-v3/v3.9.1/outputs/<feature-id>/`，阶段依次是需求、调查、设计、计划、实施、验证。只通过 `python Tools/FeatureArchive/feature_archive.py <command>` 调用确定性能力；命令不接收路径根，写入使用当次返回的 `archive_location` 和 `write_targets`。
+交付档案固定在 `.scratch/dloop-v3/v3.9.2/outputs/<feature-id>/`，阶段依次是需求、调查、设计、计划、实施、验证。只通过 `python Tools/FeatureArchive/feature_archive.py <command>` 调用确定性能力；命令不接收路径根，写入使用当次返回的 `archive_location` 和 `write_targets`。
 
 ## 动作路由
 
@@ -60,6 +58,8 @@ python Tools/FeatureArchive/feature_archive.py workflow-rules `
 - 清理先预览；只有用户本轮明确授权且预览允许时执行。发布、标签、安装、覆盖、删除和其他不可逆或高风险操作不包含在阶段批准中，需要各自专项授权。
 
 ## 完成与停止
+
+- 对外只按 `delivery_summary.completion_claim` 的状态汇报；候选缺失、待评审、熔断或未最终验收时不得宣称整体完成。
 
 - 用户指出重复劳动，或角色实际经历重复查找材料、格式试错和交接退回时，就近使用返回的 `friction_note` 入口；没有该返回时读取 `workflow-rules --action friction`。已有问题只补记，恢复后描述关键改动与已知代价；不要求每步记录、不为记录另开交接，也不以摩擦关闭作为交付条件。
 - 协调动作在目标、输入边界、验收条件、当前阻塞和唯一下一动作可判断时停止扩展读取。
