@@ -1,9 +1,10 @@
 ---
 name: dloop-ui
-description: 仅在用户显式调用 $dloop-ui 时，使用 DLoop v3.9.2 核实必要材料并取得用户开工确认，尽早验证真实入口，按业务场景交付精简验收导航。
+description: 仅在用户显式调用 Codex 的 $dloop-ui 或 Cursor 的 /dloop-ui 时，使用 DLoop v3.9.3 核实必要材料并取得用户开工确认，尽早验证真实入口，按业务场景交付精简验收导航。
+disable-model-invocation: true
 ---
 
-# DloopUI v3.9.2
+# DloopUI v3.9.3
 
 本 Skill 是 DLoop 的显式 Unity UI 规划配置。它复用同一交付档案、阶段批准入口和实施闭环，提供按需使用的真实 Prefab 定位、随实施更新的场景验收记录与统一验收导航。普通 Unity/UI 请求不得隐式选择本配置。
 
