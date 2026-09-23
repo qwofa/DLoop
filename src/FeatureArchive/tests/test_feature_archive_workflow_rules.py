@@ -148,7 +148,7 @@ class FeatureArchiveWorkflowRulesTests(FeatureArchiveCliTestCase):
         self.assertIn("入口问题", reviews)
         self.assertIn("允许材料", reviews)
         self.assertIn("尚未闭环", reviews)
-        self.assertIn("只使用原生子 Agent", reviews)
+        self.assertIn("只使用当前宿主的原生子 Agent", reviews)
         self.assertIn("主协调者等待其最终返回", reviews)
         self.assertIn("不得通过 Windows 命令行", reviews)
         self.assertIn("原生交接失败", reviews)

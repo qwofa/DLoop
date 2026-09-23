@@ -1,11 +1,12 @@
 ---
 name: dloop
-description: 使用 DLoop v3.9.2 管理至少包含一个实施切片的大型功能交付流；普通调用不生成 Unity UI 专属产物。
+description: 使用 DLoop v3.9.3 管理至少包含一个实施切片的大型功能交付流；普通调用不生成 Unity UI 专属产物。
+disable-model-invocation: true
 ---
 
-# DLoop v3.9.2 功能交付流入口
+# DLoop v3.9.3 功能交付流入口
 
-本技能只在用户显式调用 `$dloop`，且目标需要跨轮规划、至少一个实现切片、独立候选评审和最终集成验收时管理大型功能交付。不满足入口条件的事项直接按普通任务处理，不初始化交付档案；进行中确认不需要实现切片时停止 DLoop，不得用空候选集合完成验收。`$dloop-ui` 是独立的显式入口；界面相关自然语言不会让普通 DLoop 选择 UI 配置或生成 UI 证据。
+本技能只在用户显式调用 Codex 的 `$dloop` 或 Cursor 的 `/dloop`，且目标需要跨轮规划、至少一个实现切片、独立候选评审和最终集成验收时管理大型功能交付。不满足入口条件的事项直接按普通任务处理，不初始化交付档案；进行中确认不需要实现切片时停止 DLoop，不得用空候选集合完成验收。DloopUI 是独立的显式入口；界面相关自然语言不会让普通 DLoop 选择 UI 配置或生成 UI 证据。
 
 本文件只供主协调者和跨回合恢复者完整读取。冷读、设计评审、实施、候选评审、返修和最终验收角色直接使用 `context-summary` 返回的闭合角色视图，不读取本入口或前序对话。
 
@@ -19,7 +20,7 @@ description: 使用 DLoop v3.9.2 管理至少包含一个实施切片的大型�
 4. 按 `delivery_view` 推进；事实不唯一由协调者决定，机器阻断原样返回，不拼接视图或手改状态。暂停、保存或回退先按 `snapshot` 规则处理；返修用 `slice-release`。
 5. 创建下游上下文前调用 `prepare-handoff --feature-id <id> --action <action> --role <role>`，附上该角色所需临时输入。只有 `handoff_ready: true` 才交付工具生成的 `task_message` 与 `context_command` 并启动下游；正式事实不复制进任务消息。缺项由原上游上下文在授权范围内补齐，输入未变化时不重试；涉及业务决定或批准变化时交还协调者。下游自行执行返回的读取命令，独立核对完整性与业务正确性。
 
-交付档案固定在 `.scratch/dloop-v3/v3.9.2/outputs/<feature-id>/`，阶段依次是需求、调查、设计、计划、实施、验证。只通过 `python Tools/FeatureArchive/feature_archive.py <command>` 调用确定性能力；命令不接收路径根，写入使用当次返回的 `archive_location` 和 `write_targets`。
+交付档案固定在 `.scratch/dloop-v3/v3.9.3/outputs/<feature-id>/`，阶段依次是需求、调查、设计、计划、实施、验证。只通过 `python Tools/FeatureArchive/feature_archive.py <command>` 调用确定性能力；命令不接收路径根，写入使用当次返回的 `archive_location` 和 `write_targets`。
 
 ## 动作路由
 

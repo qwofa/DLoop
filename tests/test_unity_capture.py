@@ -28,7 +28,7 @@ class UnityCaptureContractTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         self.assertEqual("com.dloop.ui-capture", package["name"])
-        self.assertEqual("3.9.2", package["version"])
+        self.assertEqual("3.9.3", package["version"])
         self.assertEqual(["Unity.ugui"], assembly["references"])
         self.assertIn("RegionCapture[] regions", source)
         self.assertIn("string screenshot_path", source)
