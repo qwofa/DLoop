@@ -27,7 +27,7 @@ SVNADMIN = shutil.which("svnadmin") or (
 )
 VERSION = (REPOSITORY_ROOT / "VERSION").read_text(encoding="utf-8").strip()
 CORE_CLI = Path("Tools") / "FeatureArchive" / "feature_archive.py"
-FRICTION_INBOX = Path(".scratch") / "dloop-v3" / "v3.9.2" / "friction-inbox"
+FRICTION_INBOX = Path(".scratch") / "dloop-v3" / "v3.9.3" / "friction-inbox"
 LOCK = Path(".agents") / "feature-archive-workflow.lock.json"
 UNITY_PACKAGE = Path("Packages") / "com.dloop.ui-capture"
 REQUIRED_CONFIGURATION_PAYLOADS = (
@@ -192,6 +192,10 @@ class InstallationTests(unittest.TestCase):
             self.assertTrue(
                 (target / ".agents" / "skills" / "dloop-ui" / "SKILL.md").is_file()
             )
+            for name in ("dloop", "dloop-ui"):
+                skill = (target / ".agents" / "skills" / name / "SKILL.md").read_text(encoding="utf-8")
+                self.assertIn("disable-model-invocation: true", skill)
+                self.assertIn(f"/{name}", skill)
             self.assertTrue(
                 (target / "Tools" / "FeatureArchive" / "dloop_ui.py").is_file()
             )
@@ -262,7 +266,7 @@ class InstallationTests(unittest.TestCase):
             self.assertIn("预先", result.stderr)
             self.assertEqual({}, self._managed_snapshot(target))
 
-    def test_existing_codex_configuration_is_not_modified(self) -> None:
+    def test_existing_agent_configuration_is_not_modified(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             target, _ = self._svn_project(Path(directory))
             config = target / ".codex" / "config.toml"
@@ -272,6 +276,10 @@ class InstallationTests(unittest.TestCase):
             hooks_content = b'{"hooks":{"Stop":[{"command":"third-party"}]}}\r\n'
             config.write_bytes(config_content)
             hooks.write_bytes(hooks_content)
+            cursor_config = target / ".cursor" / "mcp.json"
+            cursor_config.parent.mkdir(parents=True)
+            cursor_content = b'{"mcpServers":{"unityMCP":{"url":"http://localhost:8080/mcp"}}}\r\n'
+            cursor_config.write_bytes(cursor_content)
 
             installed = self._run(target, "-Version", f"v{VERSION}")
             verified = self._run(
@@ -291,6 +299,7 @@ class InstallationTests(unittest.TestCase):
                 self.assertEqual(0, result.returncode, result.stderr)
             self.assertEqual(config_content, config.read_bytes())
             self.assertEqual(hooks_content, hooks.read_bytes())
+            self.assertEqual(cursor_content, cursor_config.read_bytes())
 
     def test_unmanaged_payload_conflict_and_managed_drift_are_never_overwritten(
         self,
@@ -367,10 +376,10 @@ class InstallationTests(unittest.TestCase):
             target, ignore_before = self._svn_project(Path(directory))
             installed = self._run(target, "-Version", f"v{VERSION}")
             self.assertEqual(0, installed.returncode, installed.stderr)
-            archive = target / ".scratch" / "dloop-v3" / "v3.9.2" / "outputs" / "kept.json"
+            archive = target / ".scratch" / "dloop-v3" / "v3.9.3" / "outputs" / "kept.json"
             archive.parent.mkdir(parents=True)
             archive.write_text('{"kept": true}\n', encoding="utf-8")
-            history = target / ".scratch/dloop-v3/v3.9.2/snapshots/kept.git/objects/retained"
+            history = target / ".scratch/dloop-v3/v3.9.3/snapshots/kept.git/objects/retained"
             history.parent.mkdir(parents=True)
             history.write_bytes(b"persistent snapshot")
 
@@ -453,7 +462,7 @@ class InstallationTests(unittest.TestCase):
             self.assertTrue(
                 (target / ".agents" / "skills" / "dloop" / "references" / "friction-records.md").is_file()
             )
-            friction = target / ".scratch" / "dloop-v3" / "v3.9.2" / "friction.jsonl"
+            friction = target / ".scratch" / "dloop-v3" / "v3.9.3" / "friction.jsonl"
             preserved_friction = friction.read_bytes()
 
             self.assertEqual(

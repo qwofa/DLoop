@@ -77,7 +77,7 @@ class GitWorkspaceTests(GitProjectTestCase):
 
     def test_managed_documents_and_ignored_caches_do_not_stale_product_guard(self):
         baseline = workspace_guard_snapshot(self.project)
-        archive = self.project / ".scratch/dloop-v3/v3.9.2/outputs/delivery"
+        archive = self.project / ".scratch/dloop-v3/v3.9.3/outputs/delivery"
         archive.mkdir(parents=True)
         document = archive / "feature.json"
         document.write_text("{}", encoding="utf-8")
