@@ -68,6 +68,7 @@ class OnlineInstallationTests(unittest.TestCase):
             for _ in range(2):
                 result = self.install(target, stdin=True)
                 self.assertEqual(0, result.returncode, result.stderr.decode(errors="replace"))
+                self.assertIn(b"Cursor (/dloop / /dloop-ui)", result.stdout)
                 self.assertEqual(original + b"\r\n/.scratch/\r\n", ignore.read_bytes())
                 self.assertEqual(original_index, index.read_bytes())
                 self.assertTrue((target / test_installation.LOCK).is_file())

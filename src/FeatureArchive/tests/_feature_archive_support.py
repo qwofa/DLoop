@@ -90,7 +90,7 @@ class FeatureArchiveCliTestCase(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.base = Path(self.temporary.name)
         self._project_root = self.base / "project"
-        self.root = self._project_root / ".scratch" / "dloop-v3" / "v3.9.2" / "outputs"
+        self.root = self._project_root / ".scratch" / "dloop-v3" / "v3.9.3" / "outputs"
         self.workspace = self.base / "workspace"
         self.workspace.mkdir()
         if not self.real_snapshots:

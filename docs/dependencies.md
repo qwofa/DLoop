@@ -1,6 +1,6 @@
 # 依赖、连接与首次检查
 
-DLoop v3.9.2 面向 Windows 上的 Unity 项目，通过 Codex 组织开发工作。Unity MCP 按能力接入，不绑定供应商、包名、工具名称或某个版本。
+DLoop v3.9.3 面向 Windows 上的 Unity 项目，通过 Codex 或 Cursor 组织开发工作。Unity MCP 按能力接入，不绑定供应商、包名、工具名称或某个版本。
 
 ## 需要准备什么
 
@@ -10,7 +10,7 @@ DLoop v3.9.2 面向 Windows 上的 Unity 项目，通过 Codex 组织开发工�
 | Python | 3.10 或更新版本，能在项目终端直接运行 `python`；执行安装入口和工作流工具 | [Python Windows 下载](https://www.python.org/downloads/windows/) |
 | Git | 所有项目都需要命令行 Git；用于 Git 项目操作，也用于 SVN 项目的本地阶段快照 | [Git for Windows](https://git-scm.com/install/windows) |
 | SVN | 仅 SVN 项目需要命令行 `svn`；仅有图形客户端且未安装命令行工具不够 | [Apache Subversion 客户端列表](https://subversion.apache.org/packages.html) |
-| Codex | 能读取项目内 Skill、运行本地命令、使用 MCP，并启动独立评审上下文；已完成登录或其他可用的身份配置 | [Codex 官方文档](https://developers.openai.com/codex/) |
+| Codex 或 Cursor | 能读取项目内 Skill、运行本地命令、使用 MCP，并启动独立评审子 Agent；已完成登录或其他可用的身份配置 | [Codex 文档](https://developers.openai.com/codex/) / [Cursor 文档](https://cursor.com/docs/skills) |
 | Unity Editor | 使用目标项目要求的版本；随 DLoop 提供的截图包声明最低 Unity 2021.3，需要项目能正常编译 | 通过 Unity Hub 安装项目所需编辑器 |
 | Unity UI 依赖 | DLoopUI 的 Prefab 截图使用 uGUI（`com.unity.ugui`）和图像编码模块（`com.unity.modules.imageconversion`） | Unity Package Manager；按当前项目的 Unity 版本解析 |
 | Unity MCP | 满足下节能力要求，连接到当前项目已打开的 Unity Editor | 自行选择实现并遵循其安装说明 |
@@ -54,7 +54,25 @@ url = "http://localhost:8080/mcp"
 
 `unityMCP` 是此示例的连接名称，不是工作流限制。实际地址、认证和传输方式以所选 MCP 实现为准。采用标准输入输出连接时，按照上游提供的启动命令配置；不要把 HTTP 示例套用到其他传输方式。配置位置和可用选项见 [Codex MCP 官方说明](https://developers.openai.com/codex/mcp/)。
 
-连接建立后重新打开目标项目任务；如工具仍未加载，重新启动 Codex，并确认 Unity MCP 服务和目标编辑器仍在运行。
+连接建立后重新打开目标项目任务；如工具仍未加载，重新启动所选宿主，并确认 Unity MCP 服务和目标编辑器仍在运行。
+
+## 连接到 Cursor
+
+在 Cursor 的本地 Agent 中打开安装目标项目。Cursor 会读取项目内 `.agents/skills/`，不需要复制到 `.cursor/skills/`。在该会话中用 `/dloop` 或 `/dloop-ui` 显式启动；不要依赖自然语言自动选择。独立评审需要当前 Cursor 会话可启动原生子 Agent。
+
+Unity MCP 仍按上游说明在目标 Unity 项目中启动。使用本地 HTTP 时，可在目标项目的 `.cursor/mcp.json` 添加连接；已有同名服务器时修改原项，不覆盖其他服务器：
+
+```json
+{
+  "mcpServers": {
+    "unityMCP": {
+      "url": "http://localhost:8080/mcp"
+    }
+  }
+}
+```
+
+`8080` 只是示例；地址、认证和传输方式以所选 MCP 实现为准。个人连接也可放在 `~/.cursor/mcp.json`。配置方式见 [Cursor MCP 官方说明](https://prod.cursor.com/help/customization/mcp)。重新打开 Agent 会话后，先完成下方只读连接检查。Cursor Cloud Agent 的文件系统和 MCP 配置可能与本机不同；本版的项目内命令与 Unity 采集按本地 Agent 验证。
 
 ### 可选示例：CoplayDev MCP for Unity
 
@@ -67,7 +85,7 @@ url = "http://localhost:8080/mcp"
    https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#main
    ```
 
-3. 打开 `Window > MCP for Unity`，按该版本界面完成环境准备，启动服务并连接当前编辑器。使用 HTTP 时，将界面显示的实际 MCP 地址填入前面的 Codex 配置。
+3. 打开 `Window > MCP for Unity`，按该版本界面完成环境准备，启动服务并连接当前编辑器。使用 HTTP 时，将界面显示的实际 MCP 地址填入所选宿主的 MCP 配置。
 4. 执行下方只读检查，确认当前工具包含编辑器内执行 C# 的能力；部分版本可能需要启用对应工具组。
 
 该地址跟随上游主分支。需要固定环境时，可自行锁定已经验证过的上游标签或提交，并保持服务端与编辑器端版本配套；DLoop 不规定该版本号，也不把升级后的兼容性视为已经验证。
@@ -83,7 +101,7 @@ git --version
 
 Python 应为 3.10 或更新版本，两条命令都应正常返回。SVN 项目再运行 `svn --version --quiet`；使用需要 `uv` 的 MCP 时再运行 `uv --version`。安装依赖后若终端仍找不到命令，关闭并重新打开终端。
 
-在 Codex 中打开目标项目，发送：
+在 Codex 或 Cursor 的本地 Agent 中打开目标项目，发送：
 
 ```text
 请只读检查 Unity MCP 连接：读取当前连接的 Unity 项目路径、编辑器版本和活动场景，
@@ -96,9 +114,9 @@ Python 应为 3.10 或更新版本，两条命令都应正常返回。SVN 项目
 ## 安装后的第一次使用
 
 1. 安装程序显示 `DLoop installed and verified.` 后，确认项目内存在 `.agents/skills/dloop/SKILL.md` 和 `.agents/skills/dloop-ui/SKILL.md`。
-2. 在 Codex 的同一个项目内确认能够选择 `$dloop` 和 `$dloop-ui`。Skill 的发现方式见[官方说明](https://developers.openai.com/codex/skills/)；没有显示时重新启动 Codex，并检查项目目录是否选对。
+2. 在 Codex 的同一个项目内确认能够选择 `$dloop` 和 `$dloop-ui`；Cursor 在 Agent 会话中确认能够选择 `/dloop` 和 `/dloop-ui`。Skill 发现方式见 [Codex](https://developers.openai.com/codex/skills/) 和 [Cursor](https://cursor.com/docs/skills) 的官方说明；没有显示时重新启动所选宿主，并检查项目目录是否选对。
 3. Unity 完成资源刷新和编译后，确认没有由 `Packages/com.dloop.ui-capture` 引起的编译错误。
-4. 先在可丢弃的示例项目中，用 `$dloop-ui` 完成一个范围清楚、包含已有 uGUI Prefab 的小任务。检查真实截图、操作说明与最终 HTML 是否对应实际结果；必要实现或验证未完成时，材料应如实标明。
+4. 先在可丢弃的示例项目中，用所选宿主的 DloopUI 入口完成一个范围清楚、包含已有 uGUI Prefab 的小任务。检查真实截图、操作说明与最终 HTML 是否对应实际结果；必要实现或验证未完成时，材料应如实标明。
 
 文件部署成功只证明安装校验通过，不证明 MCP 连接、编辑器编译或业务交互验证通过。
 
@@ -114,4 +132,4 @@ Python 应为 3.10 或更新版本，两条命令都应正常返回。SVN 项目
 
 DLoop 的代码、Skill、模板和随仓库提供的说明采用根目录 [MIT 许可证](../LICENSE)。复制或再分发全部或实质部分内容，包括安装到项目中的副本时，需要保留版权和许可声明。
 
-Python、Git、SVN、Unity、Codex 和所选 MCP 由用户另行取得，仍适用各自的许可与服务条款；DLoop 的 MIT 许可不替代它们的授权。本仓库不随包分发这些外部产品。
+Python、Git、SVN、Unity、Codex 或 Cursor 和所选 MCP 由用户另行取得，仍适用各自的许可与服务条款；DLoop 的 MIT 许可不替代它们的授权。本仓库不随包分发这些外部产品。
