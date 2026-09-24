@@ -1,8 +1,8 @@
 {
-  "workflowVersion": "3.9.3",
+  "workflowVersion": "3.9.4",
   "archiveSchemaVersion": 3,
   "terminologySchemaVersion": 2,
-  "sourceTag": "v3.9.3",
+  "sourceTag": "v3.9.4",
   "releaseStatus": "frozen",
   "versionSupport": {
     "mode": "archive-on-upgrade",

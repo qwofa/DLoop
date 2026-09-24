@@ -245,7 +245,7 @@ def submit_ui_baseline(root, feature_id, input_path, semantic_change=True):
     state = _load_state(feature.path, feature_id)
     model = _model(feature.path, state)
     try:
-        value = _normalize(json.loads(input_path.read_text(encoding="utf-8")))
+        value = _normalize(json.loads(input_path.read_text(encoding="utf-8-sig")))
     except (OSError, ValueError) as exception:
         raise _error(f"无法读取开工清单：{exception}") from exception
     facts = _facts(graph, feature_id, model)
@@ -255,7 +255,8 @@ def submit_ui_baseline(root, feature_id, input_path, semantic_change=True):
     previous = json.loads(baseline_path.read_text(encoding="utf-8")) if baseline_path.is_file() else None
     if not semantic_change and (previous is None or previous["facts"] != facts
                                 or _material_scope(previous) != _material_scope(value)):
-        raise _error("非语义修订只允许修改已有清单的用途措辞；需求、材料引用或状态变化须按业务变更提交。")
+        raise _error("非语义修订只允许修改已有清单的用途措辞；首次提交或需求、材料引用、状态变化时，"
+                     "请对当前输入去掉 --semantic-change false 后重交，并展示更新后的材料重新确认。")
     unchanged = previous is not None and all(previous[key] == saved[key] for key in saved)
     # 语义由 AI 明确声明；纯文案修订沿用业务依据摘要，不改写用户的原始确认记录。
     saved["reviewed_digest"] = (previous["reviewed_digest"] if unchanged or not semantic_change else
@@ -273,4 +274,10 @@ def submit_ui_baseline(root, feature_id, input_path, semantic_change=True):
         next_action = {"kind": "human", "reason": "集中补齐缺项后重新提交清单；停止整个需求的实施。"}
     elif approval_preserved:
         next_action = {"command": "workflow-status", "arguments": {"feature_id": feature_id}}
+    else:
+        from archive_approvals import requirements_blocker
+        requirement = requirements_blocker(graph, feature_id, state)
+        if requirement["code"] == "UI_REQUIREMENTS_NOT_READY":
+            next_action = {"command": "workflow-status", "arguments": {"feature_id": feature_id},
+                           "reason": requirement["message"]}
     return {**review, "approval_preserved": approval_preserved, "next_action": next_action}

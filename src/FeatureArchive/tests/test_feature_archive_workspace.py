@@ -103,7 +103,7 @@ class FeatureArchiveWorkspaceTests(unittest.TestCase):
 
     def test_guard_ignores_current_and_legacy_dloop_managed_scratch_roots(self) -> None:
         for path in (
-            ".scratch/dloop-v3/v3.9.3/outputs/item/state.json",
+            ".scratch/dloop-v3/v3.9.4/outputs/item/state.json",
             ".scratch/dloop-history/v3.9.1/item/state.json",
             ".scratch/dloop-v1/job.json",
             ".scratch/feature-archive/index.json",
