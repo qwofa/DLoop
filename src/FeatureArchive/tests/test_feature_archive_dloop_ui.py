@@ -681,6 +681,8 @@ class FeatureArchiveDloopUiTests(FeatureArchiveCliTestCase):
     def test_internal_requirement_problem_points_to_document_not_human_approval(self):
         archive, _, _, _, _ = self.complete_plan()
         _, baseline = self.submit_baseline(archive)
+        self.assertEqual("workflow-status", baseline["next_action"]["command"])
+        self.assertIn("内部需求材料未就绪", baseline["next_action"]["reason"])
         rejected = self.run_cli(
             "stage-action", "--feature-id", archive.name, "--stage", "ui-baseline", "--decision", "approve",
             "--reviewed-digest", baseline["reviewed_digest"], "--user-confirmation", "用户确认当前开工清单", expected=1,
@@ -858,6 +860,11 @@ class FeatureArchiveDloopUiTests(FeatureArchiveCliTestCase):
         archive, _, package = self.prepare_ui_execution(approve_baseline=False)
         value, result = self.submit_baseline(archive)
         self.assertEqual("ready", result["status"])
+        self.assertEqual("stage-action", result["next_action"]["command"])
+        baseline_input = archive / "04-plan/ui-baseline-input.json"
+        baseline_input.write_text(baseline_input.read_text(encoding="utf-8"), encoding="utf-8-sig")
+        bom_result = self.run_cli("ui-baseline", "--feature-id", archive.name, "--input", baseline_input)
+        self.assertEqual(result["reviewed_digest"], bom_result["reviewed_digest"])
         view = self.ui_approval_view(archive)
         self.assertEqual("ui-baseline-review", view["current_stage"])
         self.assertIn("user_confirmation", view["next_action_contract"]["required_inputs"])

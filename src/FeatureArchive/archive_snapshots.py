@@ -211,7 +211,7 @@ def _capture(root: Path, feature_id: str, previous: dict, workspace: Path | None
     for path, oid in initial.items():
         entries["initial/" + path] = oid
     value = {
-        "version": "3.9.3", "feature_id": feature_id,
+        "version": "3.9.4", "feature_id": feature_id,
         "workspace": str(workspace) if workspace else None,
         "scopes": scopes, "initial": initial, "source": source,
         "initial_source": previous.get("initial_source") or source,
@@ -301,7 +301,7 @@ def _target(repository: Path, snapshot_id: str | None, stage: str | None = None)
         if (snapshot_id and value["id"] == snapshot_id) or (
             stage and value.get("stage") == stage and value["reason"] == "stage-start"
         ):
-            if value.get("version") != "3.9.3":
+            if value.get("version") != "3.9.4":
                 raise _error("SNAPSHOT_VERSION_MISMATCH", "只能恢复当前版本创建的保存点。")
             return commit, value
     raise _error("SNAPSHOT_NOT_FOUND", "找不到指定保存点或该阶段的开始保存点；请先查看保存点列表。")

@@ -38,10 +38,11 @@ def action_input_preparation(feature_id: str, input_kind: str, **target) -> Mapp
 class ArchiveActionInputError(Exception):
     """表示当前事实不足以形成所需动作输入。"""
 
-    def __init__(self, code: str, message: str) -> None:
+    def __init__(self, code: str, message: str, details: Mapping[str, object] | None = None) -> None:
         super().__init__(message)
         self.code = code
         self.message = message
+        self.details = dict(details or {})
 
 
 def _write_without_overwrite(path: Path, value: Mapping[str, object]) -> bool:
@@ -66,14 +67,25 @@ def prepare_action_input(
 
     if input_kind not in ACTION_INPUT_KINDS:
         raise ArchiveActionInputError("INVALID_ACTION_INPUT_KIND", "未知动作输入类型。")
+    identity = ("package_id" if input_kind == "task-package" else
+                None if input_kind in {"slice-plan", "ui-baseline", "ui-delivery"} else "execution_id")
+    supplied = {key: value for key, value in {"package_id": package_id, "execution_id": execution_id}.items()
+                if value is not None}
+    if set(supplied) != ({identity} if identity else set()):
+        preparation = dict(action_input_preparation(feature_id, input_kind,
+                           **{key: value for key, value in supplied.items() if key == identity}))
+        preparation["required_inputs"] = [identity] if identity and identity not in supplied else []
+        raise ArchiveActionInputError(
+            "INVALID_ACTION_INPUT_TARGET",
+            f"此输入只需 {identity}；请使用返回的准备命令。" if identity else "此输入只指定交付项；请使用返回的准备命令。",
+            {"input_preparation": preparation},
+        )
     graph = validate_feature_archive(root, feature_id)
     feature = _require_complex_feature(graph, feature_id)
     implementation = feature.path / WORKFLOW_ARTIFACT_DIRECTORIES["package_file"]
     guidance = {}
 
     if input_kind == "slice-plan":
-        if package_id is not None or execution_id is not None:
-            raise ArchiveActionInputError("INVALID_ACTION_INPUT_TARGET", "切片方案只指定交付项。")
         state = _load_state(feature.path, feature_id)
         template = slice_plan_input_template(feature_id, _execution_state(state)["slice_plan"])
         target = feature.path / WORKFLOW_ARTIFACT_DIRECTORIES["plan_file"] / f"slice-plan-v{template['version']}.json"
@@ -84,8 +96,6 @@ def prepare_action_input(
             "arguments": {"feature_id": feature_id, "plan_file": str(target)},
         }
     elif input_kind == "ui-baseline":
-        if package_id is not None or execution_id is not None:
-            raise ArchiveActionInputError("INVALID_ACTION_INPUT_TARGET", "开工清单只指定交付项。")
         from archive_ui_baseline import baseline_input_template
         state = _load_state(feature.path, feature_id)
         template = baseline_input_template(graph, feature_id, state)
@@ -98,8 +108,6 @@ def prepare_action_input(
                     "scope": "每份已登记来源必须形成至少一项需求，或在 scope_exclusions 中写明来源位置、本次不交付结果和原因。禁止静默缩小范围。先展示确认材料，再登记用户实际回复。"}
         next_action = {"command": "ui-baseline", "arguments": {"feature_id": feature_id, "input": str(target)}}
     elif input_kind == "acceptance":
-        if execution_id is None or package_id is not None:
-            raise ArchiveActionInputError("INVALID_ACTION_INPUT_TARGET", "验收准备须指定当前执行身份。")
         state = _load_state(feature.path, feature_id)
         record = find_slice_by_execution(_execution_state(state), execution_id)
         if record is None:
@@ -116,7 +124,7 @@ def prepare_action_input(
                        "instruction": "先跑通入口，再逐场景验证。候选材料引用此文件，不立即提交。"}
     elif input_kind == "ui-delivery":
         state = _load_state(feature.path, feature_id)
-        if package_id is not None or execution_id is not None or (state.get("configuration") or {}).get("id") != "dloop-ui-v1":
+        if (state.get("configuration") or {}).get("id") != "dloop-ui-v1":
             raise ArchiveActionInputError("INVALID_ACTION_INPUT_TARGET", "UI 交付输入只指定 DloopUI 交付项。")
         from archive_approvals import ArchiveApprovalError, require_accepted_implementation
         from archive_slice_contract import reviewed_candidate
@@ -145,11 +153,6 @@ def prepare_action_input(
         guidance["last_published_materials"] = json.loads(model_path.read_text(encoding="utf-8")).get("delivery_materials", [])
         next_action = {"command": "ui-publish", "arguments": {"feature_id": feature_id, "input": str(target)}}
     elif input_kind == "task-package":
-        if not isinstance(package_id, str) or execution_id is not None:
-            raise ArchiveActionInputError(
-                "INVALID_ACTION_INPUT_TARGET",
-                "任务包输入必须且只能指定任务包标识。",
-            )
         try:
             template = dict(task_package_input_template(package_id))
         except ArchiveExecutionError as exception:
@@ -180,7 +183,7 @@ def prepare_action_input(
             "arguments": {"feature_id": feature_id, "package_file": str(target)},
         }
     elif input_kind in {"review-issues", "review-verification"}:
-        if not isinstance(execution_id, str) or package_id is not None or not EXECUTION_ID_PATTERN.fullmatch(execution_id):
+        if not isinstance(execution_id, str) or not EXECUTION_ID_PATTERN.fullmatch(execution_id):
             raise ArchiveActionInputError("INVALID_ACTION_INPUT_TARGET", "评审输入只指定当前独立评审执行标识。")
         state = _load_state(feature.path, feature_id)
         execution = _execution_state(state)
@@ -205,11 +208,6 @@ def prepare_action_input(
             "required_inputs": ["result", "issues_file（result!=passed 时）"] if field == "verification" else ["result"],
         }
     else:
-        if not isinstance(execution_id, str) or package_id is not None:
-            raise ArchiveActionInputError(
-                "INVALID_ACTION_INPUT_TARGET",
-                "检查点或候选输入必须且只能指定当前执行标识。",
-            )
         state = _load_state(feature.path, feature_id)
         record = find_slice_by_execution(_execution_state(state), execution_id)
         if not isinstance(record, dict) or record.get("status") != "active":

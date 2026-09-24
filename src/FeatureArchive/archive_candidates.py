@@ -74,7 +74,7 @@ def _digest(value: object) -> str:
 
 def _read_json(path: Path, label: str) -> Mapping[str, object]:
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
+        value = json.loads(path.read_text(encoding="utf-8-sig"))
     except (OSError, UnicodeError, json.JSONDecodeError) as exception:
         raise ArchiveCandidateError("INVALID_CANDIDATE_INPUT", f"无法读取{label}“{path}”：{exception}") from exception
     if not isinstance(value, dict):

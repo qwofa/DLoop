@@ -73,7 +73,7 @@ class InstalledPathContractTests(unittest.TestCase):
             self.project
             / ".scratch"
             / "dloop-v3"
-            / "v3.9.3"
+            / "v3.9.4"
             / "outputs"
             / "canonical-paths"
         )
@@ -228,7 +228,7 @@ class InstalledPathContractTests(unittest.TestCase):
                 self.project
                 / ".scratch"
                 / "dloop-v3"
-                / "v3.9.3"
+                / "v3.9.4"
                 / "outputs"
                 / "canonical-paths"
                 / "05-implementation"
@@ -249,6 +249,8 @@ class InstalledPathContractTests(unittest.TestCase):
             expected=1,
         )
         self.assertEqual("NON_CANONICAL_WORKFLOW_ARTIFACT", rejected_external["code"])
+        self.assertEqual("workflow-status", rejected_external["next_action"]["command"])
+        self.assertEqual("05-implementation", Path(rejected_external["expected_directory"]).name)
 
     def test_invalid_share_manifest_is_stably_rejected(self) -> None:
         self.init_feature()
@@ -325,7 +327,7 @@ class InstalledPathContractTests(unittest.TestCase):
         )
 
         self.assertEqual("dloop-share-snapshot", manifest["kind"])
-        self.assertEqual("3.9.3", manifest["workflow_version"])
+        self.assertEqual("3.9.4", manifest["workflow_version"])
         self.assertRegex(exported["snapshot_id"], r"^\d{8}T\d{12}Z-[0-9a-f]{8}$")
         self.assertTrue(manifest["read_only"])
         self.assertFalse(manifest["executable"])
@@ -516,7 +518,7 @@ class ShareConsistencyTests(FeatureArchiveCliTestCase):
             self.project_root
             / ".scratch"
             / "dloop-v3"
-            / "v3.9.3"
+            / "v3.9.4"
             / "shares"
             / "share-source-change"
         )
@@ -553,7 +555,7 @@ class ShareConsistencyTests(FeatureArchiveCliTestCase):
             self.project_root
             / ".scratch"
             / "dloop-v3"
-            / "v3.9.3"
+            / "v3.9.4"
             / "shares"
             / "share-lifecycle-change"
         )
