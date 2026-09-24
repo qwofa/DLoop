@@ -678,6 +678,77 @@ class FeatureArchiveDloopUiTests(FeatureArchiveCliTestCase):
     def ui_approval_view(self, archive):
         return self.run_cli("workflow-status", "--feature-id", archive.name)["delivery_view"]
 
+    def test_baseline_preparation_reuses_registered_content_without_writing_or_approving(self):
+        from archive_tool_api import invoke_tool
+
+        archive, _, _ = self.prepare_ui_execution()
+        value, _ = self.submit_baseline(archive)
+        value["scope_exclusions"] = [{
+            "source": str(self.project_root / "requirements.md"), "locator": "后续范围",
+            "outcome": "本次不交付扩展入口", "reason": "用户明确另行实施",
+        }]
+        self.submit_baseline(archive, value=value, approve=True)
+        baseline = archive / "04-plan/ui-implementation-baseline.json"
+        state = archive / "workflow-state.json"
+        before = (baseline.read_bytes(), state.read_bytes())
+        input_path = archive / "04-plan/ui-baseline-input.json"
+        edited = json.loads(json.dumps(value))
+        edited["items"][0]["protocols"][0]["purpose"] += "（未提交编辑）"
+        input_path.write_text(json.dumps(edited, ensure_ascii=False), encoding="utf-8")
+        cli = self.run_cli("prepare-action-input", "--feature-id", archive.name, "--input-kind", "ui-baseline")
+        code, prepared = invoke_tool(self.project_root, "dloop_prepare_input", {
+            "feature_id": archive.name, "input_kind": "ui-baseline",
+        })
+        self.assertEqual(0, code)
+        self.assertEqual(value, prepared["template"])
+        self.assertEqual(prepared["template"], cli["template"])
+        self.assertEqual(edited, json.loads(input_path.read_bytes()))
+        self.assertEqual(before, (baseline.read_bytes(), state.read_bytes()))
+        prepared["template"]["items"][0]["protocols"][0]["purpose"] += "。"
+        code, result = invoke_tool(self.project_root, "dloop_submit_ui_baseline", {
+            "feature_id": archive.name, "baseline": prepared["template"], "semantic_change": False,
+        })
+        self.assertEqual(0, code)
+        self.assertTrue(result["approval_preserved"])
+
+    def test_baseline_preparation_marks_changed_business_for_recheck_and_adds_new_requirements(self):
+        archive, _, _ = self.prepare_ui_execution()
+        old = json.loads((archive / "04-plan/ui-implementation-baseline.json").read_bytes())["items"][0]
+        source = self.project_root / "requirements.md"
+        match = {"status": "matched", "prefabs": [{"path": "Assets/UI/RewardPanel.prefab", "name": "奖励界面", "reason": "同一界面"}]}
+        changed = self.requirement(source, match=match)
+        changed["statement"] = "领取后立即刷新剩余次数和奖励预览。"
+        brief = self.write_brief([changed, self.requirement(source, key="reward.preview", name="预览奖励", match=match)])
+        self.investigate(archive, brief, CaptureFixture())
+        prepared = self.run_cli("prepare-action-input", "--feature-id", archive.name, "--input-kind", "ui-baseline")
+        items = {item["requirement_key"]: item for item in prepared["template"]["items"]}
+        for category in ("protocols", "configurations"):
+            self.assertEqual("ambiguous", items["reward.receive"][category][0]["status"])
+            self.assertEqual(old[category][0]["reference"], items["reward.receive"][category][0]["reference"])
+            self.assertEqual("missing", items["reward.preview"][category][0]["status"])
+        self.assertEqual("stale", self.ui_approval_view(archive)["conclusions"]["approvals"]["ui-baseline"]["status"])
+        _, submitted = self.submit_baseline(archive, value=prepared["template"])
+        self.assertEqual("blocked", submitted["status"])
+        self.assertFalse(submitted["approval_preserved"])
+
+    def test_ui_package_preparation_preserves_delivery_and_full_context(self):
+        from archive_tool_api import invoke_tool
+
+        archive, _, path = self.prepare_ui_execution()
+        self.run_cli("prepare-slice-contract", "--feature-id", archive.name, "--package-file", path)
+        value = json.loads(path.read_bytes())
+        code, prepared = invoke_tool(self.project_root, "dloop_prepare_input", {
+            "feature_id": archive.name, "input_kind": "task-package", "package_id": "ui-slice",
+        })
+        self.assertEqual(0, code)
+        self.assertEqual(value["delivery_requirements"], prepared["template"]["delivery_requirements"])
+        self.assertEqual(value["context_materials"], prepared["template"]["context_materials"])
+        code, result = invoke_tool(self.project_root, "dloop_submit_task_package", {
+            "feature_id": archive.name, "package": prepared["template"],
+        })
+        self.assertEqual(0, code)
+        self.assertTrue(result["idempotent"])
+
     def test_structured_baseline_preserves_material_and_user_approval_gates(self):
         from archive_tool_api import TOOLS, invoke_tool
         from jsonschema import Draft202012Validator
@@ -873,9 +944,12 @@ class FeatureArchiveDloopUiTests(FeatureArchiveCliTestCase):
                 _, result = self.submit_baseline(archive, value=value)
                 self.assertEqual("blocked", result["status"])
                 self.assertIn(category, [item["category"] for item in result["blockers"]])
+                self.assertEqual("investigate", result["next_action"]["kind"])
+                self.assertIn("协调者先核对", result["next_action"]["reason"])
                 view = self.ui_approval_view(archive)
                 self.assertEqual("ui-inputs-blocked", view["current_stage"])
-                self.assertTrue(view["requires_human"]["required"])
+                self.assertFalse(view["requires_human"]["required"])
+                self.assertEqual(result["next_action"], view["next_action"])
                 before = (archive / "workflow-state.json").read_bytes()
                 rejected = self.run_cli("start-slice", "--feature-id", archive.name, "--execution-id", "ui-impl",
                                         "--package-file", package, "--workspace-root", self.workspace, expected=1)
@@ -1008,6 +1082,10 @@ class FeatureArchiveDloopUiTests(FeatureArchiveCliTestCase):
         view = self.ui_approval_view(archive)
         self.assertEqual("stale", view["conclusions"]["approvals"]["ui-baseline"]["status"])
         self.assertIn("reward.preview", json.dumps(view["blockers"]))
+        prepared = self.run_cli("prepare-action-input", "--feature-id", archive.name, "--input-kind", "ui-baseline")
+        items = {item["requirement_key"]: item for item in prepared["template"]["items"]}
+        self.assertEqual("verified", items["reward.receive"]["protocols"][0]["status"])
+        self.assertEqual("missing", items["reward.preview"]["protocols"][0]["status"])
         rejected = self.run_cli("start-slice", "--feature-id", archive.name, "--execution-id", "ui-impl",
                                 "--package-file", package, "--workspace-root", self.workspace, expected=1)
         self.assertEqual("UI_BASELINE_APPROVAL_REQUIRED", rejected["code"])

@@ -73,7 +73,7 @@ class InstalledPathContractTests(unittest.TestCase):
             self.project
             / ".scratch"
             / "dloop-v3"
-            / "v4.0.0"
+            / "v4.0.1"
             / "outputs"
             / "canonical-paths"
         )
@@ -228,7 +228,7 @@ class InstalledPathContractTests(unittest.TestCase):
                 self.project
                 / ".scratch"
                 / "dloop-v3"
-                / "v4.0.0"
+                / "v4.0.1"
                 / "outputs"
                 / "canonical-paths"
                 / "05-implementation"
@@ -327,7 +327,7 @@ class InstalledPathContractTests(unittest.TestCase):
         )
 
         self.assertEqual("dloop-share-snapshot", manifest["kind"])
-        self.assertEqual("4.0.0", manifest["workflow_version"])
+        self.assertEqual("4.0.1", manifest["workflow_version"])
         self.assertRegex(exported["snapshot_id"], r"^\d{8}T\d{12}Z-[0-9a-f]{8}$")
         self.assertTrue(manifest["read_only"])
         self.assertFalse(manifest["executable"])
@@ -518,7 +518,7 @@ class ShareConsistencyTests(FeatureArchiveCliTestCase):
             self.project_root
             / ".scratch"
             / "dloop-v3"
-            / "v4.0.0"
+            / "v4.0.1"
             / "shares"
             / "share-source-change"
         )
@@ -555,7 +555,7 @@ class ShareConsistencyTests(FeatureArchiveCliTestCase):
             self.project_root
             / ".scratch"
             / "dloop-v3"
-            / "v4.0.0"
+            / "v4.0.1"
             / "shares"
             / "share-lifecycle-change"
         )

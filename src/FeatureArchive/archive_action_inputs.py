@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 import json
 from pathlib import Path
 from typing import Mapping
@@ -12,6 +13,7 @@ from archive_configuration import configuration_task_materials
 from archive_execution import (
     ArchiveExecutionError,
     EXECUTION_ID_PATTERN,
+    TASK_PACKAGE_FIELDS,
     _execution_state,
     find_slice_by_execution,
     task_package_input_guidance,
@@ -104,7 +106,8 @@ def prepare_action_input(
         business_inputs = ["按每项业务核对预制体、协议、配置和需求描述；逐份覆盖已登记来源，并显式列出本次不做的结果"]
         guidance = {"statuses": ["verified", "inherited", "missing", "ambiguous", "not_applicable"],
                     "reference": "每条已核实项只填一个真实文件路径；沿用既有协议或配置使用 inherited 并引用提供该能力的文件。多个文件拆成多条材料。缺项填写已搜索位置。",
-                    "purpose": "用途和业务含义；缺项填写影响及需用户补充的信息。不涉及仅用于协议、配置，必须说明理由。",
+                    "purpose": "用途和业务含义；缺项填写已查位置、影响及仍缺的事实。先查已有材料，仅将无法查明的业务事实或决定交给用户。不涉及仅用于协议、配置，必须说明理由。",
+                    "reuse": "已登记清单自动回填；依据变化的协议、配置保留引用并标为待核实。核对范围排除和本次变化，不从回填推断已经批准。已有输入文件保留未提交编辑，按返回 template 对照更新。",
                     "semantic_change": "提交默认按业务变更处理；仅修正用途措辞且含义不变时传 --semantic-change false。需求、材料引用或状态变化不能按非语义修订提交。",
                     "scope": "每份已登记来源必须形成至少一项需求，或在 scope_exclusions 中写明来源位置、本次不交付结果和原因。禁止静默缩小范围。先展示确认材料，再登记用户实际回复。"}
         next_action = {"command": "ui-baseline", "arguments": {"feature_id": feature_id, "input": str(target)}}
@@ -170,6 +173,7 @@ def prepare_action_input(
             "七项实施前契约检查证据与批准状态",
         ]
         guidance = task_package_input_guidance(feature_id)
+        guidance["reuse"] = "同一任务包优先带回正式登记内容；准备不授予修改权限，提交仍检查契约版本与当前阶段。已有输入文件保留未提交编辑，按返回 template 对照更新。"
         if (state.get("configuration") or {}).get("id") == "dloop-ui-v1":
             template["delivery_requirements"] = []
             business_inputs.append("逐个业务场景声明 acceptance 验收记录；多个功能点共享场景和证据，截图及元素定位按需提供")
@@ -179,6 +183,10 @@ def prepare_action_input(
                             "materials": ["acceptance"], "required": True},
                 "submission": "候选提交 delivery_materials 文件引用；发现同范围遗漏时追加 additional_delivery_requirements。",
             }
+        registered = _execution_state(state)["slices"].get(package_id)
+        if registered is not None:
+            input_fields = TASK_PACKAGE_FIELDS | {"delivery_requirements", "generated_write_scope"}
+            template = {key: deepcopy(value) for key, value in registered["package"].items() if key in input_fields}
         next_action = {
             "command": "prepare-slice-contract",
             "arguments": {"feature_id": feature_id, "package_file": str(target)},

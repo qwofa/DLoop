@@ -56,6 +56,38 @@ class StructuredToolTests(FeatureArchiveCliTestCase):
         self.assertEqual(0, code)
         self.assertEqual("start-slice", status["delivery_view"]["next_action_contract"]["command"])
 
+    def test_registered_package_preparation_round_trips_without_relaxing_contract_edits(self):
+        archive = self.init_complex()
+        self.approve_requirements()
+        self.prepare_execution_inputs()
+        self.run_cli("transition-lifecycle", "--feature-id", archive.name, "--to", "active")
+        package = json.loads(self.write_package("slice-one").read_text(encoding="utf-8"))
+        package["generated_write_scope"] = list(package["write_scope"])
+        code, _ = self.call("dloop_submit_task_package", feature_id=archive.name, package=package)
+        self.assertEqual(0, code)
+        self.run_cli("check-slice-contract", "--feature-id", archive.name, "--package-id", "slice-one")
+        state_path = archive / "workflow-state.json"
+        before = state_path.read_bytes()
+        code, prepared = self.call("dloop_prepare_input", feature_id=archive.name,
+                                   input_kind="task-package", package_id="slice-one")
+        self.assertEqual(0, code)
+        self.assertEqual(package, prepared["template"])
+        self.assertEqual(before, state_path.read_bytes())
+        cli = self.run_cli("prepare-action-input", "--feature-id", archive.name,
+                           "--input-kind", "task-package", "--package-id", "slice-one")
+        self.assertEqual(prepared["template"], cli["template"])
+        code, result = self.call("dloop_submit_task_package", feature_id=archive.name, package=prepared["template"])
+        self.assertEqual(0, code)
+        self.assertTrue(result["idempotent"])
+        prepared["template"]["write_scope"].append("additional.txt")
+        code, result = self.call("dloop_submit_task_package", feature_id=archive.name, package=prepared["template"])
+        self.assertEqual(1, code)
+        self.assertEqual("CONTRACT_SILENT_REWRITE_FORBIDDEN", result["code"])
+        code, new = self.call("dloop_prepare_input", feature_id=archive.name,
+                              input_kind="task-package", package_id="slice-two")
+        self.assertEqual(0, code)
+        self.assertEqual(["待填写：授权写入范围"], new["template"]["write_scope"])
+
     def test_unknown_delivery_cannot_create_an_input_outside_the_archive(self):
         self.init_complex()
         code, result = self.call("dloop_submit_ui_baseline", feature_id="missing-delivery",
