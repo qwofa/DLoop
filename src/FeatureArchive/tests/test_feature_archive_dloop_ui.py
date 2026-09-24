@@ -678,6 +678,37 @@ class FeatureArchiveDloopUiTests(FeatureArchiveCliTestCase):
     def ui_approval_view(self, archive):
         return self.run_cli("workflow-status", "--feature-id", archive.name)["delivery_view"]
 
+    def test_structured_baseline_preserves_material_and_user_approval_gates(self):
+        from archive_tool_api import TOOLS, invoke_tool
+        from jsonschema import Draft202012Validator
+
+        archive, _, package = self.prepare_ui_execution(approve_baseline=False)
+        code, prepared = invoke_tool(self.project_root, "dloop_prepare_input", {
+            "feature_id": archive.name, "input_kind": "ui-baseline",
+        })
+        self.assertEqual(0, code)
+
+        def submit(value, semantic_change=True):
+            arguments = {"feature_id": archive.name, "baseline": value, "semantic_change": semantic_change}
+            Draft202012Validator(TOOLS["dloop_submit_ui_baseline"]["inputSchema"]).validate(arguments)
+            code, result = invoke_tool(self.project_root, "dloop_submit_ui_baseline", arguments)
+            self.assertEqual(0, code, result)
+            self.assertFalse(Path(result["input_artifact"]).read_bytes().startswith(b"\xef\xbb\xbf"))
+            return result
+
+        self.assertEqual("blocked", submit(prepared["template"])["status"])
+        value, _ = self.submit_baseline(archive)
+        result = submit(value)
+        rejected = self.run_cli("start-slice", "--feature-id", archive.name, "--execution-id", "ui-impl",
+                                "--package-file", package, "--workspace-root", self.workspace, expected=1)
+        self.assertEqual("UI_BASELINE_APPROVAL_REQUIRED", rejected["code"])
+        self.run_cli("stage-action", "--feature-id", archive.name, "--stage", "ui-baseline", "--decision", "approve",
+                     "--reviewed-digest", result["reviewed_digest"], "--user-confirmation", "用户本轮回复：同意按展示的材料开工")
+        value["items"][0]["protocols"][0]["purpose"] += "。"
+        self.assertTrue(submit(value, semantic_change=False)["approval_preserved"])
+        self.run_cli("start-slice", "--feature-id", archive.name, "--execution-id", "ui-impl",
+                     "--package-file", package, "--workspace-root", self.workspace)
+
     def test_internal_requirement_problem_points_to_document_not_human_approval(self):
         archive, _, _, _, _ = self.complete_plan()
         _, baseline = self.submit_baseline(archive)

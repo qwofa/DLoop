@@ -1,10 +1,10 @@
 ---
 name: dloop-ui
-description: 仅在用户显式调用 Codex 的 $dloop-ui 或 Cursor 的 /dloop-ui 时，使用 DLoop v3.9.4 核实必要材料并取得用户开工确认，尽早验证真实入口，按业务场景交付精简验收导航。
+description: 仅在用户显式调用 Codex 的 $dloop-ui 或 Cursor 的 /dloop-ui 时，使用 DLoop v4.0.0 核实必要材料并取得用户开工确认，尽早验证真实入口，按业务场景交付精简验收导航。
 disable-model-invocation: true
 ---
 
-# DloopUI v3.9.4
+# DloopUI v4.0.0
 
 本 Skill 是 DLoop 的显式 Unity UI 规划配置。它复用同一交付档案、阶段批准入口和实施闭环，提供按需使用的真实 Prefab 定位、随实施更新的场景验收记录与统一验收导航。普通 Unity/UI 请求不得隐式选择本配置。
 
@@ -12,6 +12,7 @@ disable-model-invocation: true
 
 ## 固定边界
 
+- 已连接并核对项目绑定的 DLoop MCP 时，开工清单通过 `dloop_prepare_input` 获取模板，再用 `dloop_submit_ui_baseline` 传入对象；不手写 JSON 文件。材料齐备仍须用户确认，只有用途措辞含义不变时才将 `semantic_change` 设为 `false`。其他动作沿用当前 CLI 合同。
 - 发现 DLoop 工具或规则需要修复时，在源码中修改并通过新版安装交付；不直接修改项目内已安装载荷或安装锁。已有本地补丁随正常跨版本升级备份保留，不接续旧作业。
 - 先提取具有可见表现、用户操作或 UI 去向的需求，再寻找承载需求的现有 Prefab；不得先扫描整个目录并解释所有控件。
 - 调查阶段只有经过明确语义判断且当前真实存在的 Prefab 才能截图。不存在、无法唯一匹配、单项截图失败或目标不可见时记录正常跳过，不为补齐截图创建替代资产或占位界面。

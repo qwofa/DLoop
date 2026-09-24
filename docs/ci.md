@@ -49,6 +49,7 @@ Git、SVN、svnadmin 和 Windows PowerShell 使用 Windows 镜像提供的客户
 $env:PYTHONUTF8 = '1'
 $env:PYTHONIOENCODING = 'utf-8'
 $env:PYTHONDONTWRITEBYTECODE = '1'
+python -m pip install "mcp==2.2.0"
 python .github/scripts/run_tests.py core --timings-json "$env:TEMP/dloop-core-timings.json"
 python .github/scripts/run_tests.py distribution --timings-json "$env:TEMP/dloop-distribution-timings.json"
 python -m unittest discover -s .github/tests -v

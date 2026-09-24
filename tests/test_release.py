@@ -44,7 +44,7 @@ class ReleaseMetadataTests(unittest.TestCase):
             plugin_root.joinpath(".codex-plugin", "plugin.json").read_text(encoding="utf-8")
         )
 
-        self.assertEqual("3.9.4", version)
+        self.assertEqual("4.0.0", version)
         self.assertEqual("dloop", manifest["name"])
         self.assertEqual(version, manifest["version"])
         self.assertEqual("./skills/", manifest["skills"])
@@ -138,9 +138,9 @@ class ReleaseMetadataTests(unittest.TestCase):
         installation = (REPOSITORY_ROOT / "docs" / "installation.md").read_text(encoding="utf-8")
         changelog = (REPOSITORY_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
 
-        self.assertEqual("3.9.4", version)
-        self.assertIn("v3.9.4", readme)
-        self.assertIn("-Version v3.9.4", installation)
+        self.assertEqual("4.0.0", version)
+        self.assertIn("v4.0.0", readme)
+        self.assertIn("-Version v4.0.0", installation)
         self.assertIn("-Uninstall", installation)
         self.assertIn("install.py", readme)
         self.assertIn("$dloop", readme)
@@ -153,21 +153,21 @@ class ReleaseMetadataTests(unittest.TestCase):
         release = json.loads(
             (REPOSITORY_ROOT / "release.json").read_text(encoding="utf-8")
         )
-        release_notes = (REPOSITORY_ROOT / "docs" / "v3.9.4-workflow-friction.md").read_text(encoding="utf-8")
+        release_notes = (REPOSITORY_ROOT / "docs" / "v4.0.0-structured-tools.md").read_text(encoding="utf-8")
 
         self.assertEqual(
             {
-                "workflowVersion": "3.9.4",
+                "workflowVersion": "4.0.0",
                 "archiveSchemaVersion": 3,
                 "terminologySchemaVersion": 2,
-                "sourceTag": "v3.9.4",
+                "sourceTag": "v4.0.0",
                 "releaseStatus": "frozen",
                 "versionSupport": release["versionSupport"],
             },
             release,
         )
         self.assertIn("frozen", release_notes)
-        self.assertIn("基于公开主线 v3.9.3", release_notes)
+        self.assertIn("基于本地 v3.9.4", release_notes)
         self.assertIn("## 验证范围", release_notes)
 
     def test_skill_describes_the_current_runtime_contract(self) -> None:
