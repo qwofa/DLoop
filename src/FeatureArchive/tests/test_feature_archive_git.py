@@ -46,6 +46,19 @@ class GitProjectTestCase(unittest.TestCase):
 
 
 class GitWorkspaceTests(GitProjectTestCase):
+    def test_unversioned_analysis_outputs_do_not_hide_tracked_outputs_or_product_changes(self):
+        (self.project / ".gitignore").write_text("", encoding="utf-8")
+        baseline = workspace_guard_snapshot(self.project)
+        output = self.project / ".scratch/outputs/analysis.json"
+        output.parent.mkdir(parents=True)
+        output.write_text("{}", encoding="utf-8")
+        self.assertEqual(baseline["digest"], workspace_guard_snapshot(self.project)["digest"])
+        self.git("add", str(output))
+        (self.project / "new.txt").write_text("product", encoding="utf-8")
+        snapshot = workspace_guard_snapshot(self.project)
+        self.assertIn(".scratch/outputs/analysis.json", snapshot["entries"])
+        self.assertIn("new.txt", snapshot["entries"])
+
     def test_mixed_index_and_worktree_content_are_bound_without_index_writes(self):
         path = self.project / "main.txt"
         path.write_text("staged one\n", encoding="utf-8")
@@ -77,7 +90,7 @@ class GitWorkspaceTests(GitProjectTestCase):
 
     def test_managed_documents_and_ignored_caches_do_not_stale_product_guard(self):
         baseline = workspace_guard_snapshot(self.project)
-        archive = self.project / ".scratch/dloop-v3/v3.9.3/outputs/delivery"
+        archive = self.project / ".scratch/dloop-v3/v4.0.1/outputs/delivery"
         archive.mkdir(parents=True)
         document = archive / "feature.json"
         document.write_text("{}", encoding="utf-8")

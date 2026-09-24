@@ -245,9 +245,9 @@ def _content_digest(path: Path) -> str:
         ) from exception
 
 
-def _relative_workspace_path(workspace_root: Path, path: Path) -> str:
+def _relative_workspace_path(workspace_root: Path, path: Path, *, resolve: bool = True) -> str:
     normalized_root = workspace_root.expanduser().resolve()
-    normalized_path = path.expanduser().resolve()
+    normalized_path = path.expanduser().resolve() if resolve else path.expanduser().absolute()
     try:
         relative = normalized_path.relative_to(normalized_root)
     except ValueError as exception:
@@ -264,24 +264,34 @@ def _is_guard_excluded(relative: str) -> bool:
     return managed or _is_untracked_runtime_path(relative)
 
 
+def _is_unversioned_guard_excluded(relative: str) -> bool:
+    return _is_guard_excluded(relative) or PurePosixPath(relative).parts[:2] == (".scratch", "outputs")
+
+
 def _dirty_path_entries(
     workspace_root: Path,
     relative: str,
     state: str,
 ) -> Mapping[str, str]:
-    if _is_guard_excluded(relative):
+    unversioned = state.startswith("unversioned")
+    excluded = _is_unversioned_guard_excluded if unversioned else _is_guard_excluded
+    if excluded(relative):
         return {}
     target = workspace_root if relative == "." else _safe_relative_path(workspace_root, relative)
     entries: Dict[str, str] = {}
-    if target.is_dir() and state.startswith("unversioned"):
-        for path in sorted(target.rglob("*")):
-            if not path.is_file() or path.is_symlink():
-                continue
-            nested = _relative_workspace_path(workspace_root, path)
-            if _is_guard_excluded(nested):
-                continue
-            entries[nested] = _canonical_digest({"state": state, "content": _content_digest(path)})
-        if entries:
+    if target.is_dir() and unversioned:
+        # 先按工作区内的词法路径裁剪临时目录，再解析连接；不进入外部分析缓存。
+        for directory, directories, files in os.walk(target):
+            parent = Path(directory)
+            directories[:] = sorted(name for name in directories
+                                    if not excluded((parent / name).relative_to(workspace_root).as_posix()))
+            for name in sorted(files):
+                path = parent / name
+                if excluded(path.relative_to(workspace_root).as_posix()) or path.is_symlink():
+                    continue
+                nested = _relative_workspace_path(workspace_root, path)
+                entries[nested] = _canonical_digest({"state": state, "content": _content_digest(path)})
+        if entries or relative == ".scratch":
             return entries
     entries[relative] = _canonical_digest({"state": state, "content": _content_digest(target)})
     return entries
@@ -351,7 +361,7 @@ def _svn_guard_entries(workspace_root: Path) -> Mapping[str, str]:
             continue
         raw = Path(raw_path)
         target = raw if raw.is_absolute() else workspace_root / raw
-        relative = _relative_workspace_path(workspace_root, target)
+        relative = _relative_workspace_path(workspace_root, target, resolve=item != "unversioned")
         state = f"{item}:{props}"
         # 新文件纳管所需的父目录不构成额外产品变化；目录属性仍受保护。
         if target.is_dir() and item == "added" and props in {"none", "normal"}:
@@ -464,7 +474,7 @@ def _git_guard_snapshot(workspace_root: Path) -> Tuple[Mapping[str, str], str]:
         elif record.startswith("# branch.head "):
             branch = record.removeprefix("# branch.head ")
         elif record.startswith("? "):
-            relative = _relative_workspace_path(workspace_root, repository / record[2:])
+            relative = _relative_workspace_path(workspace_root, repository / record[2:], resolve=False)
             entries.update(_dirty_path_entries(workspace_root, relative, "unversioned"))
         elif record.startswith("1 "):
             fields = record.split(" ", 8)

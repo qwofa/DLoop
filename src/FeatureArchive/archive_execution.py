@@ -219,7 +219,7 @@ def _context_materials(value: Mapping[str, object]) -> Sequence[Mapping[str, obj
 
 def _read_package(path: Path) -> Mapping[str, object]:
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
+        value = json.loads(path.read_text(encoding="utf-8-sig"))
     except (OSError, UnicodeError, json.JSONDecodeError) as exception:
         raise ArchiveExecutionError("INVALID_TASK_PACKAGE", f"无法读取任务包“{path}”：{exception}") from exception
     if not isinstance(value, dict):
