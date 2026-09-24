@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from html import escape
 import hashlib
 import json
@@ -52,8 +53,16 @@ def baseline_input_template(graph, feature_id, state):
     feature_path = graph.features[feature_id].path
     model = _model(feature_path, state)
     evidence = {item["id"]: item for item in model.get("evidence", [])}
+    facts = _facts(graph, feature_id, model)
+    path = feature_path / BASELINE_PATH
+    previous = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None
+    previous_items = {item["requirement_key"]: item for item in previous["items"]} if previous else {}
+    previous_facts = {item["key"]: item for item in previous["facts"]["requirements"]} if previous else {}
+    same_basis = previous is not None and all(
+        previous["facts"][key] == facts[key] for key in ("sources", "requirements_version")
+    )
     items = []
-    for fact in _facts(graph, feature_id, model)["requirements"]:
+    for fact in facts["requirements"]:
         item = {"requirement_key": fact["key"]}
         for category in CATEGORIES:
             item[category] = [{"status": "missing", "reference": "", "purpose": ""}]
@@ -63,8 +72,27 @@ def baseline_input_template(graph, feature_id, state):
         if sources:
             item["requirement_sources"] = [{"status": "verified", "reference": source["path"],
                                             "purpose": fact["locator"] or fact["result"]} for source in sources]
+        saved = previous_items.get(fact["key"])
+        if saved is not None:
+            if same_basis and previous_facts.get(fact["key"]) == fact:
+                item = deepcopy(saved)
+            else:
+                # 当前匹配和来源重新装配；旧协议、配置保留查找线索，但须重新核实。
+                for category in ("protocols", "configurations"):
+                    item[category] = [{**entry, "status": "missing" if entry["status"] == "missing" else "ambiguous"}
+                                      for entry in saved[category]]
         items.append(item)
-    return {"input_version": 2, "scope_exclusions": [], "items": items}
+    source_paths = {str(Path(source["path"]).resolve()) for source in facts["sources"]}
+    project_root = project_root_from_archive_root(graph.root)
+    exclusions = [deepcopy(entry) for entry in previous["scope_exclusions"]
+                  if str((project_root / entry["source"]).resolve()) in source_paths] if previous else []
+    return {"input_version": 2, "scope_exclusions": exclusions, "items": items}
+
+
+def baseline_material_action():
+    return {"command": "ui-baseline", "kind": "investigate",
+            "reason": "协调者先核对已登记材料和项目文件，集中补齐可查明的缺项；仅将仍缺的业务事实或决定交给用户。"
+                      "没有新证据时不重交；材料齐备并确认前停止整个需求的实施。"}
 
 
 def _normalize(value):
@@ -194,7 +222,7 @@ def _render(value, facts, blockers):
         for category, label in CATEGORIES.items():
             for entry in item[category]:
                 status = {"verified": "已核实", "inherited": "沿用既有能力", "missing": "缺失",
-                          "ambiguous": "待选择", "not_applicable": "不涉及"}[entry["status"]]
+                          "ambiguous": "待核实或选择", "not_applicable": "不涉及"}[entry["status"]]
                 lines.append(f"- {label}（{status}）：{entry['reference']}；{entry['purpose']}")
         lines.append("")
     body = []
@@ -271,7 +299,7 @@ def submit_ui_baseline(root, feature_id, input_path, semantic_change=True):
                           and approval.get("reviewed_digest") == review["reviewed_digest"])
     next_action = {"command": "stage-action", "stage": "ui-baseline", "reviewed_digest": review["reviewed_digest"]}
     if blockers:
-        next_action = {"kind": "human", "reason": "集中补齐缺项后重新提交清单；停止整个需求的实施。"}
+        next_action = baseline_material_action()
     elif approval_preserved:
         next_action = {"command": "workflow-status", "arguments": {"feature_id": feature_id}}
     else:

@@ -85,7 +85,7 @@ class FeatureArchiveAuditTests(unittest.TestCase):
 
     def test_audit_allows_valid_current_feature_and_is_idempotent(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
+            root = Path(directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.1" / "outputs"
             self._init(root, "current-feature")
             before = self._snapshot(root)
 
@@ -107,7 +107,7 @@ class FeatureArchiveAuditTests(unittest.TestCase):
 
     def test_audit_blocks_all_unconfirmed_edits_with_minimal_facts(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
+            root = Path(directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.1" / "outputs"
             self._init(root, "current-feature")
             plan = root / "current-feature" / "04-plan" / "README.md"
             design = root / "current-feature" / "03-design" / "README.md"
@@ -141,7 +141,7 @@ class FeatureArchiveAuditTests(unittest.TestCase):
 
     def test_audit_allows_after_confirm_change(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
+            root = Path(directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.1" / "outputs"
             self._init(root, "current-feature")
             plan = root / "current-feature" / "04-plan" / "README.md"
             self._append_body(plan)
@@ -162,7 +162,7 @@ class FeatureArchiveAuditTests(unittest.TestCase):
 
     def test_audit_blocks_missing_current_dependency_at_declaring_document(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
+            root = Path(directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.1" / "outputs"
             self._init(root, "current-feature")
             plan = root / "current-feature" / "04-plan" / "README.md"
             self._replace_metadata(
@@ -184,7 +184,7 @@ class FeatureArchiveAuditTests(unittest.TestCase):
 
     def test_audit_ignores_unrelated_invalid_and_unconfirmed_feature(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
+            root = Path(directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.1" / "outputs"
             self._init(root, "current-feature")
             self._init(root, "unrelated-feature")
             unrelated = root / "unrelated-feature"
@@ -203,7 +203,7 @@ class FeatureArchiveAuditTests(unittest.TestCase):
 
     def test_audit_blocks_unreadable_utf8_document(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
+            root = Path(directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.1" / "outputs"
             self._init(root, "current-feature")
             plan = root / "current-feature" / "04-plan" / "README.md"
             plan.write_bytes(b"\xff\xfe")
@@ -221,7 +221,7 @@ class FeatureArchiveAuditTests(unittest.TestCase):
 
     def test_audit_blocks_invalid_current_structure(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
+            root = Path(directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.1" / "outputs"
             self._init(root, "current-feature")
             missing = root / "current-feature" / "06-validation" / "README.md"
             missing.unlink()
