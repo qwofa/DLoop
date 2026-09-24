@@ -92,7 +92,7 @@ class CaptureFixture:
 
 def create_model(root: Path, requirement_names: tuple[str, ...] = ("领取奖励",)):
     project = root / "project"
-    feature = project / ".scratch" / "dloop-v3" / "v3.9.3" / "outputs" / "reward-feature"
+    feature = project / ".scratch" / "dloop-v3" / "v4.0.1" / "outputs" / "reward-feature"
     (project / "Assets" / "UI").mkdir(parents=True)
     feature.mkdir(parents=True)
     source = project / "requirements.md"

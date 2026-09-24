@@ -134,7 +134,7 @@ def amend_slice_scope(root: Path, feature_id: str, package_id: str, input_path: 
 
 def _read_json(path: Path, label: str) -> Mapping[str, object]:
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
+        value = json.loads(path.read_text(encoding="utf-8-sig"))
     except (OSError, UnicodeError, json.JSONDecodeError) as exception:
         raise ArchiveSliceFlowError("INVALID_SLICE_ARTIFACT", f"无法读取{label}：{exception}") from exception
     if not isinstance(value, dict):

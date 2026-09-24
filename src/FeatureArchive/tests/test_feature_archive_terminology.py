@@ -88,7 +88,7 @@ class FeatureArchiveTerminologyTests(unittest.TestCase):
 
     def test_init_creates_required_terminology_and_requirement_dependency(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.3" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.1" / "outputs"
             archive = self._init(root)
 
             terminology = archive / "01-requirements" / "terminology.md"
@@ -117,7 +117,7 @@ class FeatureArchiveTerminologyTests(unittest.TestCase):
 
     def test_missing_terminology_contract_is_rejected_without_retrofit(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.3" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.1" / "outputs"
             archive = self._init(root)
             terminology = archive / "01-requirements" / "terminology.md"
             terminology.unlink()
@@ -177,7 +177,7 @@ class FeatureArchiveTerminologyTests(unittest.TestCase):
 
     def test_only_fixed_terminology_same_category_dependency_is_allowed(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.3" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.1" / "outputs"
             archive = self._init(root)
             other = archive / "01-requirements" / "other.md"
             other.write_text(
@@ -214,7 +214,7 @@ class FeatureArchiveTerminologyTests(unittest.TestCase):
 
     def test_confirmed_bold_term_link_and_normal_document_link_validate(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.3" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.1" / "outputs"
             archive = self._init(root)
             terminology = archive / "01-requirements" / "terminology.md"
             self._add_confirmed_term(terminology)
@@ -233,7 +233,7 @@ class FeatureArchiveTerminologyTests(unittest.TestCase):
 
     def test_candidate_term_cannot_be_formally_referenced(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.3" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.1" / "outputs"
             archive = self._init(root)
             terminology = archive / "01-requirements" / "terminology.md"
             content = terminology.read_text(encoding="utf-8")
@@ -262,7 +262,7 @@ class FeatureArchiveTerminologyTests(unittest.TestCase):
 
     def test_broken_document_anchor_is_rejected_but_code_example_is_ignored(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.3" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.1" / "outputs"
             archive = self._init(root)
             design = archive / "03-design" / "README.md"
             with design.open("a", encoding="utf-8", newline="\n") as stream:
@@ -285,7 +285,7 @@ class FeatureArchiveTerminologyTests(unittest.TestCase):
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.3" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.1" / "outputs"
             archive = self._init(root)
             terminology = archive / "01-requirements" / "terminology.md"
             self._add_confirmed_term(terminology)
@@ -330,7 +330,7 @@ class FeatureArchiveTerminologyTests(unittest.TestCase):
 
     def test_rename_term_rejects_frozen_archive_without_changes(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.3" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.1" / "outputs"
             archive = self._init(root)
             terminology = archive / "01-requirements" / "terminology.md"
             self._add_confirmed_term(terminology)
@@ -371,7 +371,7 @@ class FeatureArchiveTerminologyTests(unittest.TestCase):
 
     def test_semantic_definition_change_invalidates_requirements(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.3" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.1" / "outputs"
             archive = self._init(root)
             terminology = archive / "01-requirements" / "terminology.md"
             self._add_confirmed_term(terminology)
@@ -405,7 +405,7 @@ class FeatureArchiveTerminologyTests(unittest.TestCase):
 
     def test_analyze_impact_combines_term_references_and_dependency_graph(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.3" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.1" / "outputs"
             archive = self._init(root)
             terminology = archive / "01-requirements" / "terminology.md"
             self._add_confirmed_term(terminology)

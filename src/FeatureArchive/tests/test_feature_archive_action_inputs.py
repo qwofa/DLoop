@@ -16,6 +16,26 @@ except ModuleNotFoundError:
 class FeatureArchiveActionInputTests(FeatureArchiveCliTestCase):
     real_snapshots = False
 
+    def test_invalid_input_target_returns_usable_preparation_without_guessing_identity(self) -> None:
+        self.init_complex()
+        rejected = self.run_cli("prepare-action-input", "--feature-id", "reliable-delivery",
+                                "--input-kind", "task-package", "--package-id", "slice-one",
+                                "--execution-id", "unneeded", expected=1)
+        self.assertEqual("INVALID_ACTION_INPUT_TARGET", rejected["code"])
+        preparation = rejected["input_preparation"]
+        self.assertEqual([], preparation["required_inputs"])
+        self.assertNotIn("execution_id", preparation["arguments"])
+        arguments = [part for key, value in preparation["arguments"].items()
+                     for part in ("--" + key.replace("_", "-"), value)]
+        prepared = self.run_cli(preparation["command"], *arguments)
+        self.assertEqual("slice-one", prepared["template"]["package_id"])
+        for kind in ("checkpoint", "candidate", "review-issues", "review-verification", "acceptance"):
+            with self.subTest(kind=kind):
+                rejected = self.run_cli("prepare-action-input", "--feature-id", "reliable-delivery",
+                                        "--input-kind", kind, "--package-id", "slice-one", expected=1)
+                self.assertEqual(["execution_id"], rejected["input_preparation"]["required_inputs"])
+                self.assertNotIn("package_id", rejected["input_preparation"]["arguments"])
+
     def test_ui_requirements_recommends_internal_preparation(self) -> None:
         self.run_cli(
             "init",
@@ -300,6 +320,7 @@ class FeatureArchiveActionInputTests(FeatureArchiveCliTestCase):
         self.prepare_execution_inputs()
         self.run_cli("transition-lifecycle", "--feature-id", "reliable-delivery", "--to", "active")
         package = self.write_package("slice-generated")
+        package.write_text(package.read_text(encoding="utf-8"), encoding="utf-8-sig")
 
         drafted = self.run_cli(
             "prepare-slice-contract",
@@ -366,7 +387,7 @@ class FeatureArchiveActionInputTests(FeatureArchiveCliTestCase):
             result["status"] = "passed"
             result["evidence"] = ["验证已执行并通过"]
         checkpoint_path.write_text(
-            json.dumps(checkpoint, ensure_ascii=False), encoding="utf-8"
+            json.dumps(checkpoint, ensure_ascii=False), encoding="utf-8-sig"
         )
         workspace_root.joinpath("slice-generated.txt").write_text(
             "implemented\n", encoding="utf-8"
@@ -401,7 +422,7 @@ class FeatureArchiveActionInputTests(FeatureArchiveCliTestCase):
         self.assertEqual("slice-generated-candidate-1", candidate["candidate_id"])
         candidate["verification"] = ["编译与静态核验通过"]
         candidate["unverified_boundaries"] = ["未运行真实模型预览和实际点击"]
-        Path(candidate_input["target"]).write_text(json.dumps(candidate, ensure_ascii=False), encoding="utf-8")
+        Path(candidate_input["target"]).write_text(json.dumps(candidate, ensure_ascii=False), encoding="utf-8-sig")
         self.run_cli("submit-slice", "--feature-id", "reliable-delivery", "--execution-id", execution_id,
                      "--status", "completed", "--candidate-file", candidate_input["target"])
         view = self.run_cli("workflow-status", "--feature-id", "reliable-delivery")["delivery_view"]

@@ -1,6 +1,6 @@
 {
   "name": "com.dloop.ui-capture",
-  "version": "3.9.3",
+  "version": "4.0.1",
   "displayName": "DLoop UI Capture",
   "description": "Captures existing Unity UI Prefab screenshots and visible regions for requirement annotations.",
   "unity": "2021.3"

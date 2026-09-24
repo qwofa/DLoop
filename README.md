@@ -21,7 +21,7 @@ DLoop 基于 **Codex 或 Cursor + Unity MCP**，把长任务从需求梳理、�
 
 ## 当前版本
 
-当前源码为 **v3.9.3 冻结版**，基于公开主线 v3.9.2 增加 Cursor 支持。详见[本版说明](docs/v3.9.3-cursor-support.md)。
+当前源码为 **v4.0.1 冻结版**，重新准备输入时自动带回已登记的开工材料和任务包，减少重复填写；材料缺项先由协调者调查。包含 v4.0.0 的结构化工具入口。详见[本版说明](docs/v4.0.1-input-rehydration.md)及[连接方式](docs/structured-tools.md)。
 
 版本号采用 `主.次.修订` 三段，每段限单个 `0–9`。进位时右侧归零，例如 `3.1.9` 后是 `3.2.0`；不使用 `3.10.1` 或 `3.1.10`。
 
@@ -35,7 +35,7 @@ DLoop 基于 **Codex 或 Cursor + Unity MCP**，把长任务从需求梳理、�
 irm https://raw.githubusercontent.com/qwofa/DLoop/main/install.py -ErrorAction Stop | python -
 ```
 
-上面的一行入口在 `v3.9.3` 标签发布后安装本版。入口会准备项目、安装 DLoop 与 DLoopUI，并校验结果。看到 `DLoop installed and verified.` 表示项目内载荷安装并校验成功。本地及离线方式见[安装说明](docs/installation.md)。
+上面的一行入口在 `v4.0.1` 标签发布后安装本版。入口会准备项目、安装 DLoop 与 DLoopUI，并校验结果。看到 `DLoop installed and verified.` 表示项目内载荷安装并校验成功。本地及离线方式见[安装说明](docs/installation.md)。
 
 随后在 Codex 或 Cursor 中打开这个项目，选择下面任一入口开始。Unity MCP 要连接到所选宿主；安装命令只部署 DLoop。
 

@@ -950,8 +950,8 @@ def _stage_projection(
     baseline = approvals.get("ui-baseline", {"status": "not_applicable"})
     review = baseline.get("review", {})
     if review.get("status") == "blocked":
-        return ("ui-inputs-blocked", {"command": "ui-baseline"},
-                {"required": True, "decision": "集中补齐必要材料；整个需求停止实施，仍可调查和保存资料。"}, review["blockers"])
+        from archive_ui_baseline import baseline_material_action
+        return ("ui-inputs-blocked", baseline_material_action(), requires_human, review["blockers"])
 
     design = _feature_document(graph, feature_id, "design.overview")
     plan = _feature_document(graph, feature_id, "plan.overview")

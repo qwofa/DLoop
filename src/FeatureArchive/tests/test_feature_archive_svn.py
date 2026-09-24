@@ -21,6 +21,41 @@ from _feature_archive_support import FeatureArchiveCliTestCase
 
 @unittest.skipUnless(_svn_executable("svn") and _svn_executable("svnadmin"), "需要 SVN 客户端")
 class SvnChangelistTests(unittest.TestCase):
+    def test_unversioned_analysis_outputs_are_pruned_before_following_directory_links(self):
+        self.svn("propdel", "svn:ignore", str(self.project))
+        baseline = workspace_guard_snapshot(self.project)
+        outputs = self.project / ".scratch/outputs"
+        outputs.mkdir(parents=True)
+        cache = Path(self.temp.name) / "external-cache"
+        cache.mkdir()
+        (cache / "dependency.json").write_text("external dependency", encoding="utf-8")
+        link = outputs / "node_modules"
+        if os.name == "nt":
+            import _winapi
+            _winapi.CreateJunction(str(cache), str(link))
+            self.addCleanup(link.rmdir)
+        else:
+            link.symlink_to(cache, target_is_directory=True)
+        self.assertEqual(baseline["digest"], workspace_guard_snapshot(self.project)["digest"])
+        # SVN 归组会纳管 .scratch 父目录；临时输出仍须排除。
+        self.svn("add", "--depth", "empty", str(self.project / ".scratch"))
+        self.assertEqual(baseline["digest"], workspace_guard_snapshot(self.project)["digest"])
+        product = self.project / "Assets/new.cs"
+        product.write_text("new product", encoding="utf-8")
+        self.assertIn("Assets/new.cs", workspace_guard_snapshot(self.project)["entries"])
+        tracked = outputs / "tracked.txt"
+        tracked.write_text("tracked product", encoding="utf-8")
+        self.svn("add", "--depth", "empty", str(outputs))
+        self.svn("add", str(tracked))
+        self.assertIn(".scratch/outputs/tracked.txt", workspace_guard_snapshot(self.project)["entries"])
+        if os.name == "nt":
+            product_link = self.project / "Assets/external"
+            _winapi.CreateJunction(str(cache), str(product_link))
+            self.addCleanup(product_link.rmdir)
+            with self.assertRaises(ArchiveWorkspaceError) as caught:
+                workspace_guard_snapshot(self.project)
+            self.assertEqual("WORKSPACE_SCOPE_ESCAPE", caught.exception.code)
+
     def test_ui_managed_outputs_do_not_hide_product_scope_changes(self):
         self.svn("propdel", "svn:ignore", str(self.project))
         baseline = workspace_guard_snapshot(self.project)
@@ -90,7 +125,7 @@ class SvnChangelistTests(unittest.TestCase):
         self.assertIn(evidence.relative_to(self.project).as_posix(), result["files"])
         self.assertTrue(any("/shares/" in name for name in result["files"]))
         self.assertTrue(any(name.endswith("workflow-state.json") for name in result["files"]))
-        self.assertIn(".scratch/dloop-v3/v3.9.3/friction.jsonl", result["files"])
+        self.assertIn(".scratch/dloop-v3/v4.0.1/friction.jsonl", result["files"])
         self.assertFalse(any("__pycache__" in name or name.endswith(".lock") for name in result["files"]))
         status = _status(self.project)
         self.assertEqual("用户原组", status["unrelated.txt"]["changelist"])
@@ -171,7 +206,7 @@ class SvnChangelistTests(unittest.TestCase):
         grouped = self.installed_cli("sync-svn-changelist", "--feature-id", "delivery")
         self.assertEqual("grouped", grouped["status"])
         self.assertFalse(grouped["committed"])
-        self.assertIn(".scratch/dloop-v3/v3.9.3/outputs/delivery/feature.json", grouped["files"])
+        self.assertIn(".scratch/dloop-v3/v4.0.1/outputs/delivery/feature.json", grouped["files"])
         self.assertEqual(guard, workspace_guard_snapshot(self.project)["digest"])
         summary = self.installed_cli("workflow-status", "--feature-id", "delivery")["delivery_view"]["delivery_summary"]
         self.assertEqual("frozen", summary["archive_lifecycle"])
