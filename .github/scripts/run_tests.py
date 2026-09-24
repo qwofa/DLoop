@@ -21,6 +21,7 @@ SUITES = {
 # These modules exercise real repository/host boundaries; all other core modules
 # form the business layer. CI still runs both layers with the default "all".
 INTEGRATION_MODULES = {
+    "test_dloop_mcp.py",
     "test_feature_archive_cli.py",
     "test_feature_archive_dloop_ui.py",
     "test_feature_archive_git.py",

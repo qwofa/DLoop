@@ -1,6 +1,6 @@
 # 依赖、连接与首次检查
 
-DLoop v3.9.4 面向 Windows 上的 Unity 项目，通过 Codex 或 Cursor 组织开发工作。Unity MCP 按能力接入，不绑定供应商、包名、工具名称或某个版本。
+DLoop v4.0.0 面向 Windows 上的 Unity 项目，通过 Codex 或 Cursor 组织开发工作。Unity MCP 按能力接入，不绑定供应商、包名、工具名称或某个版本。
 
 ## 需要准备什么
 
@@ -15,7 +15,7 @@ DLoop v3.9.4 面向 Windows 上的 Unity 项目，通过 Codex 或 Cursor 组织
 | Unity UI 依赖 | DLoopUI 的 Prefab 截图使用 uGUI（`com.unity.ugui`）和图像编码模块（`com.unity.modules.imageconversion`） | Unity Package Manager；按当前项目的 Unity 版本解析 |
 | Unity MCP | 满足下节能力要求，连接到当前项目已打开的 Unity Editor | 自行选择实现并遵循其安装说明 |
 
-DLoop 的 Python 运行代码使用标准库，不需要额外执行 `pip install`。Unity MCP 自己可能需要 `uv`、额外 Python 包或其他服务，这些由选用的实现决定，不能视为所有 DLoop 用户都必须安装的依赖。DLoop 安装器只部署自己的 Skill、共享工具和截图包，不代装上述外部环境。
+DLoop 的 CLI 核心使用标准库。可选的原生结构化工具入口需要 `uv`，首次启动按脚本声明获取官方 `mcp==2.2.0` SDK；依赖缓存放在项目外，见[结构化工具连接](structured-tools.md)。Unity MCP 自己可能需要 `uv`、额外 Python 包或其他服务，这些由选用的实现决定，不能视为所有 DLoop 用户都必须安装的依赖。DLoop 安装器只部署自己的 Skill、共享工具和截图包，不代装上述外部环境。
 
 项目本身的渲染管线、字体、业务包和编译依赖仍由项目管理；安装 DLoop 不会替项目补齐这些内容。当前 UI 截图基于已有 uGUI Prefab，不据此承诺所有 UI 技术栈都有相同采集效果。
 

@@ -62,6 +62,7 @@ def prepare_action_input(
     *,
     package_id: str | None = None,
     execution_id: str | None = None,
+    write: bool = True,
 ) -> Mapping[str, object]:
     """从当前档案和执行事实生成一个结构正确的动作输入。"""
 
@@ -248,9 +249,9 @@ def prepare_action_input(
                               "status": "completed", "candidate_file": str(target)},
             }
 
-    written = _write_without_overwrite(target, template)
+    written = _write_without_overwrite(target, template) if write else False
     return {
-        "status": "prepared" if written else "existing",
+        "status": ("prepared" if written else "existing") if write else "template",
         "input_kind": input_kind,
         "target": str(target),
         "written": written,

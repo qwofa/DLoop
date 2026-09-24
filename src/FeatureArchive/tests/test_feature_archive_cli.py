@@ -295,7 +295,7 @@ class FeatureArchiveCliTests(unittest.TestCase):
 
     def test_init_creates_strict_archive_with_unique_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.4" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
             result = self._run_init(root)
 
             self.assertEqual(0, result.returncode, result.stderr)
@@ -357,7 +357,7 @@ class FeatureArchiveCliTests(unittest.TestCase):
 
     def test_repeated_init_is_idempotent_and_preserves_user_body(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.4" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
             first_result = self._run_init(root)
             self.assertEqual(0, first_result.returncode, first_result.stderr)
 
@@ -379,7 +379,7 @@ class FeatureArchiveCliTests(unittest.TestCase):
 
     def test_existing_partial_archive_is_rejected_without_writing(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.4" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
             self.assertEqual(0, self._run_init(root, "seed", "根初始化").returncode)
             archive = root / "building-interaction"
             archive.mkdir(parents=True)
@@ -396,7 +396,7 @@ class FeatureArchiveCliTests(unittest.TestCase):
 
     def test_path_conflict_fails_before_writing_and_reports_diagnostic(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.4" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
             self.assertEqual(0, self._run_init(root, "seed", "根初始化").returncode)
             archive = root / "building-interaction"
             archive.mkdir(parents=True)
@@ -417,7 +417,7 @@ class FeatureArchiveCliTests(unittest.TestCase):
 
     def test_invalid_feature_id_does_not_create_root(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.4" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
 
             result = self._run_init(root, feature_id="../逃逸")
 
@@ -428,7 +428,7 @@ class FeatureArchiveCliTests(unittest.TestCase):
 
     def test_validate_accepts_forward_and_skipped_layer_dependencies(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.4" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
             self.assertEqual(0, self._run_init(root).returncode)
             archive = root / "building-interaction"
             investigation = archive / "02-investigation" / "README.md"
@@ -458,7 +458,7 @@ class FeatureArchiveCliTests(unittest.TestCase):
 
     def test_validate_rejects_missing_dependency(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.4" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
             self.assertEqual(0, self._run_init(root).returncode)
             design = root / "building-interaction" / "03-design" / "README.md"
             self._replace_metadata_list(
@@ -476,7 +476,7 @@ class FeatureArchiveCliTests(unittest.TestCase):
 
     def test_validate_rejects_reverse_dependency(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.4" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
             self.assertEqual(0, self._run_init(root).returncode)
             requirements = root / "building-interaction" / "01-requirements" / "README.md"
             self._replace_metadata_list(
@@ -503,7 +503,7 @@ class FeatureArchiveCliTests(unittest.TestCase):
 
     def test_validate_rejects_cross_feature_hard_dependency(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.4" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
             self.assertEqual(0, self._run_init(root).returncode)
             self.assertEqual(
                 0,
@@ -529,7 +529,7 @@ class FeatureArchiveCliTests(unittest.TestCase):
 
     def test_validate_rejects_self_and_multi_document_cycles(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.4" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
             self.assertEqual(0, self._run_init(root).returncode)
             archive = root / "building-interaction"
             requirements = archive / "01-requirements" / "README.md"
@@ -581,7 +581,7 @@ class FeatureArchiveCliTests(unittest.TestCase):
 
     def test_validate_rejects_duplicate_document_identifier(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.4" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
             self.assertEqual(0, self._run_init(root).returncode)
             archive = root / "building-interaction"
             duplicate = archive / "03-design" / "重复设计.md"
@@ -598,7 +598,7 @@ class FeatureArchiveCliTests(unittest.TestCase):
 
     def test_rebuild_indexes_is_complete_non_destructive_and_idempotent(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.4" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
             self.assertEqual(0, self._run_init(root).returncode)
             self.assertEqual(
                 0,
@@ -736,7 +736,7 @@ class FeatureArchiveCliTests(unittest.TestCase):
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.4" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
             requirements, design, _ = self._prepare_three_layer_chain(root)
             requirements.write_text(
                 requirements.read_text(encoding="utf-8")
@@ -784,7 +784,7 @@ class FeatureArchiveCliTests(unittest.TestCase):
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.4" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
             requirements, design, plan = self._prepare_three_layer_chain(root)
             with requirements.open("a", encoding="utf-8", newline="\n") as stream:
                 stream.write("\n新增业务规则。\n")
@@ -839,7 +839,7 @@ class FeatureArchiveCliTests(unittest.TestCase):
 
     def test_non_semantic_refresh_stops_propagation_at_middle_layer(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.4" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
             requirements, design, plan = self._prepare_three_layer_chain(root)
             with requirements.open("a", encoding="utf-8", newline="\n") as stream:
                 stream.write("\n调整上游规则。\n")
@@ -874,7 +874,7 @@ class FeatureArchiveCliTests(unittest.TestCase):
 
     def test_semantic_refresh_continues_to_next_direct_layer(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.4" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
             requirements, design, plan = self._prepare_three_layer_chain(root)
             with requirements.open("a", encoding="utf-8", newline="\n") as stream:
                 stream.write("\n调整上游规则。\n")
@@ -915,7 +915,7 @@ class FeatureArchiveCliTests(unittest.TestCase):
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.4" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
             self.assertEqual(0, self._run_init(root).returncode)
             archive = root / "building-interaction"
             requirements = archive / "01-requirements" / "README.md"
@@ -990,7 +990,7 @@ class FeatureArchiveCliTests(unittest.TestCase):
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.4" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
             self.assertEqual(0, self._run_init(root).returncode)
             self.assertEqual(0, self._transition(root, "active").returncode)
             archive = root / "building-interaction"
@@ -1034,7 +1034,7 @@ class FeatureArchiveCliTests(unittest.TestCase):
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.4" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
             self.assertEqual(0, self._run_init(root).returncode)
             self.assertEqual(0, self._transition(root, "active").returncode)
             self.assertEqual(0, self._transition(root, "validating").returncode)
@@ -1097,7 +1097,7 @@ class FeatureArchiveCliTests(unittest.TestCase):
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.4" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
             self.assertEqual(0, self._run_init(root).returncode)
             self.assertEqual(0, self._transition(root, "active").returncode)
             self.assertEqual(0, self._transition(root, "validating").returncode)
@@ -1137,7 +1137,7 @@ class FeatureArchiveCliTests(unittest.TestCase):
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.4" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
             self.assertEqual(0, self._run_init(root).returncode)
             self.assertEqual(0, self._transition(root, "active").returncode)
             self.assertEqual(0, self._transition(root, "validating").returncode)
@@ -1189,7 +1189,7 @@ class FeatureArchiveCliTests(unittest.TestCase):
 
     def test_init_rejects_an_incomplete_frozen_archive(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.4" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
             self.assertEqual(0, self._run_init(root).returncode)
             self.assertEqual(0, self._transition(root, "active").returncode)
             self.assertEqual(0, self._transition(root, "validating").returncode)
@@ -1225,7 +1225,7 @@ class FeatureArchiveCliTests(unittest.TestCase):
 
     def test_illegal_lifecycle_skip_is_rejected_without_side_effects(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.4" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
             self.assertEqual(0, self._run_init(root).returncode)
             snapshot = self._snapshot(root)
 
@@ -1242,7 +1242,7 @@ class FeatureArchiveCliTests(unittest.TestCase):
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.4" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
             self.assertEqual(0, self._run_init(root).returncode)
             self._freeze_at(root, "2026-06-01T00:00:00Z")
             archive = root / "building-interaction"
@@ -1291,7 +1291,7 @@ class FeatureArchiveCliTests(unittest.TestCase):
 
     def test_indexes_and_purge_preview_never_delete_eligible_archive(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.4" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
             self.assertEqual(0, self._run_init(root).returncode)
             self._freeze_at(root, "2026-06-01T00:00:00Z")
             self.assertEqual(
@@ -1331,7 +1331,7 @@ class FeatureArchiveCliTests(unittest.TestCase):
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.4" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
             self.assertEqual(0, self._run_init(root).returncode)
             self.assertEqual(
                 0,
@@ -1407,7 +1407,7 @@ class FeatureArchiveCliTests(unittest.TestCase):
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.4" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
             self.assertEqual(0, self._run_init(root).returncode)
             self.assertEqual(
                 0,
@@ -1477,7 +1477,7 @@ class FeatureArchiveCliTests(unittest.TestCase):
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.4" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
             self.assertEqual(0, self._run_init(root).returncode)
             self.assertEqual(
                 0,
@@ -1524,7 +1524,7 @@ class FeatureArchiveCliTests(unittest.TestCase):
 
     def test_complete_archive_workflow_from_init_to_safe_purge(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v3.9.4" / "outputs"
+            root = Path(temporary_directory) / "project" / ".scratch" / "dloop-v3" / "v4.0.0" / "outputs"
             self.assertEqual(0, self._run_init(root).returncode)
             self.assertEqual(
                 0,

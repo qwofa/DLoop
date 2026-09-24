@@ -783,6 +783,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error("规范档案根由 DLoop 根据项目内安装位置确定，不能由调用者指定。")
     arguments = parser.parse_args(raw_arguments)
     resolved_project_root = project_root_from_entrypoint(Path(__file__))
+    exit_code, result = execute_command(arguments, resolved_project_root)
+    print(json.dumps(result, ensure_ascii=False),
+          file=sys.stderr if result.get("status") == "failed" else sys.stdout)
+    return exit_code
+
+
+def execute_command(
+    arguments: argparse.Namespace,
+    resolved_project_root: Path,
+    *,
+    structured_input: Mapping[str, object] | None = None,
+) -> tuple[int, Mapping[str, object]]:
+    """CLI 与结构化工具共用路径、业务操作、错误和摩擦记录。"""
+
     if arguments.command == "workflow-rules":
         arguments.project_root = resolved_project_root
     else:
@@ -793,6 +807,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         feature_id = getattr(arguments, "feature_id", None)
         root = getattr(arguments, "root", None)
+        if structured_input is not None:
+            from archive_tool_inputs import store_structured_input
+            field, path = store_structured_input(root, feature_id, arguments.command, structured_input)
+            setattr(arguments, field, path)
         if isinstance(feature_id, str) and isinstance(root, Path):
             for field in WORKFLOW_ARTIFACT_DIRECTORIES:
                 value = getattr(arguments, field, None)
@@ -958,6 +976,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 arguments.input_kind,
                 package_id=arguments.package_id,
                 execution_id=arguments.execution_id,
+                write=getattr(arguments, "write_template", True),
             )
         elif arguments.command == "start-slice":
             result = start_slice(
@@ -1099,8 +1118,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     arguments.now,
                 )
         else:
-            parser.error(f"不支持的命令：{arguments.command}")
-            return 2
+            raise ValueError(f"不支持的命令：{arguments.command}")
     except (
         ArchiveError,
         ArchiveValidationError,
@@ -1171,11 +1189,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             arguments,
             resolved_project_root,
         )
-        print(
-            json.dumps(failure, ensure_ascii=False),
-            file=sys.stderr,
-        )
-        return 1
+        return 1, failure
 
     result = _with_archive_location(
         result,
@@ -1183,8 +1197,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         resolved_project_root,
     )
     if arguments.command in {"friction-note", "friction-summary"}:
-        print(json.dumps(result, ensure_ascii=False))
-        return exit_code
+        return exit_code, result
     root = getattr(arguments, "root", None)
     guard = _expected_guard(result) if exit_code == 0 else None
     operation = _operation_context(
@@ -1221,8 +1234,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             }
         elif isinstance(closure.get("warning"), str):
             result = {**result, "friction_record_warning": closure["warning"]}
-    print(json.dumps(result, ensure_ascii=False))
-    return exit_code
+    return exit_code, result
 
 
 if __name__ == "__main__":
