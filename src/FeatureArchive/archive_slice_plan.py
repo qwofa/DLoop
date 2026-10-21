@@ -53,7 +53,8 @@ def slice_plan_input_guidance() -> Mapping[str, object]:
                 "replacements": "替代当前切片的切片标识列表；没有时填空列表",
             },
             "rules": "所有引用必须在方案内，不能引用自己、重复引用或形成循环；关系由协调者按业务填写。",
-            "coverage": "在现有计划正文从已批准场景反查承接切片；后续处理、复用和依赖缺失项注明去向、影响及恢复条件。关系检查不证明整体业务覆盖，不新增方案字段或独立账本。",
+            "coverage": "在现有计划正文从已批准场景反查承接切片；后续处理、复用和依赖缺失项注明去向、影响及恢复条件。关系检查不证明整体业务覆盖。",
+            "rationale": "计划正文必须简短说明哪些结果可分别接受或退回；选择合并（包括单一大切片）时，说明不可分依赖或节省交接的具体收益。共享文件、同一连接、不要求联调不能单独证明应合并。不规定切片数量，不新增审批。",
             "example": [
                 {"slice_id": "reward-config", "prerequisites": [], "replacements": []},
                 {"slice_id": "reward-ui", "prerequisites": ["reward-config"], "replacements": []},

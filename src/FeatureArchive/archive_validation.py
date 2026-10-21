@@ -434,7 +434,11 @@ def _validate_complex_workflow_state(path: Path, feature_id: str) -> None:
             continue
         snapshot = record.get("snapshot")
         if stage == "ui-baseline":
-            if set(snapshot) != {"baseline_digest"} or snapshot["baseline_digest"] != record.get("reviewed_digest"):
+            if (set(snapshot) != {"baseline_digest", "slice_digests"}
+                    or snapshot["baseline_digest"] != record.get("reviewed_digest")
+                    or not isinstance(snapshot["slice_digests"], dict)
+                    or any(not nonempty_string(key) or not nonempty_string(value)
+                           for key, value in snapshot["slice_digests"].items())):
                 invalid(f"交付项“{feature_id}”的开工确认快照不完整。")
         elif any(
             not nonempty_string(snapshot.get(field))

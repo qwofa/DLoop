@@ -44,7 +44,7 @@ class ReleaseMetadataTests(unittest.TestCase):
             plugin_root.joinpath(".codex-plugin", "plugin.json").read_text(encoding="utf-8")
         )
 
-        self.assertEqual("4.0.1", version)
+        self.assertEqual("4.0.2", version)
         self.assertEqual("dloop", manifest["name"])
         self.assertEqual(version, manifest["version"])
         self.assertEqual("./skills/", manifest["skills"])
@@ -62,7 +62,7 @@ class ReleaseMetadataTests(unittest.TestCase):
         self.assertRegex(version, r"^[0-9]\.[0-9]\.[0-9]$")
         self.assertEqual(version, release["workflowVersion"])
         self.assertEqual(f"v{version}", release["sourceTag"])
-        self.assertEqual("frozen", release["releaseStatus"])
+        self.assertEqual("development", release["releaseStatus"])
         self.assertEqual(
             archive_initialization.SCHEMA_VERSION,
             release["archiveSchemaVersion"],
@@ -138,9 +138,9 @@ class ReleaseMetadataTests(unittest.TestCase):
         installation = (REPOSITORY_ROOT / "docs" / "installation.md").read_text(encoding="utf-8")
         changelog = (REPOSITORY_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
 
-        self.assertEqual("4.0.1", version)
-        self.assertIn("v4.0.1", readme)
-        self.assertIn("-Version v4.0.1", installation)
+        self.assertEqual("4.0.2", version)
+        self.assertIn("v4.0.2", readme)
+        self.assertIn("-Version v4.0.2", installation)
         self.assertIn("-Uninstall", installation)
         self.assertIn("install.py", readme)
         self.assertIn("$dloop", readme)
@@ -149,25 +149,25 @@ class ReleaseMetadataTests(unittest.TestCase):
         self.assertIn("真实截图", readme)
         self.assertIn("安装器只管理当前版本", changelog)
 
-    def test_current_source_is_presented_as_frozen(self) -> None:
+    def test_current_source_is_presented_as_development(self) -> None:
         release = json.loads(
             (REPOSITORY_ROOT / "release.json").read_text(encoding="utf-8")
         )
-        release_notes = (REPOSITORY_ROOT / "docs" / "v4.0.1-input-rehydration.md").read_text(encoding="utf-8")
+        release_notes = (REPOSITORY_ROOT / "docs" / "v4.0.2-baseline-guidance.md").read_text(encoding="utf-8")
 
         self.assertEqual(
             {
-                "workflowVersion": "4.0.1",
+                "workflowVersion": "4.0.2",
                 "archiveSchemaVersion": 3,
                 "terminologySchemaVersion": 2,
-                "sourceTag": "v4.0.1",
-                "releaseStatus": "frozen",
+                "sourceTag": "v4.0.2",
+                "releaseStatus": "development",
                 "versionSupport": release["versionSupport"],
             },
             release,
         )
-        self.assertIn("frozen", release_notes)
-        self.assertIn("基于已冻结的 v4.0.0", release_notes)
+        self.assertIn("development", release_notes)
+        self.assertIn("基于已发布的 v4.0.1", release_notes)
         self.assertIn("## 验证范围", release_notes)
 
     def test_skill_describes_the_current_runtime_contract(self) -> None:

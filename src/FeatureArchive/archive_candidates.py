@@ -319,7 +319,7 @@ def submit_candidate(
             "review_snapshot_digest": repair_handoff.get("review_snapshot_digest"),
         }
     _, lease = require_modification_lease(root, feature_id, package_id)
-    _require_ready_execution_inputs(graph, feature_id)
+    _require_ready_execution_inputs(graph, feature_id, package_id)
     materials = slice_handoff_materials(graph, feature, Path(lease["workspace_root"]), package)
     if "delivery_requirements" in package:
         candidate["delivery"] = submitted_delivery(candidate_delivery_package(record), value, feature.path, Path(lease["workspace_root"]))
@@ -414,6 +414,7 @@ def review_candidate(
     if not candidate_matches_workspace(lease, candidate):
         raise ArchiveCandidateError("CANDIDATE_CHANGED", "工作区已偏离当前候选，旧候选不能验收。")
     if result == "passed":
+        _require_ready_execution_inputs(graph, feature_id, package_id)
         delivery_paths(candidate)
     issues = list(_review_issues(issues_file, result != "passed"))
     verification = list(_review_verification(verification_file))
@@ -550,7 +551,7 @@ def retry_slice(
                 else None
             ),
         }
-    _require_ready_execution_inputs(graph, feature_id)
+    _require_ready_execution_inputs(graph, feature_id, package_id)
     materials = slice_handoff_materials(
         graph, feature, Path(record["workspace_root"]), record["package"]
     )
