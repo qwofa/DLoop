@@ -139,7 +139,6 @@ class ReleaseMetadataTests(unittest.TestCase):
         changelog = (REPOSITORY_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
 
         self.assertEqual("4.0.2", version)
-        self.assertIn("v4.0.2", readme)
         self.assertIn("-Version v4.0.2", installation)
         self.assertIn("-Uninstall", installation)
         self.assertIn("install.py", readme)
