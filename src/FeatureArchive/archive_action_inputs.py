@@ -105,6 +105,7 @@ def prepare_action_input(
         target = feature.path / "04-plan/ui-baseline-input.json"
         business_inputs = ["按每项业务核对预制体、协议、配置和需求描述；逐份覆盖已登记来源，并显式列出本次不做的结果"]
         guidance = {"statuses": ["verified", "inherited", "missing", "ambiguous", "not_applicable"],
+                    "slice_requirements": "按批准切片方案填写切片标识到直接使用的需求键列表，完整覆盖全部切片和需求；共同材料列入所有消费者。依赖影响沿方案前置/替代关系传播。空映射表示尚未明确边界，沿用整体门禁；部分就绪可确认，缺项不等于延期。",
                     "reference": "每条已核实项只填一个真实文件路径；沿用既有协议或配置使用 inherited 并引用提供该能力的文件。多个文件拆成多条材料。缺项填写已搜索位置。",
                     "purpose": "用途和业务含义；缺项填写已查位置、影响及仍缺的事实。先查已有材料，仅将无法查明的业务事实或决定交给用户。不涉及仅用于协议、配置，必须说明理由。",
                     "reuse": "已登记清单自动回填；依据变化的协议、配置保留引用并标为待核实。核对范围排除和本次变化，不从回填推断已经批准。已有输入文件保留未提交编辑，按返回 template 对照更新。",

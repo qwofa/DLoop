@@ -404,7 +404,7 @@ def task_package_input_template(package_id: str) -> Mapping[str, object]:
     }
 
 
-def _require_ready_execution_inputs(graph, feature_id: str) -> None:
+def _require_ready_execution_inputs(graph, feature_id: str, package_id: str) -> None:
     approvals = approval_status(graph.root, feature_id)
     if approvals["requirements"]["status"] not in {"approve", "ready"}:
         blocker = approvals["requirements"].get("blocker", {
@@ -416,8 +416,10 @@ def _require_ready_execution_inputs(graph, feature_id: str) -> None:
             "ARCHITECTURE_APPROVAL_BLOCKED",
             "架构决定已拒绝或失效，不能启动新的实施切片。",
         )
-    if approvals.get("ui-baseline", {"status": "not_applicable"})["status"] not in {"approve", "not_applicable"}:
-        raise ArchiveExecutionError("UI_BASELINE_APPROVAL_REQUIRED", "必要材料未齐备或当前开工清单未经用户确认，停止整个需求的实施。")
+    from archive_ui_baseline import baseline_allows_slice
+    baseline = approvals.get("ui-baseline", {"status": "not_applicable"})
+    if not baseline_allows_slice(baseline.get("review", {}), baseline["status"], package_id):
+        raise ArchiveExecutionError("UI_BASELINE_APPROVAL_REQUIRED", "本切片或其依赖材料未齐备、依据已变化或尚未经用户确认；其他独立切片按各自资格继续。")
     blockers = []
     for document in graph.documents.values():
         if (
@@ -463,9 +465,9 @@ def start_execution(
     graph = validate_feature_archive(root, feature_id)
     feature = _require_complex_feature(graph, feature_id)
     state = _load_state(feature.path, feature_id)
-    _require_ready_execution_inputs(graph, feature_id)
     execution = _execution_state(state)
     package = package_target.resolve(execution)
+    _require_ready_execution_inputs(graph, feature_id, str(package["package_id"]))
     require_configuration_task_materials(
         state, feature_id, package["context_materials"]
     )

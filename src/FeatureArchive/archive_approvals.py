@@ -570,6 +570,9 @@ def _approval_record_status(
             return "not_applicable"
         from archive_ui_baseline import baseline_review
         review = baseline_review(graph, feature_id, state)
+        if review.get("slice_reviews") and review["status"] == "ready" and all(
+                item["approval_status"] == "approve" for item in review["slice_reviews"].values()):
+            return "approve"
         if review["status"] != "ready":
             return "stale" if isinstance(record, dict) else "pending"
         if not isinstance(record, dict):
@@ -687,11 +690,11 @@ def approve_stage(
     if stage == "ui-baseline":
         from archive_ui_baseline import baseline_review
         baseline = baseline_review(graph, feature_id, state)
-        if baseline["status"] != "ready":
-            raise ArchiveApprovalError("UI_BASELINE_INCOMPLETE", "必要材料尚未齐备，不能记录开工确认。")
+        if baseline["status"] not in {"ready", "partial"}:
+            raise ArchiveApprovalError("UI_BASELINE_INCOMPLETE", "尚无材料齐备且依赖边界明确的切片，不能记录开工确认。")
         if not isinstance(user_confirmation, str) or not user_confirmation.strip():
             raise ArchiveApprovalError("USER_CONFIRMATION_REQUIRED", "开工确认必须引用用户对当前清单的实际回复及定位。")
-        if reviewed_digest != baseline["reviewed_digest"]:
+        if reviewed_digest != baseline["reviewed_digest"] or not baseline["confirmation_current"]:
             raise ArchiveApprovalError("UI_BASELINE_STALE", "开工清单已经变化，请展示当前清单并重新确认。")
     elif is_ui_delivery(state) and stage == "final":
         interaction = ui_interaction_review(graph, feature_id, state)
@@ -739,7 +742,10 @@ def approve_stage(
                 "FINAL_EXECUTION_BLOCKED",
                 "最终验收前仍有执行问题：" + "；".join(item["message"] for item in blockers),
             )
-    snapshot = {"baseline_digest": baseline["reviewed_digest"]} if baseline is not None else _stage_snapshot(graph, feature_id, stage)
+    snapshot = ({"baseline_digest": baseline["reviewed_digest"],
+                 "slice_digests": {key: item["reviewed_digest"] for key, item in baseline["slice_reviews"].items()
+                                   if item["status"] == "ready"}}
+                if baseline is not None else _stage_snapshot(graph, feature_id, stage))
     record = {"decision": decision, "snapshot": snapshot, "decided_at": _utc_now()}
     if is_ui_delivery(state) and stage in {"ui-baseline", "final"}:
         record.update({"reviewed_digest": reviewed_digest, "user_confirmation": user_confirmation.strip()})

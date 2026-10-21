@@ -26,7 +26,7 @@ from archive_candidates import (
     require_candidate_submission_ready,
 )
 from archive_changes import _body_fingerprint, refresh_queue
-from archive_execution import EXECUTION_ID_PATTERN, _execution_state
+from archive_execution import EXECUTION_ID_PATTERN, _execution_state, find_slice_by_execution
 from archive_handoff import ArchiveHandoffError, _repair_role_projection, slice_handoff_materials
 from archive_slice_contract import latest_review, reviewed_candidate
 from archive_slice_plan import (
@@ -1004,11 +1004,33 @@ def _stage_projection(
             requires_human,
             blockers,
         )
-    if baseline.get("status") not in {"approve", "not_applicable"}:
-        if review.get("status") != "ready":
+    scoped = review.get("slice_reviews", {})
+    approved_slices = set(review.get("approved_slice_ids", []))
+    baseline_can_progress = False
+    if scoped:
+        running = [key for key, item in slices.items()
+                   if item.get("status") in {"active", "candidate", "review_failed", "failed", "circuit_open"}
+                   or item.get("status") == "interrupted" and lease is not None and lease.get("package_id") == key]
+        if running:
+            baseline_can_progress = all(key in approved_slices for key in running)
+            if not baseline_can_progress:
+                from archive_ui_baseline import baseline_material_action
+                affected = [issue for key in running for issue in scoped.get(key, {}).get("blockers", [])]
+                if (affected or not review.get("confirmation_current", True)
+                        or any(scoped.get(key, {}).get("status") != "ready" for key in running)):
+                    return ("ui-inputs-blocked", baseline_material_action(), requires_human,
+                            affected or [{"code": "UI_BASELINE_APPROVAL_REQUIRED", "message": "当前执行切片的依据已变化，先补齐并确认；切换切片前按已有恢复流程收敛修改租约。"}])
+        else:
+            baseline_can_progress = any(slices.get(key, {}).get("status") not in {"accepted", "abandoned"}
+                                        for key in approved_slices)
+    if baseline.get("status") not in {"approve", "not_applicable"} and not baseline_can_progress:
+        if scoped and not (set(review.get("ready_slice_ids", [])) - approved_slices):
+            from archive_ui_baseline import baseline_material_action
+            return "ui-inputs-blocked", baseline_material_action(), requires_human, review.get("blockers", [])
+        if review.get("status") not in {"ready", "partial"} or not review.get("confirmation_current", True):
             return "ui-inputs", {"command": "ui-baseline"}, requires_human, review.get("blockers", [])
         return ("ui-baseline-review", {"command": "stage-action", "stage": "ui-baseline", **review},
-                {"required": True, "decision": "展示当前开工清单，等待用户明确确认。"},
+                {"required": True, "decision": "展示当前开工清单、可开工切片及保留缺项，等待用户明确确认。"},
                 [{"code": "UI_BASELINE_APPROVAL_REQUIRED", "message": "当前开工清单尚未得到用户确认。"}])
     if feature.lifecycle not in {"validating", "frozen", "pending_cleanup"} and (
         feature.lifecycle == "active" or slices
@@ -1033,6 +1055,10 @@ def _stage_projection(
             and lease.get("feature_id") == feature_id
             and lease.get("package_id") == package_id
         ]
+        if scoped:
+            unresolved = [(key, item) for key, item in unresolved if key in approved_slices]
+            executing = [(key, item) for key, item in executing
+                         if item.get("status") != "interrupted" or key in approved_slices]
         selected = leased or executing or unresolved
         if len(selected) > 1:
             blockers.append({"code": "AMBIGUOUS_CURRENT_SLICE", "message": "存在多个未收敛切片，无法确定唯一下一动作。"})
@@ -1787,7 +1813,7 @@ def _implementation_role_view(
         result["preconditions"].append("当前开工清单已得到用户确认")
         result["required_materials"].append({"source": "ui-baseline", "path": str(feature.path / BASELINE_PATH),
                                             "purpose": "使用用户已确认的预制体、协议、配置及需求依据", "mode": "full"})
-        result["decision_rules"].append("发现必需材料缺失、歧义或需要更换业务依据时，停止整个需求的实施，交还协调者更新开工清单并重新确认；不得自行用占位、延期或拆分绕过。")
+        result["decision_rules"].append("发现必需材料缺失、歧义或需要更换业务依据时，停止受影响切片及其依赖者，交还协调者更新开工清单；其他独立且确认有效的切片可继续。当前执行切换前先按原流程收敛修改租约；不得以占位、删除映射或擅自延期绕过缺项。")
         from archive_candidates import candidate_delivery_package
         result["delivery_requirements"] = candidate_delivery_package(record).get("delivery_requirements", [])
         result["expected_outputs"].append(
@@ -2142,7 +2168,11 @@ def context_summary(
         requirements_status=requirements,
         stale_documents=stale,
     )
-    if request.role == "implementation" and approval_statuses.get("ui-baseline", "not_applicable") not in {"approve", "not_applicable"}:
+    from archive_ui_baseline import baseline_allows_slice
+    baseline = delivery["conclusions"]["approvals"].get("ui-baseline", {"status": "not_applicable"})
+    execution_record = find_slice_by_execution(_execution_state(state), request.execution_id)
+    package_id = execution_record["package"]["package_id"] if execution_record else None
+    if request.role == "implementation" and not baseline_allows_slice(baseline.get("review", {}), baseline["status"], package_id):
         role_blockers = ({"code": "UI_BASELINE_APPROVAL_REQUIRED", "message": "开工依据未确认或已变化，停止实施并交还协调者。"},)
     elif contract.requires_clear_architecture and approval_statuses["architecture"] in {
         "reject", "stale",

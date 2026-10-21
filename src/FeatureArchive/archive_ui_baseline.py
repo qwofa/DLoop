@@ -11,6 +11,7 @@ from pathlib import Path
 from archive_changes import _replace_files_atomically
 from archive_configuration import ArchiveConfigurationError
 from archive_paths import project_root_from_archive_root
+from archive_slice_plan import current_plan, digest
 from archive_workspace import serialized_workflow_state
 
 
@@ -86,18 +87,20 @@ def baseline_input_template(graph, feature_id, state):
     project_root = project_root_from_archive_root(graph.root)
     exclusions = [deepcopy(entry) for entry in previous["scope_exclusions"]
                   if str((project_root / entry["source"]).resolve()) in source_paths] if previous else []
-    return {"input_version": 2, "scope_exclusions": exclusions, "items": items}
+    return {"input_version": 2, "scope_exclusions": exclusions, "items": items,
+            "slice_requirements": deepcopy(previous.get("slice_requirements", {})) if previous else {}}
 
 
 def baseline_material_action():
     return {"command": "ui-baseline", "kind": "investigate",
             "reason": "协调者先核对已登记材料和项目文件，集中补齐可查明的缺项；仅将仍缺的业务事实或决定交给用户。"
-                      "没有新证据时不重交；材料齐备并确认前停止整个需求的实施。"}
+                      "没有新证据时不重交；按当前方案登记 slice_requirements 后，仅阻断缺项涉及的切片及其依赖者。未明确依赖边界前不启动实施。"}
 
 
 def _normalize(value):
     if (not isinstance(value, dict)
-            or set(value) != {"input_version", "scope_exclusions", "items"}
+            or not {"input_version", "scope_exclusions", "items"} <= set(value)
+            or set(value) - {"input_version", "scope_exclusions", "items", "slice_requirements"}
             or value["input_version"] != 2):
         raise _error("开工清单必须包含 input_version=2、scope_exclusions 和 items。")
     if not isinstance(value["items"], list):
@@ -112,6 +115,12 @@ def _normalize(value):
                for field in ("source", "locator", "outcome", "reason")):
             raise _error("范围排除必须说明来源、位置、不交付结果和原因。")
         exclusions.append({field: entry[field].strip() for field in ("source", "locator", "outcome", "reason")})
+    mapping = value.get("slice_requirements", {})
+    if not isinstance(mapping, dict) or any(
+            not isinstance(key, str) or not key.strip() or not isinstance(keys, list) or not keys
+            or any(not isinstance(item, str) or not item.strip() for item in keys)
+            or len(set(keys)) != len(keys) for key, keys in mapping.items()):
+        raise _error("slice_requirements 必须将每个切片映射到非空且不重复的需求键列表；共同依赖列入每个使用它的切片。")
     seen = set()
     for item in value["items"]:
         if not isinstance(item, dict) or set(item) != {"requirement_key", *CATEGORIES}:
@@ -132,6 +141,7 @@ def _normalize(value):
                 for field in ("reference", "purpose"):
                     entry[field] = entry[field].strip()
     return {"input_version": 2,
+            "slice_requirements": {key: sorted(keys) for key, keys in sorted(mapping.items())},
             "scope_exclusions": sorted(exclusions, key=lambda item: (item["source"], item["locator"], item["outcome"])),
             "items": sorted(value["items"], key=lambda item: item["requirement_key"])}
 
@@ -204,10 +214,17 @@ def _blockers(value, facts, project_root):
     return blockers
 
 
-def _render(value, facts, blockers):
-    lines = ["# DloopUI 开工确认", "", "请核对每项功能的预期结果、使用材料及用途。缺项未补齐时不能开工；补齐材料不代表已经确认。", ""]
+def _render(value, facts, blockers, slice_reviews):
+    lines = ["# DloopUI 开工确认", "", "请核对每项功能的预期结果、使用材料及用途。缺项阻断对应切片及其依赖者；明确映射后可确认材料齐备的独立切片。缺项仍保留，补齐材料不代表已经确认。", ""]
     if blockers:
         lines += ["## 待补齐", "", *[f"- {item['message']}" for item in blockers], ""]
+    if value["slice_requirements"]:
+        lines += ["## 切片与直接使用的需求", "", "前置与替代依赖沿用已批准方案；共同材料须列入所有使用它的切片。", ""]
+        for key, keys in value["slice_requirements"].items():
+            review = slice_reviews.get(key, {})
+            status = "材料齐备，可请求开工确认" if review.get("status") == "ready" else "受阻，不能开工"
+            lines.append(f"- {key}（{status}）：{'、'.join(keys)}")
+            lines.extend(f"- 阻断依据：{item['message']}" for item in review.get("blockers", []))
     lines += ["## 本次明确不做", ""]
     if value["scope_exclusions"]:
         lines += [f"- {item['outcome']}；来源：{item['source']}（{item['locator']}）；原因：{item['reason']}"
@@ -241,11 +258,63 @@ def _render(value, facts, blockers):
 
 
 def _material_scope(value):
-    return {"scope_exclusions": value["scope_exclusions"],
+    return {"slice_requirements": value["slice_requirements"], "scope_exclusions": value["scope_exclusions"],
             "items": [{"requirement_key": item["requirement_key"],
                        **{category: [{field: entry[field] for field in ("status", "reference")}
                                      for entry in item[category]] for category in CATEGORIES}}
                       for item in value["items"]]}
+
+
+def _slice_reviews(value, facts, saved, state, blockers):
+    """由已批准方案和同一清单即时计算影响范围，不维护另一套阻断状态。"""
+    mapping = value["slice_requirements"]
+    if not mapping:
+        return {}
+    plan_record = current_plan(state["execution"]["slice_plan"])
+    declarations = {item["slice_id"]: item for item in plan_record["plan"]["slices"]} if plan_record else {}
+    known = {item["key"] for item in facts["requirements"]}
+    covered = {key for keys in mapping.values() for key in keys}
+    if set(mapping) != set(declarations) or covered != known:
+        blockers.append({"code": "UI_BASELINE_INCOMPLETE", "message":
+                         "切片映射必须覆盖当前批准方案的全部切片和全部需求，不得包含未知项；先核对方案和共同依赖。"})
+        return {}
+    current_facts = {item["key"]: item for item in facts["requirements"]}
+    saved_facts = {item["key"]: item for item in saved["facts"]["requirements"]}
+    approval = state["approvals"].get("ui-baseline") or {}
+    approved = approval.get("snapshot", {}).get("slice_digests", {}) if approval.get("decision") == "approve" else {}
+    reviews = {}
+    for slice_id in mapping:
+        dependencies = set()
+        pending = [slice_id]
+        while pending:
+            current = pending.pop()
+            if current in dependencies:
+                continue
+            dependencies.add(current)
+            pending.extend(declarations[current]["prerequisites"] + declarations[current]["replacements"])
+        keys = {key for dependency in dependencies for key in mapping[dependency]}
+        relevant = [item for item in blockers if not item.get("requirement_key") or item["requirement_key"] in keys]
+        saved_declarations = {item["slice_id"]: item for item in saved["slice_plan"]}
+        if (any(saved_facts.get(key) != current_facts[key] for key in keys)
+                or saved["facts"]["sources"] != facts["sources"]
+                or any(saved_declarations.get(key) != declarations[key] for key in dependencies)):
+            relevant.append({"code": "UI_BASELINE_STALE", "message": "本切片使用的需求或来源已变化，请重新核对清单。"})
+        basis = {"scope_exclusions": value["scope_exclusions"],
+                 "requirements": [current_facts[key] for key in sorted(keys)],
+                 "sources": facts["sources"], "items": [saved["material_digests"].get(key) for key in sorted(keys)],
+                 "dependencies": [{**declarations[key], "requirement_keys": mapping[key]} for key in sorted(dependencies)]}
+        # 纯措辞修订保留同一确认依据；实质变化由提交入口重新计算。
+        current_digest = digest(basis)
+        reviews[slice_id] = {"status": "blocked" if relevant else "ready", "blockers": relevant,
+                             "requirement_keys": sorted(keys), "reviewed_digest": current_digest,
+                             "approval_status": "approve" if not relevant and approved.get(slice_id) == current_digest else "pending"}
+    return reviews
+
+
+def baseline_allows_slice(review, approval_status, package_id):
+    if review.get("slice_reviews"):
+        return review["slice_reviews"].get(package_id, {}).get("approval_status") == "approve"
+    return approval_status in {"approve", "not_applicable"}
 
 
 def baseline_review(graph, feature_id, state):
@@ -256,11 +325,18 @@ def baseline_review(graph, feature_id, state):
     if not path.is_file():
         return {"status": "missing", "blockers": [{"code": "UI_BASELINE_REQUIRED", "message": "请先调查并提交四类开工材料清单。"}]}
     saved = json.loads(path.read_text(encoding="utf-8"))
-    value = _normalize({key: saved[key] for key in ("input_version", "scope_exclusions", "items")})
+    value = _normalize({key: saved[key] for key in ("input_version", "scope_exclusions", "items", "slice_requirements")})
     blockers = _blockers(value, facts, project_root_from_archive_root(graph.root))
-    if saved["facts"] != facts:
+    slice_reviews = _slice_reviews(value, facts, saved, state, blockers)
+    current = current_plan(state["execution"]["slice_plan"])
+    plan_changed = value["slice_requirements"] and saved["slice_plan"] != (current["plan"]["slices"] if current else [])
+    if saved["facts"] != facts or plan_changed:
         blockers.append({"code": "UI_BASELINE_STALE", "message": "需求范围或预制体匹配已变化，请重新提交开工清单。"})
-    return {"status": "blocked" if blockers else "ready", "blockers": blockers,
+    ready = [key for key, item in slice_reviews.items() if item["status"] == "ready"]
+    return {"status": ("partial" if ready else "blocked") if blockers else "ready", "blockers": blockers,
+            "slice_reviews": slice_reviews, "ready_slice_ids": ready,
+            "approved_slice_ids": [key for key, item in slice_reviews.items() if item["approval_status"] == "approve"],
+            "confirmation_current": saved["facts"] == facts and not plan_changed,
             "reviewed_digest": saved["reviewed_digest"], "materials": [str(feature_path / REVIEW_PATH)]}
 
 
@@ -278,28 +354,40 @@ def submit_ui_baseline(root, feature_id, input_path, semantic_change=True):
         raise _error(f"无法读取开工清单：{exception}") from exception
     facts = _facts(graph, feature_id, model)
     blockers = _blockers(value, facts, project_root_from_archive_root(root))
-    saved = {**value, "facts": facts}
+    plan_record = current_plan(state["execution"]["slice_plan"])
+    saved = {**value, "facts": facts,
+             "slice_plan": plan_record["plan"]["slices"] if value["slice_requirements"] and plan_record else []}
     baseline_path = feature.path / BASELINE_PATH
     previous = json.loads(baseline_path.read_text(encoding="utf-8")) if baseline_path.is_file() else None
     if not semantic_change and (previous is None or previous["facts"] != facts
+                                or previous["slice_plan"] != saved["slice_plan"]
                                 or _material_scope(previous) != _material_scope(value)):
         raise _error("非语义修订只允许修改已有清单的用途措辞；首次提交或需求、材料引用、状态变化时，"
                      "请对当前输入去掉 --semantic-change false 后重交，并展示更新后的材料重新确认。")
+    previous_items = {item["requirement_key"]: item for item in previous["items"]} if previous else {}
+    saved["material_digests"] = {
+        item["requirement_key"]: (previous["material_digests"][item["requirement_key"]]
+                                  if previous_items.get(item["requirement_key"]) == item else digest(item))
+        for item in value["items"]}
+    if not semantic_change and previous is not None:
+        saved["material_digests"] = previous["material_digests"]
+    slice_reviews = _slice_reviews(value, facts, saved, state, blockers)
     unchanged = previous is not None and all(previous[key] == saved[key] for key in saved)
     # 语义由 AI 明确声明；纯文案修订沿用业务依据摘要，不改写用户的原始确认记录。
     saved["reviewed_digest"] = (previous["reviewed_digest"] if unchanged or not semantic_change else
                                 "sha256:" + hashlib.sha256(json.dumps(saved, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest())
     _replace_files_atomically(root, {
         baseline_path: json.dumps(saved, ensure_ascii=False, indent=2) + "\n",
-        feature.path / REVIEW_PATH: _render(value, facts, blockers),
+        feature.path / REVIEW_PATH: _render(value, facts, blockers, slice_reviews),
     })
     review = baseline_review(graph, feature_id, state)
     approval = state["approvals"].get("ui-baseline") or {}
     approval_preserved = (review["status"] == "ready" and approval.get("decision") == "approve"
                           and approval.get("reviewed_digest") == review["reviewed_digest"])
     next_action = {"command": "stage-action", "stage": "ui-baseline", "reviewed_digest": review["reviewed_digest"]}
-    if blockers:
-        next_action = baseline_material_action()
+    if blockers or review["slice_reviews"]:
+        from archive_context import _delivery_view
+        next_action = _delivery_view(graph, feature_id, state)["next_action"]
     elif approval_preserved:
         next_action = {"command": "workflow-status", "arguments": {"feature_id": feature_id}}
     else:
