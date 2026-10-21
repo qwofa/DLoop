@@ -933,6 +933,165 @@ class FeatureArchiveDloopUiTests(FeatureArchiveCliTestCase):
                 self.assertEqual("INVALID_UI_BASELINE", result["code"])
                 self.assertEqual(before, (archive / "04-plan/ui-implementation-baseline.json").read_bytes())
 
+    def test_incomplete_baseline_submission_follows_current_requirements_action(self):
+        from archive_tool_api import invoke_tool
+
+        archive, source = self.init_ui()
+        brief = self.write_brief([self.requirement(source, match={
+            "status": "not-found", "detail": "项目尚未找到对应预制体", "searched_paths": ["Assets/UI"],
+        })])
+        self.investigate(archive, brief)
+        prepared = self.run_cli("prepare-action-input", "--feature-id", archive.name, "--input-kind", "ui-baseline")
+        state = archive / "workflow-state.json"
+        before = state.read_bytes()
+        cli = self.run_cli("ui-baseline", "--feature-id", archive.name, "--input", prepared["target"])
+        code, structured = invoke_tool(self.project_root, "dloop_submit_ui_baseline", {
+            "feature_id": archive.name, "baseline": prepared["template"],
+        })
+        self.assertEqual(0, code)
+        view = self.ui_approval_view(archive)
+        self.assertEqual("requirements", view["current_stage"])
+        self.assertEqual("write", view["next_action"]["kind"])
+        self.assertEqual((archive / "01-requirements/README.md").resolve(), Path(view["next_action"]["target"]).resolve())
+        for result in (cli, structured):
+            self.assertEqual("blocked", result["status"])
+            self.assertTrue(result["blockers"])
+            self.assertFalse(result["approval_preserved"])
+            self.assertEqual(view["next_action"], result["next_action"])
+        self.assertEqual(before, state.read_bytes())
+
+    def prepare_partitioned_ui(self):
+        archive, _, package = self.prepare_ui_execution(approve_baseline=False)
+        source = self.project_root / "requirements.md"
+        match = {"status": "matched", "prefabs": [{"path": "Assets/UI/RewardPanel.prefab", "name": "奖励界面", "reason": "同一资源承载独立业务"}]}
+        requirements = [self.requirement(source, match=match),
+                        self.requirement(source, key="reward.preview", name="预览奖励", match=match)]
+        investigation = self.investigate(archive, self.write_brief(requirements), CaptureFixture())
+        review = self.write_review(investigation, [self.change_outcome(investigation, item["key"]) for item in requirements])
+        self.run_cli("ui-publish", "--feature-id", archive.name, "--input", review)
+        self.ensure_approved_slice_plan("ui-slice", "preview", "report", feature_id=archive.name,
+                                        prerequisites={"report": ["preview"]})
+        value, _ = self.submit_baseline(archive)
+        value["slice_requirements"] = {"ui-slice": ["reward.receive"], "preview": ["reward.preview"],
+                                        "report": ["reward.receive"]}
+        return archive, package, value
+
+    def test_partitioned_baseline_allows_independent_slice_and_blocks_dependents(self):
+        from archive_tool_api import invoke_tool
+
+        archive, package, value = self.prepare_partitioned_ui()
+        value["items"][0]["protocols"][0]["status"] = "missing"  # 排序后的预览需求缺协议。
+        self.assertEqual("reward.preview", value["items"][0]["requirement_key"])
+        code, result = invoke_tool(self.project_root, "dloop_submit_ui_baseline", {
+            "feature_id": archive.name, "baseline": value,
+        })
+        self.assertEqual(0, code, result)
+        self.assertEqual("partial", result["status"])
+        self.assertEqual(["ui-slice"], result["ready_slice_ids"])
+        self.assertEqual("ui-baseline-review", self.ui_approval_view(archive)["current_stage"])
+        self.submit_baseline(archive, value=value, approve=True)
+        for package_id in ("preview", "report"):
+            other = self.write_package(package_id, feature_id=archive.name)
+            rejected = self.run_cli("start-slice", "--feature-id", archive.name, "--execution-id", "blocked-" + package_id,
+                                    "--package-file", other, "--workspace-root", self.workspace, expected=1)
+            self.assertEqual("UI_BASELINE_APPROVAL_REQUIRED", rejected["code"])
+        self.run_cli("start-slice", "--feature-id", archive.name, "--execution-id", "partition-impl",
+                     "--package-file", package, "--workspace-root", self.workspace)
+        handoff = self.run_cli("prepare-handoff", "--feature-id", archive.name, "--action", "implementation",
+                               "--role", "implementation", "--execution-id", "partition-impl")
+        self.assertTrue(handoff["handoff_ready"])
+        view = self.ui_approval_view(archive)
+        self.assertEqual("implementation", view["current_stage"])
+        self.assertEqual("incomplete", view["delivery_summary"]["completion_claim"])
+        self.assertEqual("blocked", view["conclusions"]["approvals"]["ui-baseline"]["review"]["slice_reviews"]["report"]["status"])
+        self.assertNotEqual("approve", view["conclusions"]["approvals"]["ui-baseline"]["status"])
+        implementation = self.workspace / "ui-slice.txt"
+        implementation.write_text("领取功能已接通", encoding="utf-8")
+        self.record_checkpoint("partition-impl", feature_id=archive.name)
+        candidate = write_candidate(archive / "05-implementation/partition-candidate.json", "partition-candidate")
+        self.run_cli("submit-slice", "--feature-id", archive.name, "--execution-id", "partition-impl",
+                     "--status", "completed", "--candidate-file", candidate)
+        self.run_cli("review-slice", "--feature-id", archive.name, "--package-id", "ui-slice",
+                     "--candidate-id", "partition-candidate", "--review-execution-id", "partition-review", "--result", "passed")
+        self.assertEqual("accepted", self.ui_approval_view(archive)["conclusions"]["slices"]["ui-slice"]["status"])
+        self.assertEqual("ui-inputs-blocked", self.ui_approval_view(archive)["current_stage"])
+        self.run_cli("transition-lifecycle", "--feature-id", archive.name, "--to", "validating")
+        self.run_cli("stage-action", "--feature-id", archive.name, "--stage", "final", "--decision", "approve", expected=1)
+        self.assertEqual("incomplete", self.ui_approval_view(archive)["delivery_summary"]["completion_claim"])
+
+    def test_partitioned_baseline_keeps_unaffected_approval_and_requires_reconfirmation(self):
+        archive, package, value = self.prepare_partitioned_ui()
+        self.submit_baseline(archive, value=value, approve=True)
+        self.run_cli("start-slice", "--feature-id", archive.name, "--execution-id", "partition-impl",
+                     "--package-file", package, "--workspace-root", self.workspace)
+        preview = next(item for item in value["items"] if item["requirement_key"] == "reward.preview")
+        preview["protocols"][0]["status"] = "missing"
+        _, result = self.submit_baseline(archive, value=value)
+        self.assertEqual(["ui-slice"], result["approved_slice_ids"])
+        self.assertEqual("implementation", self.ui_approval_view(archive)["current_stage"])
+        preview["protocols"][0].update(status="verified", purpose="新协议提供完整预览结果，旧含义不再沿用")
+        _, result = self.submit_baseline(archive, value=value)
+        self.assertEqual("ready", result["status"])
+        self.assertEqual(["ui-slice"], result["approved_slice_ids"])
+        self.submit_baseline(archive, value=value, approve=True)
+        receive = next(item for item in value["items"] if item["requirement_key"] == "reward.receive")
+        receive["configurations"][0]["status"] = "ambiguous"
+        _, result = self.submit_baseline(archive, value=value)
+        self.assertEqual(["preview"], result["approved_slice_ids"])
+        self.assertEqual("ui-inputs-blocked", self.ui_approval_view(archive)["current_stage"])
+        blocked = self.run_cli("prepare-handoff", "--feature-id", archive.name, "--action", "implementation",
+                              "--role", "implementation", "--execution-id", "partition-impl")
+        self.assertFalse(blocked["handoff_ready"])
+        receive["configurations"][0].update(status="verified", purpose="已核实领取配置的新含义")
+        self.submit_baseline(archive, value=value)
+        self.assertEqual("ui-baseline-review", self.ui_approval_view(archive)["current_stage"])
+        self.submit_baseline(archive, value=value, approve=True)
+        self.assertEqual("implementation", self.ui_approval_view(archive)["current_stage"])
+        receive["configurations"][0]["status"] = "ambiguous"
+        self.submit_baseline(archive, value=value)
+        # 被阻断的执行仍可按原中断入口收敛，不能被开工门禁困在修改租约中。
+        self.run_cli("submit-slice", "--feature-id", archive.name, "--execution-id", "partition-impl", "--status", "interrupted")
+        self.assertEqual("implementation-required", self.ui_approval_view(archive)["current_stage"])
+        other = json.loads(package.read_text(encoding="utf-8"))
+        other["package_id"] = "preview"
+        other_path = package.parent / "preview-package.json"
+        other_path.write_text(json.dumps(other), encoding="utf-8")
+        self.run_cli("start-slice", "--feature-id", archive.name, "--execution-id", "preview-impl",
+                     "--package-file", other_path, "--workspace-root", self.workspace)
+        self.assertEqual("implementation", self.ui_approval_view(archive)["current_stage"])
+
+    def test_partitioned_baseline_requires_complete_mapping_and_propagates_shared_input(self):
+        archive, _, value = self.prepare_partitioned_ui()
+        value["slice_requirements"]["ui-slice"].append("reward.preview")
+        value["items"][0]["protocols"][0]["status"] = "missing"
+        _, result = self.submit_baseline(archive, value=value)
+        self.assertEqual("blocked", result["status"])
+        self.assertEqual([], result["ready_slice_ids"])
+        self.assertTrue(all(item["status"] == "blocked" for item in result["slice_reviews"].values()))
+        value["items"][0]["protocols"][0]["status"] = "verified"
+        del value["slice_requirements"]["preview"]
+        _, result = self.submit_baseline(archive, value=value)
+        self.assertEqual("blocked", result["status"])
+        self.assertTrue(any("完整" in item["message"] or "覆盖" in item["message"] for item in result["blockers"]))
+
+    def test_partitioned_baseline_plan_dependency_change_invalidates_only_consumers(self):
+        archive, _, value = self.prepare_partitioned_ui()
+        self.submit_baseline(archive, value=value, approve=True)
+        self.ensure_approved_slice_plan("ui-slice", "preview", "report", feature_id=archive.name,
+                                        prerequisites={"ui-slice": ["preview"]})
+        view = self.ui_approval_view(archive)
+        review = view["conclusions"]["approvals"]["ui-baseline"]["review"]
+        self.assertEqual(["preview", "report"], review["approved_slice_ids"])
+        self.assertEqual("pending", review["slice_reviews"]["ui-slice"]["approval_status"])
+        rejected = self.run_cli("stage-action", "--feature-id", archive.name, "--stage", "ui-baseline", "--decision", "approve",
+                                "--reviewed-digest", review["reviewed_digest"], "--user-confirmation", "用户确认旧展示", expected=1)
+        self.assertEqual("UI_BASELINE_STALE", rejected["code"])
+        self.submit_baseline(archive, value=value, approve=True)
+        value["items"][0]["protocols"][0]["purpose"] += "。"
+        _, revised = self.submit_baseline(archive, value=value, semantic_change=False)
+        self.assertEqual(["preview", "report", "ui-slice"], revised["approved_slice_ids"])
+        self.assertTrue(revised["approval_preserved"])
+
     def test_ui_baseline_each_missing_category_blocks_whole_delivery(self):
         archive, _, package = self.prepare_ui_execution(approve_baseline=False)
         complete, _ = self.submit_baseline(archive)

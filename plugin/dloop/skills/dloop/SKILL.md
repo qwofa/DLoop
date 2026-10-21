@@ -1,10 +1,10 @@
 ---
 name: dloop
-description: 使用 DLoop v4.0.1 管理至少包含一个实施切片的大型功能交付流；普通调用不生成 Unity UI 专属产物。
+description: 使用 DLoop v4.0.2 管理至少包含一个实施切片的大型功能交付流；普通调用不生成 Unity UI 专属产物。
 disable-model-invocation: true
 ---
 
-# DLoop v4.0.1 功能交付流入口
+# DLoop v4.0.2 功能交付流入口
 
 本技能只在用户显式调用 Codex 的 `$dloop` 或 Cursor 的 `/dloop`，且目标需要跨轮规划、至少一个实现切片、独立候选评审和最终集成验收时管理大型功能交付。不满足入口条件的事项直接按普通任务处理，不初始化交付档案；进行中确认不需要实现切片时停止 DLoop，不得用空候选集合完成验收。DloopUI 是独立的显式入口；界面相关自然语言不会让普通 DLoop 选择 UI 配置或生成 UI 证据。
 
@@ -20,7 +20,7 @@ disable-model-invocation: true
 4. 按 `delivery_view` 推进；事实不唯一由协调者决定，机器阻断原样返回，不拼接视图或手改状态。暂停、保存或回退先按 `snapshot` 规则处理；返修用 `slice-release`。
 5. 创建下游上下文前调用 `prepare-handoff --feature-id <id> --action <action> --role <role>`，附上该角色所需临时输入。只有 `handoff_ready: true` 才交付工具生成的 `task_message` 与 `context_command` 并启动下游；正式事实不复制进任务消息。缺项由原上游上下文在授权范围内补齐，输入未变化时不重试；涉及业务决定或批准变化时交还协调者。下游自行执行返回的读取命令，独立核对完整性与业务正确性。
 
-交付档案固定在 `.scratch/dloop-v3/v4.0.1/outputs/<feature-id>/`，阶段依次是需求、调查、设计、计划、实施、验证。已连接 DLoop MCP 时，先核对返回的项目根；状态用 `dloop_status`，四类输入用 `dloop_prepare_input` 取模板后调用对应提交工具，勿手写 JSON 文件。其余动作或未连接时用 `python Tools/FeatureArchive/feature_archive.py <command>`；写入位置以返回为准。
+交付档案固定在 `.scratch/dloop-v3/v4.0.2/outputs/<feature-id>/`，阶段依次是需求、调查、设计、计划、实施、验证。已连接 DLoop MCP 时，先核对返回的项目根；状态用 `dloop_status`，四类输入用 `dloop_prepare_input` 取模板后调用对应提交工具，勿手写 JSON 文件。其余动作或未连接时用 `python Tools/FeatureArchive/feature_archive.py <command>`；写入位置以返回为准。
 
 ## 动作路由
 
@@ -50,7 +50,7 @@ python Tools/FeatureArchive/feature_archive.py workflow-rules `
 
 ## 关键不变量
 
-- DloopUI 保留内部需求与设计；四类必要材料齐备后，展示开工清单并取得用户确认。缺项、歧义或确认失效时停止整个需求的实施。实施中补齐范围内交互；最终展示并等待用户验收。
+- DloopUI 保留内部需求与设计；计划说明独立结果及拆分/合并理由，开工清单按批准方案映射各切片所需材料。缺项、歧义或确认失效只阻断受影响切片及依赖者；独立且材料齐备的切片经用户确认后继续。保留缺项，不放宽最终验收。
 - 当前动作只读取能改变判断或产出的最小工作集。实施从角色视图、授权项目事实和本轮验证证据开始；评审从固定候选和批准材料出发核对相关项目事实，不接收实施对话。
 - `context-summary --feature-id <id> --action <action> --role <role>` 与 `workflow-status` 共享事实源。角色视图、字段合同、状态迁移、写入范围、修改租约、新鲜度、候选固定、评审身份、最终绑定和清理资格均以工具结果为准。
 - 单线实施，使用项目的 Git 或 SVN 工作区；实施与候选评审身份独立。候选评审和最终验收只读，自审、候选漂移、缺材料或批准过期时停止并交还主协调者。

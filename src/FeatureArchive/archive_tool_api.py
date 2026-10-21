@@ -45,10 +45,11 @@ _MATERIALS = {"type": "array", "items": _object({
 })}
 _BASELINE = _object({
     "input_version": {"const": 2},
+    "slice_requirements": {"type": "object", "additionalProperties": {"type": "array", "items": _ID, "minItems": 1, "uniqueItems": True}},
     "scope_exclusions": {"type": "array", "items": _object({key: _TEXT for key in ("source", "locator", "outcome", "reason")})},
     "items": {"type": "array", "items": _object({"requirement_key": _ID,
         **{key: _MATERIALS for key in ("prefabs", "protocols", "configurations", "requirement_sources")}})},
-})
+}, ["input_version", "scope_exclusions", "items"])
 
 _PREPARE = _object({"feature_id": _ID, "input_kind": {"enum": ["task-package", "checkpoint", "candidate", "ui-baseline"]},
                     "package_id": _ID, "execution_id": _ID}, ["feature_id", "input_kind"])

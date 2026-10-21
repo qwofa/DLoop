@@ -205,7 +205,7 @@ def supplement_slice_validation(
     _, lease = require_modification_lease(root, feature_id, package_id)
     if lease.get("holder_execution_id") != execution_id:
         raise ArchiveSliceFlowError("EXECUTION_ID_MISMATCH", "执行身份与修改租约不一致。")
-    _require_ready_execution_inputs(graph, feature_id)
+    _require_ready_execution_inputs(graph, feature_id, package_id)
     package = deepcopy(record["package"])
     contract = package["slice_contract"]
     if validation_level not in VALIDATION_LEVELS or VALIDATION_LEVELS.index(validation_level) < VALIDATION_LEVELS.index(contract["validation_level"]):
