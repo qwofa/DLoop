@@ -1,6 +1,6 @@
 # 结构化工具连接
 
-v4.0.2 提供项目内 MCP stdio 服务。模型直接传递结构化内容，工具负责序列化、规范路径及保存；业务状态、范围校验、批准、独立评审和快照仍由现有核心处理。
+v4.0.3 提供项目内 MCP stdio 服务。模型直接传递结构化内容，工具负责序列化、规范路径及保存；业务状态、范围校验、批准、独立评审和快照仍由现有核心处理。
 
 | 工具 | 用途 |
 |---|---|
@@ -51,8 +51,45 @@ tool_timeout_sec = 120
 
 在宿主 MCP 配置中启用服务并检查工具列表。配置位置与变量格式见 [Cursor MCP 文档](https://cursor.com/docs/mcp)。
 
+## Claude Code
+
+在安装目标项目的 `.mcp.json` 中合并以下服务器，保留其他条目，并将示例换成目标项目的实际绝对路径：
+
+```json
+{
+  "mcpServers": {
+    "dloop": {
+      "type": "stdio",
+      "command": "uv",
+      "args": ["run", "--script", "D:/projects/my-project/Tools/FeatureArchive/dloop_mcp.py"]
+    }
+  }
+}
+```
+
+也可在目标项目内通过 Claude Code 的项目级 MCP 添加命令登记同一启动命令。首次使用按宿主提示信任项目与连接，在 `/mcp` 查看服务状态；先查询 DLoop 状态并核对返回项目根，再提交业务输入。子 Agent 需要读取正式材料、运行 CLI 及登记结论的权限，不能仅为评审选择禁用全部命令的角色。配置与范围见 [Claude Code MCP 文档](https://code.claude.com/docs/en/mcp)。
+
+## OpenCode
+
+在安装目标项目的 `opencode.json` 中合并以下配置，保留其他条目，并替换示例绝对路径：
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "dloop": {
+      "type": "local",
+      "command": ["uv", "run", "--script", "D:/projects/my-project/Tools/FeatureArchive/dloop_mcp.py"],
+      "enabled": true
+    }
+  }
+}
+```
+
+使用 `opencode mcp list` 检查连接，再查询 DLoop 状态核对项目根。OpenCode 的 `command` 包含可执行文件及全部参数，与 Claude Code 的 `command`、`args` 分开配置不同。主 Agent 和子 Agent 均须能使用需要的工作流工具及 CLI；沿用正常权限配置。见 [OpenCode MCP 文档](https://opencode.ai/docs/mcp-servers/)。
+
 ## 升级与卸载
 
-安装器部署服务脚本，不覆盖 Codex 或 Cursor 的配置。升级前停止正在执行的工作及 DLoop MCP 服务，完成安装后重新连接。旧进程发现版本变化会返回 `DLOOP_RESTART_REQUIRED`，不会继续执行旧代码。升级仍整体归档旧作业，不跨版本续跑。
+安装器部署服务脚本，不覆盖 Codex、Cursor、Claude Code 或 OpenCode 的配置。升级前停止正在执行的工作及 DLoop MCP 服务，完成安装后重新连接。旧进程发现版本变化会返回 `DLOOP_RESTART_REQUIRED`，不会继续执行旧代码。升级仍整体归档旧作业，不跨版本续跑。
 
 卸载 DLoop 后移除对应 MCP 条目。启动失败时检查 `uv` 是否可从宿主访问，以及依赖下载是否成功；宿主找不到 `uv` 时可把 `command` 改为其绝对路径。

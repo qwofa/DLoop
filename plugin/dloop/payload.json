@@ -14,6 +14,18 @@
       "destination": ".agents/skills/dloop-ui"
     },
     {
+      "id": "dloop-claude-skill",
+      "kind": "skill",
+      "source": "skills/dloop",
+      "destination": ".claude/skills/dloop"
+    },
+    {
+      "id": "dloop-ui-claude-skill",
+      "kind": "skill",
+      "source": "skills/dloop-ui",
+      "destination": ".claude/skills/dloop-ui"
+    },
+    {
       "id": "dloop-ui-runtime",
       "kind": "runtime",
       "source": "runtime",

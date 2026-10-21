@@ -52,10 +52,10 @@ class GitInstallationTests(unittest.TestCase):
                 index_path = Path(self.git(target, "rev-parse", "--path-format=absolute", "--git-path", "index").strip())
                 index_before = index_path.read_bytes()
                 ignore_before = (repository / ".gitignore").read_bytes()
-                archive = target / ".scratch/dloop-v3/v4.0.2/outputs/retained.txt"
+                archive = target / ".scratch/dloop-v3/v4.0.3/outputs/retained.txt"
                 archive.parent.mkdir(parents=True)
                 archive.write_bytes(b"keep archive")
-                history = target / ".scratch/dloop-v3/v4.0.2/snapshots/retained.git/objects/retained"
+                history = target / ".scratch/dloop-v3/v4.0.3/snapshots/retained.git/objects/retained"
                 history.parent.mkdir(parents=True)
                 history.write_bytes(b"persistent snapshot")
                 result = self._run(target, "-Version", f"v{VERSION}")
@@ -72,6 +72,13 @@ class GitInstallationTests(unittest.TestCase):
                     self.assertEqual(b"working content", marker.read_bytes())
                     self.assertEqual(b"keep archive", archive.read_bytes())
                     self.assertEqual(b"persistent snapshot", history.read_bytes())
+                    for name in ("dloop", "dloop-ui"):
+                        shared = target / ".agents/skills" / name / "SKILL.md"
+                        claude = target / ".claude/skills" / name / "SKILL.md"
+                        if "-Uninstall" in args:
+                            self.assertFalse(claude.exists())
+                        else:
+                            self.assertEqual(shared.read_bytes(), claude.read_bytes())
                 self.assertFalse((target / CORE_CLI).exists())
                 self.assertFalse((target / LOCK).exists())
 
