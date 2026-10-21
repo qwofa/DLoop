@@ -4,16 +4,31 @@
 
 从需求梳理、项目调查到实施、独立评审和验证，减少反复催促、手动交接和需求遗漏。适合需要分步实现与验收的功能开发；局部小改直接使用编辑器 Agent 即可。
 
+## 支持的 Agent
+
+DLoop v4.0.3 支持 **Codex、Cursor、Claude Code 和 OpenCode**，共用同一套工作流与项目档案。
+
+| Agent | 本版接入情况 |
+|---|---|
+| Codex | 保留现有 Skill、工具与子 Agent 用法 |
+| Cursor | 保留现有 Skill、工具与子 Agent 用法 |
+| Claude Code | 已增加项目 Skill 入口及 MCP 配置说明；入口识别已验证，真实模型闭环待验证 |
+| OpenCode | 复用现有 Skill 目录；已验证显式入口、MCP 调用和独立子 Agent |
+
+**DeepSeek 是可选模型服务**，通过 Claude Code 或 OpenCode 的提供商配置使用；DLoop 不管理模型密钥。本轮已使用 OpenCode 提供的 DeepSeek 模型完成工具调用与子 Agent 冒烟，完整业务任务和 Unity 交互验收范围见[验证记录](docs/v4.0.3-agent-hosts.md#实际验证记录)。
+
 ## 选哪个入口
 
-| 你的任务 | Codex | Cursor |
+| 你的任务 | Codex | Cursor / Claude Code / OpenCode |
 |---|---|---|
 | 功能开发：整理需求，分步实施与验证 | `$dloop` | `/dloop` |
 | 界面开发：在上述流程中增加真实截图、交互说明与集中验收 | `$dloop-ui` | `/dloop-ui` |
 
+> 本版已冻结。在线安装依赖 `v4.0.3` 标签；标签可用前请使用[本地源码安装](docs/installation.md#源码安装)。
+
 ## 安装
 
-**需要：** Windows、Python 3.10+、Git 客户端、Codex 或 Cursor，以及已连接 Unity MCP 的 Git / SVN 项目。首次使用先看[依赖与连接检查](docs/dependencies.md)。
+**需要：** Windows、Python 3.10+、Git 客户端、Codex、Cursor、Claude Code 或 OpenCode，以及已连接 Unity MCP 的 Git / SVN 项目。首次使用先看[依赖与连接检查](docs/dependencies.md)。
 
 在 Unity 中打开目标项目，然后在**项目根目录**打开 PowerShell，运行：
 
@@ -21,7 +36,7 @@
 irm https://raw.githubusercontent.com/qwofa/DLoop/main/install.py -ErrorAction Stop | python -
 ```
 
-看到 `DLoop installed and verified.` 即安装成功，再用 Codex 或 Cursor 打开该项目。安装不会自动配置 Unity MCP。[离线安装、升级与卸载 →](docs/installation.md)
+看到 `DLoop installed and verified.` 即安装成功，再用所选宿主打开该项目。安装不会自动配置 Unity MCP。[离线安装、升级与卸载 →](docs/installation.md)
 
 ## 开始使用
 
@@ -39,7 +54,7 @@ $dloop-ui
 根据附件需求修改界面，结合现有实现补齐交互，完成后展示实际结果供我验收。
 ```
 
-**Cursor 用户：** 将示例首行换成 `/dloop` 或 `/dloop-ui`。
+**Cursor、Claude Code、OpenCode 用户：** 将示例首行换成 `/dloop` 或 `/dloop-ui`。
 
 **你会看到：** 需要确认的需求与关键取舍，以及交付时的实际结果、需求差异和未验证内容。已确认范围内持续推进，出现影响预期的变化或真实阻塞时再交给你决定。
 
@@ -62,7 +77,7 @@ $dloop
 继续“<功能名称>”任务，从当前进度往下推进。
 ```
 
-也可以直接说“先暂停，保留当前成果”，或指出需要调整的行为。工作流会读取已保存的进度，整理调整影响，并重新呈现需要确认的部分。界面任务继续使用 `$dloop-ui`；Cursor 使用对应的 `/` 入口。
+也可以直接说“先暂停，保留当前成果”，或指出需要调整的行为。工作流会读取已保存的进度，整理调整影响，并重新呈现需要确认的部分。界面任务继续使用 `$dloop-ui`；Cursor、Claude Code、OpenCode 使用对应的 `/` 入口。
 
 </details>
 

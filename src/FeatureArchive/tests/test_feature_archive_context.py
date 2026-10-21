@@ -1219,7 +1219,11 @@ class FeatureArchiveContextTests(FeatureArchiveCliTestCase):
         self.assertNotIn("--profile", content)
         for command in ("workflow-rules", "workflow-status", "audit", "context-summary"):
             self.assertIn(command, content)
-        self.assertNotIn("references/", content)
+        # Host setup is read once by the coordinator; business rules still route
+        # through role views instead of pulling reference files into every role.
+        host_reference = "references/agent-hosts.md"
+        self.assertTrue((skill_root / host_reference).is_file())
+        self.assertNotIn("references/", content.replace(host_reference, ""))
         for action in (
             "requirements-review",
             "architecture-review",

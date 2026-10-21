@@ -1,6 +1,6 @@
 """Download and install the current DLoop version into the current project.
 
-This distribution entry point installs v4.0.2 without changing its payload.
+This distribution entry point installs v4.0.3 without changing its payload.
 It can run from stdin; --archive also supports a previously downloaded ZIP.
 """
 
@@ -14,8 +14,8 @@ import urllib.request
 import zipfile
 
 
-VERSION = "4.0.2"
-ARCHIVE_REF = "v4.0.2"
+VERSION = "4.0.3"
+ARCHIVE_REF = "v4.0.3"
 ARCHIVE_URL = f"https://codeload.github.com/qwofa/DLoop/zip/refs/tags/{ARCHIVE_REF}"
 
 
@@ -90,7 +90,7 @@ def prepare_ignore(target, vcs):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", type=Path, default=Path.cwd())
-    parser.add_argument("--archive", type=Path, help="Use a downloaded v4.0.2 source ZIP")
+    parser.add_argument("--archive", type=Path, help="Use a downloaded v4.0.3 source ZIP")
     args = parser.parse_args()
     if sys.platform != "win32":
         raise RuntimeError("DLoop currently requires Windows.")
@@ -135,6 +135,7 @@ def main():
         run(*command, "-Verify", creationflags=subprocess.CREATE_NO_WINDOW)
     print("DLoop installed and verified.")
     print("Open this project in Codex ($dloop / $dloop-ui) or Cursor (/dloop / /dloop-ui).")
+    print("Claude Code / OpenCode: /dloop or /dloop-ui.")
     print("Unity and its MCP connection must already be configured in the selected agent.")
 
 

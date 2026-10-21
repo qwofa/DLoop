@@ -4,17 +4,17 @@
 
 ## 源码安装
 
-当前源码为 v4.0.2 冻结版。源码安装时，在 Git/SVN 项目中准备 `.scratch` 忽略规则，再从本版源码目录运行：
+当前源码为 v4.0.3 冻结版。源码安装时，在 Git/SVN 项目中准备 `.scratch` 忽略规则，再从本版源码目录运行：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Target "D:\projects\test-project" -Version v4.0.2
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Target "D:\projects\test-project" -Version v4.0.3
 ```
 
 同一命令追加 `-Verify` 校验，追加 `-Uninstall` 卸载。需要在线安装或 ZIP 安装时使用下文对应入口。
 
 ## 一行安装
 
-当前使用环境为 Windows、Python 3.10+、Codex 或 Cursor、Unity MCP、Git 客户端和 Git/SVN 项目。Unity MCP 不限实现或版本；首次使用先按[依赖与连接说明](dependencies.md)准备环境，确认所选宿主能访问当前项目的编辑器。SVN 项目也需要 Git 来保存本地阶段快照。
+当前使用环境为 Windows、Python 3.10+、Codex、Cursor、Claude Code 或 OpenCode、Unity MCP、Git 客户端和 Git/SVN 项目。Unity MCP 不限实现或版本；首次使用先按[依赖与连接说明](dependencies.md)准备环境，确认所选宿主能访问当前项目的编辑器。SVN 项目也需要 Git 来保存本地阶段快照。
 
 在目标项目根目录打开 PowerShell：
 
@@ -22,19 +22,19 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Target "D:\pr
 irm https://raw.githubusercontent.com/qwofa/DLoop/main/install.py -ErrorAction Stop | python -
 ```
 
-一行入口在公开主线合并并发布 `v4.0.2` 标签后安装本版；此前使用上面的本地源码入口。
+一行入口在公开主线合并并发布 `v4.0.3` 标签后安装本版；此前使用上面的本地源码入口。
 
 ## 本地或离线安装
 
 在本版源码目录使用当前源码 ZIP 安装：
 
 ```powershell
-python install.py --target "D:\projects\my-project" --archive "D:\downloads\DLoop-4.0.2.zip"
+python install.py --target "D:\projects\my-project" --archive "D:\downloads\DLoop-4.0.3.zip"
 ```
 
-ZIP 使用带顶层目录的源码包布局。本版修改提交后，可用 `git archive --format=zip --prefix=DLoop-4.0.2/ --output=DLoop-4.0.2.zip HEAD` 生成；未提交修改不会包含在 ZIP 中，开发期间使用源码安装。
+ZIP 使用带顶层目录的源码包布局。本版修改提交后，可用 `git archive --format=zip --prefix=DLoop-4.0.3/ --output=DLoop-4.0.3.zip HEAD` 生成；未提交修改不会包含在 ZIP 中，开发期间使用源码安装。
 
-安装完成会显示 `DLoop installed and verified.`，接着在目标项目的 Codex 中使用 `$dloop` 或 `$dloop-ui`，或在 Cursor 中使用 `/dloop` 或 `/dloop-ui`。
+安装完成会显示 `DLoop installed and verified.`，接着在目标项目的 Codex 中使用 `$dloop` 或 `$dloop-ui`，或在 Cursor、Claude Code、OpenCode 中使用 `/dloop` 或 `/dloop-ui`。
 
 ## 安装会做什么
 
@@ -42,18 +42,18 @@ ZIP 使用带顶层目录的源码包布局。本版修改提交后，可用 `gi
 - 备份未完成不会替换旧安装；后续安装失败会恢复原文件、原安装记录及旧作业。失败原因显示在控制台，完整诊断日志另存系统临时目录，具体路径随错误返回。
 - 升级时受管目录内新增文件和目录也会完整备份：不冲突的保留原位；与新版文件同名、或挡住新版目录的内容移入备份，再安装新版。备份清单记录新增与移出路径，包含空目录；新增内容不登记为新版载荷，失败恢复原状。
 - 缺失的已登记文件、其文件类型变化、链接或安装锁路径归属问题仍停止处理；同版本重装、校验和卸载不会自动接受本地修改，卸载仍拒绝含未登记文件的受管目录。维护者应在源码中修复工具，再通过新版安装交付，不给已安装文件打补丁或重写安装锁。
-- 在项目内安装两项 Skill、共享工具和 Unity 编辑器截图包。
+- 在项目内安装两项 Skill、共享工具和 Unity 编辑器截图包。Skill 从同一源码分别复制到 `.agents/skills/` 和 `.claude/skills/`，全部纳入同一安装锁；没有单独的同步或升级入口。OpenCode 直接发现这些目录，不安装第三份 Skill。
 - Git 项目已有有效规则时保持原样，否则在目标项目的 `.gitignore` 末尾补入 `/.scratch/`。
 - SVN 项目保留原有 `svn:ignore` 内容，必要时追加 `.scratch`。
-- 若 SVN 已纳管 `.scratch` 父目录，根目录的忽略规则不再覆盖其子项；临时分析输出应在 `.scratch` 自身的 `svn:ignore` 中登记 `outputs`，保留已有规则。v4.0.2 的工作区扫描也会排除未纳管的 `.scratch/outputs/`；已纳管文件继续接受变化检查。
+- 若 SVN 已纳管 `.scratch` 父目录，根目录的忽略规则不再覆盖其子项；临时分析输出应在 `.scratch` 自身的 `svn:ignore` 中登记 `outputs`，保留已有规则。v4.0.3 的工作区扫描也会排除未纳管的 `.scratch/outputs/`；已纳管文件继续接受变化检查。
 - 安装失败时恢复本次准备修改的规则；下载失败时不改项目。
 - 安装成功后执行发行版的只读校验，最后清理临时下载文件。
 
-Git 忽略规则可能成为一项本地改动；入口不暂存或提交它。安装不会替你配置 Codex、Cursor 或 Unity MCP。
+Git 忽略规则可能成为一项本地改动；入口不暂存或提交它。安装不会替你配置 Codex、Cursor、Claude Code、OpenCode 或 Unity MCP，也不修改 `.claude/settings.json`、`.mcp.json`、`opencode.json` 或其他 Skill。
 
 入口支持全新安装、同版本重装，以及从较旧安装升级；拒绝降级。升级前先停止旧版命令和 Agent，无需先完成旧作业。安装器验证旧载荷归属后整体归档旧活动材料并释放占用，保留项目代码改动；失败恢复原现场。同版本重装保留现有作业。重复安装保留已有忽略内容，不重复添加规则。
 
-新材料位于 `.scratch/dloop-v3/v4.0.2/`；旧材料位于 `.scratch/dloop-history/<旧版本>-<时间>-<唯一标识>/runtime/`，外层说明标记整批作业已失效。历史不再参与活动索引、恢复、批准或清理；可直接打开文档和附件查阅。已卸载遗留材料的来源版本标为 `uninstalled`，新装时同样隔离。详见[版本交替说明](v3.7.6-version-handoff.md)。
+新材料位于 `.scratch/dloop-v3/v4.0.3/`；旧材料位于 `.scratch/dloop-history/<旧版本>-<时间>-<唯一标识>/runtime/`，外层说明标记整批作业已失效。历史不再参与活动索引、恢复、批准或清理；可直接打开文档和附件查阅。已卸载遗留材料的来源版本标为 `uninstalled`，新装时同样隔离。详见[版本交替说明](v3.7.6-version-handoff.md)。
 
 ## 常见问题
 
@@ -67,7 +67,7 @@ Git 忽略规则可能成为一项本地改动；入口不暂存或提交它。�
 
 **安装成功，但编辑器没有显示入口**
 
-确认打开的是安装目标项目，且项目内存在 `.agents/skills/dloop/SKILL.md` 和 `.agents/skills/dloop-ui/SKILL.md`。Cursor 在 Agent 会话中通过 `/dloop` 或 `/dloop-ui` 显式选择；Codex 使用 `$dloop` 或 `$dloop-ui`。再按[首次使用检查](dependencies.md#安装后的第一次使用)重新加载项目。
+确认打开的是安装目标项目，且项目内存在 `.agents/skills/dloop/SKILL.md` 和 `.agents/skills/dloop-ui/SKILL.md`。Claude Code 还须存在 `.claude/skills/` 下的同名 Skill。Cursor、Claude Code、OpenCode 通过 `/dloop` 或 `/dloop-ui` 显式选择；Codex 使用 `$dloop` 或 `$dloop-ui`。再按[首次使用检查](dependencies.md#安装后的第一次使用)重新加载项目。
 
 **能开始任务，但无法访问 Unity**
 
@@ -78,13 +78,13 @@ Git 忽略规则可能成为一项本地改动；入口不暂存或提交它。�
 取得并解压对应版本的 DLoop 源码，在该源码目录运行：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Target "D:\projects\my-project" -Version v4.0.2 -Verify
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Target "D:\projects\my-project" -Version v4.0.3 -Verify
 ```
 
 卸载：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Target "D:\projects\my-project" -Version v4.0.2 -Uninstall
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Target "D:\projects\my-project" -Version v4.0.3 -Uninstall
 ```
 
 卸载移除本版管理的 Skill、工具和截图包，保留交付档案与项目忽略规则。受管文件被修改或无法确认归属时会停止并说明原因。

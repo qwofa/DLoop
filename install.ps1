@@ -205,7 +205,7 @@ function Get-PluginPayloadMappings {
             -not (Test-Path -LiteralPath $sourceRoot -PathType Container) -or
             (
                 $kind -eq "skill" -and
-                $normalizedDestination -notmatch "^\.agents/skills/dloop(?:-[a-z0-9][a-z0-9-]*)?$"
+                $normalizedDestination -notmatch "^\.(?:agents|claude)/skills/dloop(?:-[a-z0-9][a-z0-9-]*)?$"
             ) -or
             (
                 $kind -eq "runtime" -and

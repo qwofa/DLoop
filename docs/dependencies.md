@@ -1,6 +1,6 @@
 # 依赖、连接与首次检查
 
-DLoop v4.0.2 面向 Windows 上的 Unity 项目，通过 Codex 或 Cursor 组织开发工作。Unity MCP 按能力接入，不绑定供应商、包名、工具名称或某个版本。
+DLoop v4.0.3 面向 Windows 上的 Unity 项目，通过 Codex、Cursor、Claude Code 或 OpenCode 组织开发工作。Unity MCP 按能力接入，不绑定供应商、包名、工具名称或某个版本。
 
 ## 需要准备什么
 
@@ -10,7 +10,7 @@ DLoop v4.0.2 面向 Windows 上的 Unity 项目，通过 Codex 或 Cursor 组织
 | Python | 3.10 或更新版本，能在项目终端直接运行 `python`；执行安装入口和工作流工具 | [Python Windows 下载](https://www.python.org/downloads/windows/) |
 | Git | 所有项目都需要命令行 Git；用于 Git 项目操作，也用于 SVN 项目的本地阶段快照 | [Git for Windows](https://git-scm.com/install/windows) |
 | SVN | 仅 SVN 项目需要命令行 `svn`；仅有图形客户端且未安装命令行工具不够 | [Apache Subversion 客户端列表](https://subversion.apache.org/packages.html) |
-| Codex 或 Cursor | 能读取项目内 Skill、运行本地命令、使用 MCP，并启动独立评审子 Agent；已完成登录或其他可用的身份配置 | [Codex 文档](https://developers.openai.com/codex/) / [Cursor 文档](https://cursor.com/docs/skills) |
+| Codex、Cursor、Claude Code 或 OpenCode | 能读取项目内 Skill、运行本地命令、使用 MCP，并启动独立评审子 Agent；已完成登录或其他可用的身份配置 | [Codex 文档](https://developers.openai.com/codex/) / [Cursor 文档](https://cursor.com/docs/skills) / [Claude Code 文档](https://code.claude.com/docs/en/skills) / [OpenCode 文档](https://opencode.ai/docs/) |
 | Unity Editor | 使用目标项目要求的版本；随 DLoop 提供的截图包声明最低 Unity 2021.3，需要项目能正常编译 | 通过 Unity Hub 安装项目所需编辑器 |
 | Unity UI 依赖 | DLoopUI 的 Prefab 截图使用 uGUI（`com.unity.ugui`）和图像编码模块（`com.unity.modules.imageconversion`） | Unity Package Manager；按当前项目的 Unity 版本解析 |
 | Unity MCP | 满足下节能力要求，连接到当前项目已打开的 Unity Editor | 自行选择实现并遵循其安装说明 |
@@ -74,6 +74,54 @@ Unity MCP 仍按上游说明在目标 Unity 项目中启动。使用本地 HTTP 
 
 `8080` 只是示例；地址、认证和传输方式以所选 MCP 实现为准。个人连接也可放在 `~/.cursor/mcp.json`。配置方式见 [Cursor MCP 官方说明](https://prod.cursor.com/help/customization/mcp)。重新打开 Agent 会话后，先完成下方只读连接检查。Cursor Cloud Agent 的文件系统和 MCP 配置可能与本机不同；本版的项目内命令与 Unity 采集按本地 Agent 验证。
 
+## 连接到 Claude Code
+
+在安装目标项目中启动 Claude Code，完成宿主登录或模型提供商配置，然后显式选择 `/dloop` 或 `/dloop-ui`。项目 `.claude/skills/` 的内容由同一安装器管理；不要另用通用 Skill 安装器覆盖其中一份。独立评审须使用新的、不继承实施对话的原生子 Agent；详见[宿主使用约定](../plugin/dloop/skills/dloop/references/agent-hosts.md)。
+
+Unity MCP 按其上游说明启动。在项目 `.mcp.json` 中合并连接，例如本地 HTTP：
+
+```json
+{
+  "mcpServers": {
+    "unityMCP": {
+      "type": "http",
+      "url": "http://localhost:8080/mcp"
+    }
+  }
+}
+```
+
+端口和认证以实际服务为准；已有同名条目先核对用途，保留其他连接。DLoop 自身的 stdio 连接另见[结构化工具连接](structured-tools.md#claude-code)。在 Claude Code 中确认项目与 MCP 信任后，执行下方只读检查。安装成功、服务已连接和完整模型任务通过是不同的验证结果。
+
+## 连接到 OpenCode
+
+按 [OpenCode 官方安装说明](https://opencode.ai/docs/)安装命令行工具，在安装目标项目根目录启动 `opencode`。本版以 OpenCode 1.19.3 验证入口；使用能识别 Skill 的 `opencode/slash` 和 `opencode/autoinvoke` 元数据的版本。
+
+OpenCode 直接发现 `.agents/skills/` 和 `.claude/skills/`；同名 Skill 内容一致，无需复制到 `.opencode/skills/`。通过 `/dloop` 或 `/dloop-ui` 显式启动，不让普通任务自动进入交付流程。协调者使用具备本地命令和原生子 Agent 能力的模式，独立评审使用新的通用子 Agent 上下文，保留工作流登记权限。
+
+在项目 `opencode.json` 中合并 Unity MCP 连接，地址替换为实际服务：
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "unityMCP": {
+      "type": "remote",
+      "url": "http://localhost:8080/mcp",
+      "enabled": true
+    }
+  }
+}
+```
+
+保留其他配置；DLoop 自身的本地 MCP 配置见[结构化工具连接](structured-tools.md#opencode)。通过 `opencode mcp list` 查看连接后，再核对返回的项目和工具能力。连接配置格式见 [OpenCode MCP 文档](https://opencode.ai/docs/mcp-servers/)。
+
+## DeepSeek 模型配置
+
+DeepSeek 通过所选宿主的模型提供商配置接入，遵循 [DeepSeek 官方指南](https://api-docs.deepseek.com/guides/coding_agents/)。Claude Code 在启动环境中设置提供商地址、认证及主模型、子 Agent 模型；OpenCode 在 `/connect` 中选择 DeepSeek 并保存凭据，再通过 `/models` 选择该提供商的模型，核对子 Agent 没有被单独固定到其他模型。不要把密钥写入 Skill、DLoop 档案或项目提交。切换模型使用宿主自身配置，不由 DLoop 自动切换。
+
+先验证工具调用与独立子 Agent，再验证长任务；DloopUI 还须验证所选模型能实际读取截图。模型配置成功不等于这些能力均已验收。
+
 ### 可选示例：CoplayDev MCP for Unity
 
 如果还没有选用实现，可以参考 [CoplayDev/unity-mcp](https://github.com/CoplayDev/unity-mcp)。这是连接示例，不是 DLoop 的唯一支持项，也没有要求安装某个固定版本。
@@ -101,7 +149,7 @@ git --version
 
 Python 应为 3.10 或更新版本，两条命令都应正常返回。SVN 项目再运行 `svn --version --quiet`；使用需要 `uv` 的 MCP 时再运行 `uv --version`。安装依赖后若终端仍找不到命令，关闭并重新打开终端。
 
-在 Codex 或 Cursor 的本地 Agent 中打开目标项目，发送：
+在所选宿主的本地 Agent 中打开目标项目，发送：
 
 ```text
 请只读检查 Unity MCP 连接：读取当前连接的 Unity 项目路径、编辑器版本和活动场景，
@@ -113,8 +161,8 @@ Python 应为 3.10 或更新版本，两条命令都应正常返回。SVN 项目
 
 ## 安装后的第一次使用
 
-1. 安装程序显示 `DLoop installed and verified.` 后，确认项目内存在 `.agents/skills/dloop/SKILL.md` 和 `.agents/skills/dloop-ui/SKILL.md`。
-2. 在 Codex 的同一个项目内确认能够选择 `$dloop` 和 `$dloop-ui`；Cursor 在 Agent 会话中确认能够选择 `/dloop` 和 `/dloop-ui`。Skill 发现方式见 [Codex](https://developers.openai.com/codex/skills/) 和 [Cursor](https://cursor.com/docs/skills) 的官方说明；没有显示时重新启动所选宿主，并检查项目目录是否选对。
+1. 安装程序显示 `DLoop installed and verified.` 后，确认项目内存在 `.agents/skills/dloop/SKILL.md` 和 `.agents/skills/dloop-ui/SKILL.md`；Claude Code 使用同源安装的 `.claude/skills/` 两项 Skill。
+2. 在 Codex 的同一个项目内确认能够选择 `$dloop` 和 `$dloop-ui`；Cursor、Claude Code、OpenCode 在 Agent 会话中确认能够选择 `/dloop` 和 `/dloop-ui`。发现方式见各宿主上方的官方说明；没有显示时重新启动所选宿主，并检查项目目录是否选对。
 3. Unity 完成资源刷新和编译后，确认没有由 `Packages/com.dloop.ui-capture` 引起的编译错误。
 4. 先在可丢弃的示例项目中，用所选宿主的 DloopUI 入口完成一个范围清楚、包含已有 uGUI Prefab 的小任务。检查真实截图、操作说明与最终 HTML 是否对应实际结果；必要实现或验证未完成时，材料应如实标明。
 
@@ -132,4 +180,4 @@ Python 应为 3.10 或更新版本，两条命令都应正常返回。SVN 项目
 
 DLoop 的代码、Skill、模板和随仓库提供的说明采用根目录 [MIT 许可证](../LICENSE)。复制或再分发全部或实质部分内容，包括安装到项目中的副本时，需要保留版权和许可声明。
 
-Python、Git、SVN、Unity、Codex 或 Cursor 和所选 MCP 由用户另行取得，仍适用各自的许可与服务条款；DLoop 的 MIT 许可不替代它们的授权。本仓库不随包分发这些外部产品。
+Python、Git、SVN、Unity、Codex、Cursor、Claude Code 或 OpenCode 和所选 MCP 由用户另行取得，仍适用各自的许可与服务条款；DLoop 的 MIT 许可不替代它们的授权。本仓库不随包分发这些外部产品。
