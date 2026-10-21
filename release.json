@@ -3,7 +3,7 @@
   "archiveSchemaVersion": 3,
   "terminologySchemaVersion": 2,
   "sourceTag": "v4.0.2",
-  "releaseStatus": "development",
+  "releaseStatus": "frozen",
   "versionSupport": {
     "mode": "archive-on-upgrade",
     "behaviors": {

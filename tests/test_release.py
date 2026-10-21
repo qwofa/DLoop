@@ -62,7 +62,7 @@ class ReleaseMetadataTests(unittest.TestCase):
         self.assertRegex(version, r"^[0-9]\.[0-9]\.[0-9]$")
         self.assertEqual(version, release["workflowVersion"])
         self.assertEqual(f"v{version}", release["sourceTag"])
-        self.assertEqual("development", release["releaseStatus"])
+        self.assertEqual("frozen", release["releaseStatus"])
         self.assertEqual(
             archive_initialization.SCHEMA_VERSION,
             release["archiveSchemaVersion"],
@@ -149,7 +149,7 @@ class ReleaseMetadataTests(unittest.TestCase):
         self.assertIn("真实截图", readme)
         self.assertIn("安装器只管理当前版本", changelog)
 
-    def test_current_source_is_presented_as_development(self) -> None:
+    def test_current_source_is_presented_as_frozen(self) -> None:
         release = json.loads(
             (REPOSITORY_ROOT / "release.json").read_text(encoding="utf-8")
         )
@@ -161,12 +161,12 @@ class ReleaseMetadataTests(unittest.TestCase):
                 "archiveSchemaVersion": 3,
                 "terminologySchemaVersion": 2,
                 "sourceTag": "v4.0.2",
-                "releaseStatus": "development",
+                "releaseStatus": "frozen",
                 "versionSupport": release["versionSupport"],
             },
             release,
         )
-        self.assertIn("development", release_notes)
+        self.assertIn("frozen", release_notes)
         self.assertIn("基于已发布的 v4.0.1", release_notes)
         self.assertIn("## 验证范围", release_notes)
 

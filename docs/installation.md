@@ -4,7 +4,7 @@
 
 ## 源码安装
 
-当前源码为 v4.0.2 开发版，尚未发布。源码安装时，在 Git/SVN 项目中准备 `.scratch` 忽略规则，再从本版源码目录运行：
+当前源码为 v4.0.2 冻结版。源码安装时，在 Git/SVN 项目中准备 `.scratch` 忽略规则，再从本版源码目录运行：
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Target "D:\projects\test-project" -Version v4.0.2
