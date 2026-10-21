@@ -44,7 +44,7 @@ class ReleaseMetadataTests(unittest.TestCase):
             plugin_root.joinpath(".codex-plugin", "plugin.json").read_text(encoding="utf-8")
         )
 
-        self.assertEqual("4.0.2", version)
+        self.assertEqual("4.0.3", version)
         self.assertEqual("dloop", manifest["name"])
         self.assertEqual(version, manifest["version"])
         self.assertEqual("./skills/", manifest["skills"])
@@ -101,6 +101,8 @@ class ReleaseMetadataTests(unittest.TestCase):
         self.assertEqual(
             {
                 ("dloop-skill", "skill", "skills/dloop", ".agents/skills/dloop"),
+                ("dloop-claude-skill", "skill", "skills/dloop", ".claude/skills/dloop"),
+                ("dloop-ui-claude-skill", "skill", "skills/dloop-ui", ".claude/skills/dloop-ui"),
                 (
                     "dloop-ui-skill",
                     "skill",
@@ -138,8 +140,8 @@ class ReleaseMetadataTests(unittest.TestCase):
         installation = (REPOSITORY_ROOT / "docs" / "installation.md").read_text(encoding="utf-8")
         changelog = (REPOSITORY_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
 
-        self.assertEqual("4.0.2", version)
-        self.assertIn("-Version v4.0.2", installation)
+        self.assertEqual("4.0.3", version)
+        self.assertIn("-Version v4.0.3", installation)
         self.assertIn("-Uninstall", installation)
         self.assertIn("install.py", readme)
         self.assertIn("$dloop", readme)
@@ -152,21 +154,21 @@ class ReleaseMetadataTests(unittest.TestCase):
         release = json.loads(
             (REPOSITORY_ROOT / "release.json").read_text(encoding="utf-8")
         )
-        release_notes = (REPOSITORY_ROOT / "docs" / "v4.0.2-baseline-guidance.md").read_text(encoding="utf-8")
+        release_notes = (REPOSITORY_ROOT / "docs" / "v4.0.3-agent-hosts.md").read_text(encoding="utf-8")
 
         self.assertEqual(
             {
-                "workflowVersion": "4.0.2",
+                "workflowVersion": "4.0.3",
                 "archiveSchemaVersion": 3,
                 "terminologySchemaVersion": 2,
-                "sourceTag": "v4.0.2",
+                "sourceTag": "v4.0.3",
                 "releaseStatus": "frozen",
                 "versionSupport": release["versionSupport"],
             },
             release,
         )
         self.assertIn("frozen", release_notes)
-        self.assertIn("基于已发布的 v4.0.1", release_notes)
+        self.assertIn("基于已发布的 v4.0.2", release_notes)
         self.assertIn("## 验证范围", release_notes)
 
     def test_skill_describes_the_current_runtime_contract(self) -> None:
@@ -177,6 +179,8 @@ class ReleaseMetadataTests(unittest.TestCase):
                 entry = (skills / name / "SKILL.md").read_text(encoding="utf-8")
                 self.assertIn(f"v{version}", entry.split("---", 2)[1])
                 self.assertIn("disable-model-invocation: true", entry.split("---", 2)[1])
+                self.assertIn('opencode/slash: "true"', entry.split("---", 2)[1])
+                self.assertIn('opencode/autoinvoke: "false"', entry.split("---", 2)[1])
                 self.assertIn(f"/{name}", entry)
         self.assertLessEqual(len((skills / "dloop" / "SKILL.md").read_bytes()), 8192)
 

@@ -27,7 +27,7 @@ SVNADMIN = shutil.which("svnadmin") or (
 )
 VERSION = (REPOSITORY_ROOT / "VERSION").read_text(encoding="utf-8").strip()
 CORE_CLI = Path("Tools") / "FeatureArchive" / "feature_archive.py"
-FRICTION_INBOX = Path(".scratch") / "dloop-v3" / "v4.0.2" / "friction-inbox"
+FRICTION_INBOX = Path(".scratch") / "dloop-v3" / "v4.0.3" / "friction-inbox"
 LOCK = Path(".agents") / "feature-archive-workflow.lock.json"
 UNITY_PACKAGE = Path("Packages") / "com.dloop.ui-capture"
 REQUIRED_CONFIGURATION_PAYLOADS = (
@@ -155,6 +155,7 @@ class InstallationTests(unittest.TestCase):
         roots = [
             target / ".agents",
             target / ".codex",
+            target / ".claude",
             target / "Tools",
             target / UNITY_PACKAGE,
             target / ".scratch" / "dloop-v3",
@@ -199,6 +200,12 @@ class InstallationTests(unittest.TestCase):
                 skill = (target / ".agents" / "skills" / name / "SKILL.md").read_text(encoding="utf-8")
                 self.assertIn("disable-model-invocation: true", skill)
                 self.assertIn(f"/{name}", skill)
+                shared_root = target / ".agents/skills" / name
+                claude_root = target / ".claude/skills" / name
+                shared = {p.relative_to(shared_root): p.read_bytes() for p in shared_root.rglob("*") if p.is_file()}
+                claude = {p.relative_to(claude_root): p.read_bytes() for p in claude_root.rglob("*") if p.is_file()}
+                self.assertEqual(shared, claude)
+                self.assertFalse(claude_root.is_symlink())
             self.assertTrue(
                 (target / "Tools" / "FeatureArchive" / "dloop_ui.py").is_file()
             )
@@ -227,6 +234,8 @@ class InstallationTests(unittest.TestCase):
             locked_paths = {item["path"] for item in lock["files"]}
             self.assertIn(".agents/skills/dloop/SKILL.md", locked_paths)
             self.assertIn(".agents/skills/dloop-ui/SKILL.md", locked_paths)
+            self.assertIn(".claude/skills/dloop/SKILL.md", locked_paths)
+            self.assertIn(".claude/skills/dloop-ui/SKILL.md", locked_paths)
             self.assertIn("Tools/FeatureArchive/dloop_ui.py", locked_paths)
             template = Path("Tools/FeatureArchive/templates/ui-delivery.html")
             self.assertIn(template.as_posix(), locked_paths)
@@ -283,6 +292,19 @@ class InstallationTests(unittest.TestCase):
             cursor_config.parent.mkdir(parents=True)
             cursor_content = b'{"mcpServers":{"unityMCP":{"url":"http://localhost:8080/mcp"}}}\r\n'
             cursor_config.write_bytes(cursor_content)
+            claude_config = target / ".claude/settings.json"
+            claude_config.parent.mkdir(parents=True)
+            claude_content = b'{"permissions":{"deny":["Bash(git push *)"]}}\r\n'
+            claude_config.write_bytes(claude_content)
+            mcp_config = target / ".mcp.json"
+            mcp_content = b'{"mcpServers":{"existing":{"command":"existing-server"}}}\r\n'
+            mcp_config.write_bytes(mcp_content)
+            opencode_config = target / "opencode.json"
+            opencode_content = b'{"mcp":{"existing":{"type":"local","command":["existing-server"]}}}\r\n'
+            opencode_config.write_bytes(opencode_content)
+            other_skill = target / ".claude/skills/project-notes/SKILL.md"
+            other_skill.parent.mkdir(parents=True)
+            other_skill.write_bytes(b"existing user skill\n")
 
             installed = self._run(target, "-Version", f"v{VERSION}")
             verified = self._run(
@@ -303,6 +325,12 @@ class InstallationTests(unittest.TestCase):
             self.assertEqual(config_content, config.read_bytes())
             self.assertEqual(hooks_content, hooks.read_bytes())
             self.assertEqual(cursor_content, cursor_config.read_bytes())
+            self.assertEqual(claude_content, claude_config.read_bytes())
+            self.assertEqual(mcp_content, mcp_config.read_bytes())
+            self.assertEqual(opencode_content, opencode_config.read_bytes())
+            self.assertEqual(b"existing user skill\n", other_skill.read_bytes())
+            for name in ("dloop", "dloop-ui"):
+                self.assertFalse((target / ".claude/skills" / name).exists())
 
     def test_unmanaged_payload_conflict_and_managed_drift_are_never_overwritten(
         self,
@@ -379,10 +407,10 @@ class InstallationTests(unittest.TestCase):
             target, ignore_before = self._svn_project(Path(directory))
             installed = self._run(target, "-Version", f"v{VERSION}")
             self.assertEqual(0, installed.returncode, installed.stderr)
-            archive = target / ".scratch" / "dloop-v3" / "v4.0.2" / "outputs" / "kept.json"
+            archive = target / ".scratch" / "dloop-v3" / "v4.0.3" / "outputs" / "kept.json"
             archive.parent.mkdir(parents=True)
             archive.write_text('{"kept": true}\n', encoding="utf-8")
-            history = target / ".scratch/dloop-v3/v4.0.2/snapshots/kept.git/objects/retained"
+            history = target / ".scratch/dloop-v3/v4.0.3/snapshots/kept.git/objects/retained"
             history.parent.mkdir(parents=True)
             history.write_bytes(b"persistent snapshot")
 
@@ -465,7 +493,7 @@ class InstallationTests(unittest.TestCase):
             self.assertTrue(
                 (target / ".agents" / "skills" / "dloop" / "references" / "friction-records.md").is_file()
             )
-            friction = target / ".scratch" / "dloop-v3" / "v4.0.2" / "friction.jsonl"
+            friction = target / ".scratch" / "dloop-v3" / "v4.0.3" / "friction.jsonl"
             preserved_friction = friction.read_bytes()
 
             self.assertEqual(

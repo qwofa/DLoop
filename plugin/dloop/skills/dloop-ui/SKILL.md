@@ -1,12 +1,17 @@
 ---
 name: dloop-ui
-description: 仅在用户显式调用 Codex 的 $dloop-ui 或 Cursor 的 /dloop-ui 时，使用 DLoop v4.0.2 核实必要材料并取得用户开工确认，尽早验证真实入口，按业务场景交付精简验收导航。
+description: 仅在用户通过当前宿主显式选择 dloop-ui 时，使用 DLoop v4.0.3 核实必要材料并取得用户开工确认，尽早验证真实入口，按业务场景交付精简验收导航。
 disable-model-invocation: true
+metadata:
+  opencode/slash: "true"
+  opencode/autoinvoke: "false"
 ---
 
-# DloopUI v4.0.2
+# DloopUI v4.0.3
 
 本 Skill 是 DLoop 的显式 Unity UI 规划配置。它复用同一交付档案、阶段批准入口和实施闭环，提供按需使用的真实 Prefab 定位、随实施更新的场景验收记录与统一验收导航。普通 Unity/UI 请求不得隐式选择本配置。
+
+Codex 使用 `$dloop-ui`，Cursor、Claude Code、OpenCode 使用 `/dloop-ui`。首次进入时从项目根读取 `.agents/skills/dloop/references/agent-hosts.md`，按当前宿主核对能力；不要假定能生成截图就代表当前模型能读取图片。
 
 用户要求暂停或回退时，先停止受影响执行，再读取 `workflow-rules --action slice-release --action snapshot` 中的“人工回退”规则，按同一 DLoop 协调流程处理。
 

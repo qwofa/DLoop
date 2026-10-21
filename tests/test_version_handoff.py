@@ -41,6 +41,13 @@ class VersionHandoffTests(unittest.TestCase):
                 updated = data.replace(VERSION.encode(), b"3.7.5")
                 if updated != data:
                     path.write_bytes(updated)
+        # Previous installations did not deploy Claude Code skills. Generate that
+        # layout through the real installer to exercise adding managed roots.
+        manifest_path = cls.previous_source / "plugin/dloop/payload.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["modules"] = [module for module in manifest["modules"]
+                               if not module["destination"].startswith(".claude/")]
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
     def cli(self, target, *args, expected=0, **options):
         result = subprocess.run(
