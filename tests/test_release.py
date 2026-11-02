@@ -154,7 +154,7 @@ class ReleaseMetadataTests(unittest.TestCase):
         release = json.loads(
             (REPOSITORY_ROOT / "release.json").read_text(encoding="utf-8")
         )
-        release_notes = (REPOSITORY_ROOT / "docs" / "v4.0.3-agent-hosts.md").read_text(encoding="utf-8")
+        release_notes = (REPOSITORY_ROOT / "docs" / "history" / "v4.0.3-agent-hosts.md").read_text(encoding="utf-8")
 
         self.assertEqual(
             {

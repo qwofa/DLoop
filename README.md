@@ -15,7 +15,7 @@ DLoop v4.0.3 支持 **Codex、Cursor、Claude Code 和 OpenCode**，共用同一
 | Claude Code | 已增加项目 Skill 入口及 MCP 配置说明；入口识别已验证，真实模型闭环待验证 |
 | OpenCode | 复用现有 Skill 目录；已验证显式入口、MCP 调用和独立子 Agent |
 
-**DeepSeek 是可选模型服务**，通过 Claude Code 或 OpenCode 的提供商配置使用；DLoop 不管理模型密钥。本轮已使用 OpenCode 提供的 DeepSeek 模型完成工具调用与子 Agent 冒烟，完整业务任务和 Unity 交互验收范围见[验证记录](docs/v4.0.3-agent-hosts.md#实际验证记录)。
+**DeepSeek 是可选模型服务**，通过 Claude Code 或 OpenCode 的提供商配置使用；DLoop 不管理模型密钥。本轮已使用 OpenCode 提供的 DeepSeek 模型完成工具调用与子 Agent 冒烟，完整业务任务和 Unity 交互验收范围见[验证记录](docs/history/v4.0.3-agent-hosts.md#实际验证记录)。
 
 ## 选哪个入口
 
