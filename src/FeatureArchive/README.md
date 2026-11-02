@@ -130,8 +130,21 @@ python Tools/FeatureArchive/feature_archive.py approve-slice-plan `
 ```powershell
 python Tools/FeatureArchive/feature_archive.py init `
   --feature-id building-interaction `
-  --title 建筑交互
+  --title 建筑交互 `
+  --tier lite
 ```
+
+`--tier` 选择交付分级，省略时为 `standard`。分级写入 `feature.json` 的 `delivery_tier`，创建后固定；以另一分级重复初始化同一交付项返回 `DELIVERY_TIER_CONFLICT`，`snapshot-fork` 沿用源作业分级。
+
+| 门禁 | `standard` | `lite` |
+|---|---|---|
+| 需求总览确认与需求共识 | 必需 | 必需 |
+| 调查、设计、计划总览 | 实施前须确认或完成，冻结前不能为草稿 | 生成说明占位，不参与开工和冻结门禁 |
+| 架构确认 | 按需登记 | 不适用，`stage-action --stage architecture` 返回 `LITE_TIER_STAGE_NOT_APPLICABLE` |
+| 切片方案、契约检查、修改租约、工作区保护 | 必需 | 必需 |
+| 独立候选评审、验证总览、集成确认、冻结 | 必需 | 必需 |
+
+`lite` 交接只自动补入需求入口，不补入设计入口；协调者在进行中阶段只取得 `implementation` 与 `validation` 动作。`lite` 不能与 `--configuration` 同时使用，返回 `DELIVERY_TIER_CONFIGURATION_CONFLICT`。
 
 普通局部任务属于功能交付流外，不初始化交付档案。DLoop 只提供唯一严格合同，普通 DLoop 初始化时省略配置参数；显式 UI 任务按 DloopUI 入口选择配置。新档案根必须是带当前合同根清单的独立目录，旧根、旧合同、缺失版本和历史档案直接拒绝，不自动读取、迁移或降级。
 

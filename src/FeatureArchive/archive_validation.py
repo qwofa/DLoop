@@ -22,6 +22,7 @@ from archive_profiles import (
     ARCHIVE_SCHEMA_VERSION,
     APPROVAL_STAGES,
     CONTEXT_CONTRACT_VERSION,
+    DELIVERY_TIERS,
     STRICT_PROFILE,
     WORKFLOW_STATE_NAME,
     WORKFLOW_STATE_SCHEMA_VERSION,
@@ -124,6 +125,7 @@ class FeatureRecord:
     retain_reason: str | None
     validation_statuses: Mapping[str, str]
     terminology_schema_version: int
+    delivery_tier: str
 
 
 @dataclass(frozen=True)
@@ -866,6 +868,13 @@ def _load_feature(path: Path) -> FeatureRecord:
             f"生命周期清单“{manifest_path}”的 workflow_profile 必须为"
             f" {STRICT_PROFILE}。",
         )
+    delivery_tier = manifest.get("delivery_tier")
+    if delivery_tier not in DELIVERY_TIERS:
+        raise ArchiveValidationError(
+            "INVALID_MANIFEST",
+            f"生命周期清单“{manifest_path}”的 delivery_tier 必须为"
+            f" {'、'.join(DELIVERY_TIERS)} 之一。",
+        )
 
     feature_id = _require_manifest_string(manifest, manifest_path, "feature_id")
     if not FEATURE_ID_PATTERN.fullmatch(feature_id):
@@ -964,6 +973,7 @@ def _load_feature(path: Path) -> FeatureRecord:
         retain_reason=retain_reason,
         validation_statuses=_validation_statuses(manifest, manifest_path),
         terminology_schema_version=terminology_schema_version,
+        delivery_tier=delivery_tier,
     )
 
 

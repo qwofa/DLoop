@@ -4,6 +4,7 @@
 
 | 版本 | 记录 |
 |---|---|
+| 4.1.0（开发中） | [交付分级](v4.1.0-lite-tier.md) |
 | 4.0.3 | [Claude Code 与 OpenCode 宿主支持](v4.0.3-agent-hosts.md) |
 | 4.0.2 | [开工指引与切片依赖范围](v4.0.2-baseline-guidance.md) |
 | 4.0.1 | [输入回填修复](v4.0.1-input-rehydration.md) |

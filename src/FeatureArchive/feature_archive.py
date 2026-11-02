@@ -81,6 +81,7 @@ from archive_terminology import (
     rename_term,
 )
 from archive_initialization import ArchiveError, initialize_archive
+from archive_profiles import DELIVERY_TIERS, STANDARD_TIER
 from archive_configuration import (
     ArchiveConfigurationError,
     investigate_ui,
@@ -184,6 +185,12 @@ def _build_parser() -> argparse.ArgumentParser:
     init_parser.add_argument(
         "--configuration",
         help="显式选择可选规划配置；省略时保持普通 DLoop 行为。",
+    )
+    init_parser.add_argument(
+        "--tier",
+        choices=DELIVERY_TIERS,
+        default=STANDARD_TIER,
+        help="交付分级：standard 维护调查、设计和计划；lite 只保留需求共识、切片实施、独立评审与验收。创建后固定。",
     )
     init_parser.add_argument(
         "--source-document",
@@ -852,6 +859,7 @@ def execute_command(
                 arguments.title,
                 arguments.configuration,
                 arguments.source_document,
+                arguments.tier,
             )
         elif arguments.command == "validate":
             graph = validate_archive_root(arguments.root)

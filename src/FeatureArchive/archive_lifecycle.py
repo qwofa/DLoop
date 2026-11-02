@@ -26,6 +26,7 @@ from archive_validation import (
     validate_archive_root,
     validate_feature_archive,
 )
+from archive_profiles import LITE_SKIPPED_CATEGORIES, LITE_TIER
 from archive_approvals import (
     ArchiveApprovalError,
     _final_candidate_binding,
@@ -80,11 +81,18 @@ def _document_gate_blockers(
     target_lifecycle: str,
 ) -> List[Mapping[str, str]]:
     blockers: List[Mapping[str, str]] = []
+    skipped_categories = (
+        LITE_SKIPPED_CATEGORIES
+        if graph.features[feature_id].delivery_tier == LITE_TIER
+        else frozenset()
+    )
     documents = sorted(
         (
             document
             for document in graph.documents.values()
-            if document.feature_id == feature_id and document.category != "archive"
+            if document.feature_id == feature_id
+            and document.category != "archive"
+            and document.category not in skipped_categories
         ),
         key=lambda document: (
             CATEGORY_RANK[document.category],

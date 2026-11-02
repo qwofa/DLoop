@@ -13,6 +13,7 @@ from typing import Dict, Mapping, Tuple
 from archive_changes import _body_fingerprint
 from archive_profiles import (
     APPROVAL_STAGES,
+    LITE_TIER,
     STRICT_PROFILE,
     WORKFLOW_STATE_NAME,
     WORKFLOW_STATE_SCHEMA_VERSION,
@@ -683,6 +684,11 @@ def approve_stage(
     state = _load_state(feature.path, feature_id)
     if is_ui_delivery(state) and stage in {"requirements", "architecture"}:
         raise ArchiveApprovalError("UI_INTERNAL_STAGE", "DloopUI 需求与设计是内部材料，请更新文档，不登记人工批准。")
+    if feature.delivery_tier == LITE_TIER and stage == "architecture":
+        raise ArchiveApprovalError(
+            "LITE_TIER_STAGE_NOT_APPLICABLE",
+            "轻量交付没有设计环节，不登记架构确认；需要独立架构判断时请用标准分级新建交付项。",
+        )
     if stage not in STAGE_DOCUMENT_ROLES and stage != "ui-baseline":
         raise ArchiveApprovalError("INVALID_APPROVAL_STAGE", f"未知确认阶段：{stage}")
     interaction = None

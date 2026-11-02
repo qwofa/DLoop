@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Mapping, Sequence, Tuple
 
 from archive_changes import _body_fingerprint, stale_reasons
+from archive_profiles import LITE_TIER
 from archive_slice_contract import reviewed_candidate
 
 
@@ -23,10 +24,11 @@ def slice_handoff_materials(graph, feature, workspace_root: Path, package) -> li
     """一次定位任务材料、批准需求和设计，汇总可确定的缺项。"""
 
     requested = [dict(item) for item in package["context_materials"]]
-    for suffix, purpose in (
-        ("requirements.overview", "核对已批准场景的原意、完整结果与明确范围调整"),
-        ("design.overview", "核对实施与批准设计的一致性"),
-    ):
+    entries = [("requirements.overview", "核对已批准场景的原意、完整结果与明确范围调整")]
+    if feature.delivery_tier != LITE_TIER:
+        # 轻量交付没有设计环节，方案事实由切片契约承载。
+        entries.append(("design.overview", "核对实施与批准设计的一致性"))
+    for suffix, purpose in entries:
         source_id = f"{feature.feature_id}.{suffix}"
         if not any(item["source"] == source_id for item in requested):
             requested.append({

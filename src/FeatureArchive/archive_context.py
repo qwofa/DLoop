@@ -28,6 +28,7 @@ from archive_candidates import (
 from archive_changes import _body_fingerprint, refresh_queue
 from archive_execution import EXECUTION_ID_PATTERN, _execution_state, find_slice_by_execution
 from archive_handoff import ArchiveHandoffError, _repair_role_projection, slice_handoff_materials
+from archive_profiles import LITE_TIER
 from archive_slice_contract import latest_review, reviewed_candidate
 from archive_slice_plan import (
     current_plan,
@@ -291,6 +292,8 @@ def _allowed_actions(graph: ArchiveGraph, feature_id: str) -> Sequence[str]:
     feature = graph.features[feature_id]
     if feature.lifecycle == "draft":
         return ("requirements",)
+    if feature.lifecycle == "active" and feature.delivery_tier == LITE_TIER:
+        return ("implementation", "validation")
     if feature.lifecycle == "active":
         actions = ["investigation", "design", "plan"]
         if _ready(_feature_document(graph, feature_id, "design.overview")) and _ready(
@@ -598,6 +601,9 @@ def _suggested_materials(
         "freeze": (("validation.overview", "确认最终验证结论"),),
         "cleanup": (),
     }
+    if graph.features[feature_id].delivery_tier == LITE_TIER:
+        # 轻量交付没有计划文档，执行边界来自需求验收与切片契约。
+        roles["implementation"] = (("requirements.overview", "读取验收条件"), ("implementation.overview", "记录实际变化"))
     result = []
     for suffix, purpose in roles[action]:
         material = _material(_feature_document(graph, feature_id, suffix), purpose)
@@ -953,9 +959,10 @@ def _stage_projection(
         from archive_ui_baseline import baseline_material_action
         return ("ui-inputs-blocked", baseline_material_action(), requires_human, review["blockers"])
 
+    lite = feature.delivery_tier == LITE_TIER
     design = _feature_document(graph, feature_id, "design.overview")
     plan = _feature_document(graph, feature_id, "plan.overview")
-    design_issue = _document_readiness_issue(
+    design_issue = None if lite else _document_readiness_issue(
         design,
         allowed_statuses=("confirmed", "completed"),
         stale_documents=stale_documents,
@@ -985,7 +992,7 @@ def _stage_projection(
             {"required": True, "decision": "重新判断并记录当前架构结论。"},
             blockers,
         )
-    plan_issue = _document_readiness_issue(
+    plan_issue = None if lite else _document_readiness_issue(
         plan,
         allowed_statuses=("confirmed", "completed"),
         stale_documents=stale_documents,
@@ -1458,6 +1465,7 @@ def _delivery_view(
         },
         "trusted_machine_facts": {
             "lifecycle": feature.lifecycle,
+            "delivery_tier": feature.delivery_tier,
             "approval_statuses": {
                 stage_name: record["status"]
                 for stage_name, record in approvals.items()
