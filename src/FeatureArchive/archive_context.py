@@ -1465,7 +1465,8 @@ def _delivery_view(
         },
         "trusted_machine_facts": {
             "lifecycle": feature.lifecycle,
-            "delivery_tier": feature.delivery_tier,
+            # 只在轻量作业出现，标准作业保持原有协调者上下文字节预算。
+            **({"delivery_tier": LITE_TIER} if feature.delivery_tier == LITE_TIER else {}),
             "approval_statuses": {
                 stage_name: record["status"]
                 for stage_name, record in approvals.items()

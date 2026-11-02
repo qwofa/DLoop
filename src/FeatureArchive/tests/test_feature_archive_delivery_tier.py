@@ -79,7 +79,7 @@ class FeatureArchiveDeliveryTierTests(FeatureArchiveCliTestCase):
         self.approve_requirements()
         self.run_cli("transition-lifecycle", "--feature-id", "reliable-delivery", "--to", "active")
         view = self.status()
-        self.assertEqual("standard", view["trusted_machine_facts"]["delivery_tier"])
+        self.assertNotIn("delivery_tier", view["trusted_machine_facts"])
         self.assertEqual("design", view["current_stage"])
 
     def test_lite_rejects_architecture_review_and_planning_actions(self):

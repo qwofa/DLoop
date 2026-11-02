@@ -10,7 +10,7 @@ DloopUI 特例：需求和设计仍是内部材料。DloopUI 按当前批准切�
 
 ## 选择交付分级
 
-创建时用 `init --tier standard|lite` 选择分级，省略为 `standard`；分级写入生命周期清单并在作业内固定，`delivery_view.trusted_machine_facts.delivery_tier` 返回当前值。
+创建时用 `init --tier standard|lite` 选择分级，省略为 `standard`；分级写入生命周期清单并在作业内固定；`lite` 作业的 `delivery_view.trusted_machine_facts.delivery_tier` 为 `lite`，标准作业不返回该字段。
 
 - `lite`：结果和验收能直接写进需求场景，实现方案在一个或少数切片契约内就能说清，且不涉及公共接口、跨模块职责或状态归属、外部配置合同等需要独立架构判断的变化。流程为需求共识 → 切片实施 → 独立候选评审 → 最终验证与冻结；调查、设计、计划总览保留为说明占位，不维护、不确认，也不参与开工和冻结门禁；不登记架构确认。
 - `standard`：需要调查仓库事实后才能定方案、需要设计取舍或架构确认、切片间有前置或替代依赖，或用户要求完整过程材料时使用。DloopUI 只能使用 `standard`。
