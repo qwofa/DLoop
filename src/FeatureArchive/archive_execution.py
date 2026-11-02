@@ -11,7 +11,12 @@ from typing import Dict, Mapping, Sequence
 from archive_changes import ArchiveChangeError, _body_fingerprint, stale_reasons
 from archive_handoff import slice_handoff_materials
 from archive_delivery_materials import normalize_requirements, require_task_delivery
-from archive_profiles import CONTEXT_CONTRACT_VERSION
+from archive_profiles import (
+    CONTEXT_CONTRACT_VERSION,
+    LITE_TIER,
+    STANDARD_TIER,
+    execution_input_categories,
+)
 from archive_approvals import (
     _load_state,
     _require_complex_feature,
@@ -321,9 +326,18 @@ class TaskPackageTarget:
         return package
 
 
-def task_package_input_guidance(feature_id: str) -> Mapping[str, object]:
+def task_package_input_guidance(
+    feature_id: str,
+    delivery_tier: str = STANDARD_TIER,
+) -> Mapping[str, object]:
     """返回任务包中需要明确结构的填写说明，示例不代表业务决定。"""
 
+    lite = delivery_tier == LITE_TIER
+    design_example = (
+        []
+        if lite
+        else [{"source": f"{feature_id}.design.overview", "purpose": "核对已确认设计", "mode": "full"}]
+    )
     return {
         **slice_contract_input_guidance(),
         "write_scope": {
@@ -337,7 +351,11 @@ def task_package_input_guidance(feature_id: str) -> Mapping[str, object]:
         },
         "context_materials": {
             "type": "object-list",
-            "description": "引用相关批准场景和原始来源，核对操作去向、显示位置、触发及不处理条件；同一行为的多个位置逐一承接。交接补入未引用的需求和设计入口，保留已有章节选择。",
+            "description": (
+                "引用相关批准场景和原始来源，核对操作去向、显示位置、触发及不处理条件；同一行为的多个位置逐一承接。"
+                + ("轻量交付没有设计入口，交接只补入未引用的需求入口" if lite else "交接补入未引用的需求和设计入口")
+                + "，保留已有章节选择。"
+            ),
             "fields": {
                 "source": "正式文档标识，或相对交付项/工作区的材料路径",
                 "purpose": "本角色阅读这份材料的具体目的",
@@ -346,7 +364,7 @@ def task_package_input_guidance(feature_id: str) -> Mapping[str, object]:
             },
             "allowed_values": {"mode": sorted(CONTEXT_MATERIAL_MODES)},
             "examples": [
-                {"source": f"{feature_id}.design.overview", "purpose": "核对已确认设计", "mode": "full"},
+                *design_example,
                 {"source": f"{feature_id}.requirements.overview", "purpose": "核对验收范围",
                  "mode": "sections", "sections": ["当前摘要"]},
             ],
@@ -421,10 +439,11 @@ def _require_ready_execution_inputs(graph, feature_id: str, package_id: str) -> 
     if not baseline_allows_slice(baseline.get("review", {}), baseline["status"], package_id):
         raise ArchiveExecutionError("UI_BASELINE_APPROVAL_REQUIRED", "本切片或其依赖材料未齐备、依据已变化或尚未经用户确认；其他独立切片按各自资格继续。")
     blockers = []
+    input_categories = execution_input_categories(graph.features[feature_id].delivery_tier)
     for document in graph.documents.values():
         if (
             document.feature_id != feature_id
-            or document.category not in {"requirements", "design", "plan"}
+            or document.category not in input_categories
             or document.content_status == "superseded"
         ):
             continue

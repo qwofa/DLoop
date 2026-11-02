@@ -173,7 +173,7 @@ def prepare_action_input(
             "影响区域、不变量、验证策略与回退点",
             "七项实施前契约检查证据与批准状态",
         ]
-        guidance = task_package_input_guidance(feature_id)
+        guidance = task_package_input_guidance(feature_id, feature.delivery_tier)
         guidance["reuse"] = "同一任务包优先带回正式登记内容；准备不授予修改权限，提交仍检查契约版本与当前阶段。已有输入文件保留未提交编辑，按返回 template 对照更新。"
         if (state.get("configuration") or {}).get("id") == "dloop-ui-v1":
             template["delivery_requirements"] = []

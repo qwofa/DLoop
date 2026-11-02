@@ -11,7 +11,7 @@ metadata:
 
 仅显式选择且需要实施切片、独立评审及最终验收的跨轮任务才启动。Codex 用 `$dloop`；Cursor、Claude Code、OpenCode 用 `/dloop`。其余按普通请求处理，不初始化档案；无需实施切片时停止，不以空候选完成验收。DloopUI 须单独选择，界面关键词不启用 UI 配置或证据。
 
-首次读取 [宿主使用约定](references/agent-hosts.md)；下游直接使用角色视图。
+首次读取 [宿主使用约定](references/agent-hosts.md)。
 
 本文件只供主协调者和跨回合恢复者完整读取。冷读、设计评审、实施、候选评审、返修和最终验收角色直接使用 `context-summary` 返回的闭合角色视图，不读取本入口或前序对话。
 
@@ -19,13 +19,13 @@ metadata:
 
 ## 默认路径
 
-1. 从当前版索引按用户给出的自然标题或唯一业务上下文定位当前交付项：唯一匹配就恢复，没有匹配才创建；存在多个合理候选时请用户选择。当前对话只处理一个交付项。
+1. 从当前版索引按用户给出的自然标题或唯一业务上下文定位当前交付项：唯一匹配就恢复，无匹配才按 `create` 选分级创建；存在多个合理候选时请用户选择。当前对话只处理一个交付项。
 2. 进入、切换或异常恢复时运行 `workflow-status` 与只读 `audit`。指定交付项时从唯一 `delivery_view` 读取状态和必要占用身份；仅排查历史、检查明细或恢复基线时加 `--include-details`，不把展开内容当作日常上下文。恢复时发现活动执行身份就把工作交还该身份并停止，不接管、替换或释放它；交接前只读准备材料不代表接管该角色。
-3. 把当前业务动作映射为下表标识，用一次 `workflow-rules` 取得闭合规则集合，完整读取返回正文后行动。多个动作按业务顺序一次提交，工具会稳定去重。
+3. 把当前业务动作映射为下表标识，用一次 `workflow-rules` 取得闭合规则集合，完整读取返回正文后行动。多个动作按业务顺序一次提交。
 4. 按 `delivery_view` 推进；事实不唯一由协调者决定，机器阻断原样返回，不拼接视图或手改状态。暂停、保存或回退先按 `snapshot` 规则处理；返修用 `slice-release`。
 5. 创建下游上下文前调用 `prepare-handoff --feature-id <id> --action <action> --role <role>`，附上该角色所需临时输入。只有 `handoff_ready: true` 才交付工具生成的 `task_message` 与 `context_command` 并启动下游；正式事实不复制进任务消息。缺项由原上游上下文在授权范围内补齐，输入未变化时不重试；涉及业务决定或批准变化时交还协调者。下游自行执行返回的读取命令，独立核对完整性与业务正确性。
 
-交付档案固定在 `.scratch/dloop-v3/v4.0.3/outputs/<feature-id>/`，阶段依次是需求、调查、设计、计划、实施、验证。已连接 DLoop MCP 时，先核对返回的项目根；状态用 `dloop_status`，四类输入用 `dloop_prepare_input` 取模板后调用对应提交工具，勿手写 JSON 文件。其余动作或未连接时用 `python Tools/FeatureArchive/feature_archive.py <command>`；写入位置以返回为准。
+交付档案固定在 `.scratch/dloop-v3/v4.0.3/outputs/<feature-id>/`，阶段依次是需求、调查、设计、计划、实施、验证，`lite` 跳过调查、设计、计划。已连接 DLoop MCP 时，先核对返回的项目根；状态用 `dloop_status`，四类输入用 `dloop_prepare_input` 取模板后调用对应提交工具，勿手写 JSON 文件。其余动作或未连接时用 `python Tools/FeatureArchive/feature_archive.py <command>`；写入位置以返回为准。
 
 ## 动作路由
 
@@ -66,7 +66,6 @@ python Tools/FeatureArchive/feature_archive.py workflow-rules `
 ## 完成与停止
 
 - 对外只按 `delivery_summary.completion_claim` 的状态汇报；候选缺失、待评审、熔断或未最终验收时不得宣称整体完成。
-
 - 用户指出重复劳动，或角色实际经历重复查找材料、格式试错和交接退回时，就近使用返回的 `friction_note` 入口；没有该返回时读取 `workflow-rules --action friction`。已有问题只补记，恢复后描述关键改动与已知代价；不要求每步记录、不为记录另开交接，也不以摩擦关闭作为交付条件。
 - 协调动作在目标、输入边界、验收条件、当前阻塞和唯一下一动作可判断时停止扩展读取。
 - 实施者完成登记验证后提交最终检查点和候选；提交成功后停止并交还协调者。提交缺项时保留原上下文、执行身份和成果，补齐后再提交，不能把失败当成完成。评审者成功提交独立结论后停止；下游核对发现缺项时不产生部分结论。

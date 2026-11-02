@@ -1,5 +1,12 @@
 # 变更记录
 
+## 未发布（计划 4.1.0）
+
+- 新增交付分级：`init --tier standard|lite`，省略为 `standard`，创建后固定，写入 `feature.json` 的 `delivery_tier`；`lite` 作业的交付视图返回该分级，标准作业视图不变。
+- `lite` 跳过调查、设计、计划总览和架构确认，开工、交接和冻结门禁只要求需求类材料；需求共识、切片契约、修改租约、独立评审、验证总览、集成确认和完成口径不变。
+- `lite` 不能与 DloopUI 等配置同时使用；`snapshot-fork` 沿用源作业分级。
+- 未改动版本号、发行清单与安装路径，发布时随版本切换统一处理。
+
 ## 4.0.3 - 2026-10-21（冻结）
 
 - 增加 Claude Code、OpenCode 的 `/dloop`、`/dloop-ui` 入口；Codex、Cursor 的使用方式保持不变。

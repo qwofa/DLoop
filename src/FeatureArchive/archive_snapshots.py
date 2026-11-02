@@ -706,7 +706,9 @@ def fork_snapshot(root: Path, source_feature_id: str, snapshot_id: str, feature_
             raise _error("SNAPSHOT_FORK_EXISTS", "新作业标识已存在，请使用新的标识。")
         destination = root.parent / "snapshot-exports" / feature_id
         exported = export_snapshot(root, source_feature_id, snapshot_id, destination)
-        result = initialize_archive(root, feature_id, title)
+        # 新作业沿用源快照的交付分级，避免轻量作业分叉后被迫补齐设计与计划。
+        source_manifest = json.loads((destination / "archive" / "feature.json").read_text(encoding="utf-8"))
+        result = initialize_archive(root, feature_id, title, delivery_tier=source_manifest["delivery_tier"])
         origin = {"feature_id": source_feature_id, "snapshot_id": snapshot_id, "export": exported["path"]}
         (root / feature_id / "snapshot-origin.json").write_bytes(_json(origin))
         _save(root, feature_id, "forked", source_snapshot=source_feature_id + "/" + snapshot_id)

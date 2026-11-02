@@ -13,7 +13,14 @@ from datetime import datetime, timezone
 from typing import Dict, Mapping, Sequence, Tuple
 
 from archive_approvals import initial_workflow_state
-from archive_profiles import ARCHIVE_SCHEMA_VERSION, STRICT_PROFILE
+from archive_profiles import (
+    ARCHIVE_SCHEMA_VERSION,
+    DELIVERY_TIERS,
+    LITE_SKIPPED_CATEGORIES,
+    LITE_TIER,
+    STANDARD_TIER,
+    STRICT_PROFILE,
+)
 from archive_root import ArchiveRootError, ensure_root_contract
 from archive_terminology import TERMINOLOGY_SCHEMA_VERSION
 from archive_configuration import (
@@ -159,6 +166,7 @@ def _overview_document(
     category_key: str,
     chinese_name: str,
     description: str,
+    delivery_tier: str = STANDARD_TIER,
 ) -> str:
     terminology_id = f"{feature_id}.requirements.terminology"
     dependencies: Tuple[str, ...] = ()
@@ -189,9 +197,16 @@ def _overview_document(
             "按需给出真实体验入口、初始配置、简短操作与实际结果证据；"
             "不复制需求，不把示意或规划截图作为最终实现，不要求展示所有内部状态。 -->\n\n"
         )
+    current_summary = "尚待补充。"
+    if delivery_tier == LITE_TIER and category_key in LITE_SKIPPED_CATEGORIES:
+        current_summary = (
+            "轻量交付不单独维护本环节：需求总览承载目标与验收，"
+            "切片契约承载方案、验证和回退。"
+        )
+        writing_guidance = ""
     body_sections = (
         "## 当前摘要\n\n"
-        "尚待补充。\n\n"
+        f"{current_summary}\n\n"
         f"{writing_guidance}"
         + ("## 后续接入清单\n\n"
            "<!-- 有缺项时集中填写；无缺项写无。只记录本次承诺的未完成或明确延期结果，不扩展范围。后续阶段引用本节，承接后更新去向。 -->\n\n"
@@ -234,6 +249,7 @@ def _manifest(
     feature_id: str,
     title: str,
     created_at: str,
+    delivery_tier: str,
 ) -> str:
     manifest = {
         "schema_version": SCHEMA_VERSION,
@@ -264,6 +280,7 @@ def _manifest(
         ],
     }
     manifest["workflow_profile"] = STRICT_PROFILE
+    manifest["delivery_tier"] = delivery_tier
     return json.dumps(manifest, ensure_ascii=False, indent=2) + "\n"
 
 
@@ -273,6 +290,7 @@ def _templates(
     created_at: str,
     configuration: str | None = None,
     source_documents: Sequence[Path] = (),
+    delivery_tier: str = STANDARD_TIER,
 ) -> Dict[Path, str]:
     templates: Dict[Path, str] = {
         Path("README.md"): _entry_document(
@@ -283,6 +301,7 @@ def _templates(
             feature_id,
             title,
             created_at,
+            delivery_tier,
         ),
     }
     for directory, category_key, chinese_name, description in CATEGORIES:
@@ -291,6 +310,7 @@ def _templates(
             category_key,
             chinese_name,
             description,
+            delivery_tier,
         )
     templates[Path("01-requirements") / "terminology.md"] = _terminology_document(feature_id)
     workflow_configuration, configuration_files = initialize_configuration(
@@ -358,6 +378,7 @@ def _expected_document_ids(
 def _check_existing_manifest(
     target: Path,
     feature_id: str,
+    delivery_tier: str,
 ) -> None:
     manifest_path = target / "feature.json"
     if not manifest_path.exists():
@@ -399,6 +420,12 @@ def _check_existing_manifest(
         raise ArchiveError(
             "INVALID_EXISTING_MANIFEST",
             f"已有生命周期清单“{manifest_path}”不属于 DLoop 唯一严格合同。",
+        )
+    if manifest.get("delivery_tier") != delivery_tier:
+        raise ArchiveError(
+            "DELIVERY_TIER_CONFLICT",
+            f"已有交付项“{feature_id}”使用 {manifest.get('delivery_tier')} 分级，"
+            f"不能按 {delivery_tier} 重新初始化；分级在创建后固定。",
         )
 
 
@@ -499,6 +526,7 @@ def _preflight_existing(
     target: Path,
     templates: Mapping[Path, str],
     feature_id: str,
+    delivery_tier: str,
 ) -> None:
     _check_existing_layout(target)
 
@@ -511,7 +539,7 @@ def _preflight_existing(
                 "请移动冲突目录后重试。",
             )
 
-    _check_existing_manifest(target, feature_id)
+    _check_existing_manifest(target, feature_id, delivery_tier)
     _check_existing_documents(target, feature_id)
     missing_paths = [
         relative_path.as_posix()
@@ -544,6 +572,7 @@ def initialize_archive(
     title: str,
     configuration: str | None = None,
     source_documents: Sequence[Path] = (),
+    delivery_tier: str = STANDARD_TIER,
 ) -> Mapping[str, object]:
     """以幂等事务创建交付档案，或确认已有档案完整。"""
 
@@ -553,12 +582,20 @@ def initialize_archive(
     created_at = _utc_now()
     if configuration is not None and configuration not in available_configurations():
         raise ArchiveError("INVALID_CONFIGURATION", f"未知 DLoop 配置：{configuration}")
+    if delivery_tier not in DELIVERY_TIERS:
+        raise ArchiveError("INVALID_DELIVERY_TIER", f"未知交付分级：{delivery_tier}")
+    if delivery_tier == LITE_TIER and configuration is not None:
+        raise ArchiveError(
+            "DELIVERY_TIER_CONFIGURATION_CONFLICT",
+            "轻量交付不提供 DloopUI 等配置所需的调查、设计和计划材料；请使用标准分级。",
+        )
     templates = _templates(
         normalized_id,
         normalized_title,
         created_at,
         configuration,
         source_documents,
+        delivery_tier,
     )
     if shutil.which("git") is None:
         raise ArchiveError("SNAPSHOT_GIT_REQUIRED", "中间态保存需要 Git 客户端，SVN 项目也需要。")
@@ -586,7 +623,7 @@ def initialize_archive(
 
     if target.exists():
         try:
-            _preflight_existing(target, templates, normalized_id)
+            _preflight_existing(target, templates, normalized_id, delivery_tier)
         except Exception:
             if root_created:
                 try:
@@ -601,6 +638,7 @@ def initialize_archive(
             "path": str(target),
             "created_files": 0,
             "workflow_profile": STRICT_PROFILE,
+            "delivery_tier": delivery_tier,
             "configuration": configuration,
         }
 
@@ -630,5 +668,6 @@ def initialize_archive(
         "path": str(target),
         "created_files": len(templates),
         "workflow_profile": STRICT_PROFILE,
+        "delivery_tier": delivery_tier,
         "configuration": configuration,
     }
